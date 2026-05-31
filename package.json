@@ -1,0 +1,21 @@
+{
+  "name": "cadence",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Cadence — periodical self-learning market-research digests on Telegram.",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter web db:generate",
+    "db:migrate": "pnpm --filter web db:migrate",
+    "db:push": "pnpm --filter web db:push"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@11.2.2"
+}
