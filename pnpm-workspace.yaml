@@ -1,3 +1,6 @@
 packages:
   - "apps/*"
   - "services/*"
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
