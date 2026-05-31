@@ -3,5 +3,6 @@ packages:
   - "services/*"
 allowBuilds:
   esbuild: set this to true or false
+  protobufjs: set this to true or false
   sharp: true
   unrs-resolver: true
