@@ -6,11 +6,13 @@ import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 
 type Row = {
   id: string;
+  userId: string;
   version: number;
   isCurrent: boolean;
   createdVia: string;
   createdAt: Date;
-  spec?: unknown;
+  updatedAt: Date;
+  spec: unknown;
 };
 
 export function SpecClient({
@@ -22,7 +24,10 @@ export function SpecClient({
 }) {
   const utils = trpc.useUtils();
   const currentQuery = trpc.digestSpec.getCurrent.useQuery(undefined, {
-    initialData: initialCurrent as Row | null,
+    // initialData on a query whose return type includes `null` trips a tRPC
+    // overload — fall back to placeholderData which accepts the same shape
+    // and still hydrates without a flash.
+    placeholderData: initialCurrent ?? undefined,
   });
   const versionsQuery = trpc.digestSpec.listVersions.useQuery(undefined, {
     initialData: initialVersions,

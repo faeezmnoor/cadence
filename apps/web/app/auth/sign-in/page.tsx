@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 /**
@@ -106,9 +107,9 @@ export default function SignInPage() {
         )}
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          <a href="/" className="hover:underline">
+          <Link href="/" className="hover:underline">
             ← Back home
-          </a>
+          </Link>
         </p>
       </div>
     </main>
