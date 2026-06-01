@@ -79,10 +79,18 @@ export async function POST(req: Request) {
   // Persist the latest user message (the one the client just sent).
   const lastMsg = body.messages[body.messages.length - 1];
   if (lastMsg?.role === "user") {
+    // Guard: ai-sdk message.content can be string OR a parts array. Coerce
+    // to string so persistence never throws on non-string payloads (e.g.
+    // multi-modal parts from a future client). Stringifying preserves the
+    // raw shape for debugging while keeping the column type stable.
+    const text =
+      typeof lastMsg.content === "string"
+        ? lastMsg.content
+        : JSON.stringify(lastMsg.content ?? "");
     await db.insert(chatMessages).values({
       threadId: thread.id,
       role: "user",
-      content: { kind: "user_text", text: lastMsg.content },
+      content: { kind: "user_text", text },
     });
   }
 

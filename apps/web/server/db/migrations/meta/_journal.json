@@ -15,6 +15,20 @@
       "when": 1780210475782,
       "tag": "0001_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780256000000,
+      "tag": "0002_provision_users_from_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780300000000,
+      "tag": "0003_lock_shared_tables",
+      "breakpoints": true
     }
   ]
 }
