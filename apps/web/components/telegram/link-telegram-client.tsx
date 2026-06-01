@@ -102,7 +102,7 @@ export function LinkTelegramClient({ userId }: Props) {
           {statusQuery.data?.username ? ` as @${statusQuery.data.username}` : ""}.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          You'll get your next brief on schedule. Reply to any brief with
+          You&apos;ll get your next brief on schedule. Reply to any brief with
           feedback — Cadence will adjust.
         </p>
       </div>
@@ -119,7 +119,7 @@ export function LinkTelegramClient({ userId }: Props) {
       )}
 
       {issuingError && (
-        <p className="text-sm text-destructive">Couldn't issue link: {issuingError}</p>
+        <p className="text-sm text-destructive">Couldn&apos;t issue link: {issuingError}</p>
       )}
 
       {token ? (
