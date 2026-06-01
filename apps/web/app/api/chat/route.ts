@@ -109,6 +109,16 @@ export async function POST(req: Request) {
       tools: buildAiSdkTools(agentCtx),
       maxSteps: 6,
       temperature: 0.3,
+      onError: ({ error }) => {
+        // Surface the real cause — without this, the AI SDK swallows the
+        // exception inside the stream and the client only sees the generic
+        // "An error occurred." frame. (Incident 2026-06-01.)
+        console.error("[chat] streamText error:", error);
+        log.error("chat streamText error", {
+          err: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      },
       onFinish: async ({ text, toolCalls, toolResults }) => {
         try {
           // Persist a structured assistant turn.
@@ -137,7 +147,12 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toDataStreamResponse();
+    return result.toDataStreamResponse({
+      getErrorMessage: (error) =>
+        error instanceof Error
+          ? `[chat] ${error.message}`
+          : `[chat] ${String(error)}`,
+    });
   } catch (err) {
     log.error("chat stream failed", { err: String(err) });
     return NextResponse.json(
