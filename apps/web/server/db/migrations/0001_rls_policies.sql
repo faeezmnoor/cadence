@@ -19,8 +19,11 @@ CREATE POLICY "chat_threads_owner_all" ON "chat_threads"
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE "chat_messages" ENABLE ROW LEVEL SECURITY;
+-- chat_messages has no user_id column — scoped via thread_id → chat_threads.user_id.
 CREATE POLICY "chat_messages_owner_all" ON "chat_messages"
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL
+  USING (thread_id IN (SELECT id FROM chat_threads WHERE user_id = auth.uid()))
+  WITH CHECK (thread_id IN (SELECT id FROM chat_threads WHERE user_id = auth.uid()));
 
 ALTER TABLE "digest_runs" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "digest_runs_owner_all" ON "digest_runs"
