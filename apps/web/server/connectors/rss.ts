@@ -35,6 +35,42 @@ const parser = new Parser({
   headers: { "User-Agent": "Cadence/1.0 (+https://cadence.brief)" },
 });
 
+/**
+ * Defense-in-depth SSRF guard at the poller level. Mirrors the guard in
+ * tools/add_rss_feed.ts. Kept in-module to avoid cross-package imports.
+ */
+function isSafeFeedUrl(rawUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+  const h = u.hostname.toLowerCase();
+  if (!h) return false;
+  if (h === "localhost" || h.endsWith(".localhost")) return false;
+  if (!h.includes(".") && !h.includes(":")) return false;
+  if (h === "::1") return false;
+  if (h.startsWith("fe80") || h.startsWith("fc") || h.startsWith("fd")) return false;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const o = m.slice(1).map((n) => parseInt(n, 10));
+    if (o.some((x) => x > 255)) return false;
+    const [a, b] = o;
+    if (a === 10) return false;
+    if (a === 127) return false;
+    if (a === 0) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    if (a >= 224) return false;
+  }
+  if (h === "metadata.google.internal" || h === "metadata.goog") return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Discovery — which feeds do current specs reference?
 // ---------------------------------------------------------------------------
@@ -105,6 +141,11 @@ export async function pollFeed(
     fetched: 0,
     inserted: 0,
   };
+  // Defense in depth — even if a bad feed slipped into the DB before the
+  // add_rss_feed SSRF guard existed, the poller refuses to fetch it.
+  if (!isSafeFeedUrl(feedUrl)) {
+    return { ...base, error: `unsafe feed URL refused: ${feedUrl}` };
+  }
   let parsed;
   try {
     parsed = await parser.parseURL(feedUrl);

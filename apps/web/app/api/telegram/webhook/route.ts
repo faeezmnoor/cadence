@@ -13,9 +13,23 @@
  * If latency becomes an issue we'll punt to Inngest.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { dispatchTelegramUpdate } from "@/server/telegram/dispatch";
 
 export const runtime = "nodejs";
+
+function safeEq(a: string | null, b: string): boolean {
+  if (a == null) return false;
+  // Buffers must be equal length for timingSafeEqual; pad/truncate by
+  // length-checking first. Short-circuit on length mismatch is fine —
+  // length itself isn't secret.
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -23,13 +37,20 @@ function isAuthorized(req: NextRequest): boolean {
   const url = new URL(req.url);
   const querySecret = url.searchParams.get("secret");
   const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-  return querySecret === secret || headerSecret === secret;
+  return safeEq(querySecret, secret) || safeEq(headerSecret, secret);
 }
 
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
     // Don't leak that the secret was wrong vs missing — 401 for both.
     return new NextResponse("unauthorized", { status: 401 });
+  }
+
+  // Telegram updates are tiny (<10KB in practice). Cap aggressively so a
+  // burst of attacker payloads on a leaked secret can't OOM us.
+  const lenHeader = req.headers.get("content-length");
+  if (lenHeader && Number(lenHeader) > 64 * 1024) {
+    return new NextResponse("payload too large", { status: 413 });
   }
 
   let update: unknown;
