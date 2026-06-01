@@ -1,6 +1,10 @@
 packages:
   - "apps/*"
   - "services/*"
+allowBuilds:
+  '@sentry/cli': set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
 onlyBuiltDependencies:
   - '@sentry/cli'
   - esbuild
