@@ -13,14 +13,13 @@
  *   6. Persist digest_runs row
  *
  * Idempotency:
- *   - For scheduled runs we accept an explicit `runDate` and rely on
- *     the (user_id, run_date) unique index. Callers should pre-check
+ *   - Scheduled runs accept an explicit `runDate` and rely on the
+ *     (user_id, run_date) unique index. Callers should pre-check
  *     to skip re-runs cleanly.
- *   - For sampleNow we use today's date AND set a `manual_sample`
- *     suffix-style — sampleNow always succeeds even if a scheduled
- *     row already exists for today, by writing a separate row dated
- *     to (today + small epoch suffix). Pragmatic: keeps history,
- *     keeps idempotency intact.
+ *   - dryRun composes the brief and returns it WITHOUT persisting a
+ *     digest_runs row, so a preview click doesn't consume the
+ *     scheduled idempotency slot for the same UTC date and doesn't
+ *     leave ghost "composing" rows in history.
  */
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
@@ -206,6 +205,19 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     }
   } else {
     status = dryRun ? "composed_dry_run" : "no_telegram_link";
+  }
+
+  // Dry-run previews never touch digest_runs: they shouldn't consume the
+  // scheduled (user_id, run_date) idempotency slot, and they shouldn't
+  // leave ghost "composing" rows in history. Caller gets the markdown back.
+  if (dryRun) {
+    return {
+      status: "composed_dry_run",
+      digestRunId: null,
+      markdown,
+      partsSent: 0,
+      telegramMessageId: null,
+    };
   }
 
   // 6. Persist (or skip-if-duplicate when scheduled)
