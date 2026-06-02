@@ -17,6 +17,12 @@ import { resolveAndLinkToken } from "./link-token";
 import { getBot } from "./client";
 import { recordFeedbackCallback } from "./feedback-callback";
 import { parseCallbackData, VOTE_TOAST } from "./keyboard";
+import {
+  parseTuneCommand,
+  handleTuneCommand,
+  buildAckReply,
+  TUNE_REPLIES,
+} from "./tune-command";
 
 interface TelegramUpdate {
   update_id: number;
@@ -96,6 +102,29 @@ export async function dispatchTelegramUpdate(
       await safeSend(chatId, MSG_TOKEN_INVALID);
     }
     return;
+  }
+
+  // /tune <freeform> — standing instruction → learning_log (T-403 / CAD-44).
+  // Parse before the /status stub so /tune doesn't fall through to MSG_UNKNOWN.
+  const tuneArg = parseTuneCommand(text);
+  if (tuneArg !== null) {
+    if (tuneArg === "") {
+      await safeSend(chatId, TUNE_REPLIES.usage);
+      return;
+    }
+    const res = await handleTuneCommand({ telegramChatId: chatId, rawText: tuneArg });
+    switch (res.kind) {
+      case "logged":
+        await safeSend(chatId, buildAckReply(tuneArg));
+        return;
+      case "empty":
+        // Defensive — parseTuneCommand already guards this branch.
+        await safeSend(chatId, TUNE_REPLIES.usage);
+        return;
+      case "unknown_user":
+        await safeSend(chatId, TUNE_REPLIES.unlinked);
+        return;
+    }
   }
 
   // /status, /pause, /resume — stubs for next phase
