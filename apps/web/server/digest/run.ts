@@ -38,6 +38,13 @@ export interface RunDigestParams {
   userId: string;
   /** Optional ISO date (YYYY-MM-DD). Defaults to today (UTC). */
   runDate?: string;
+  /**
+   * T-302: when the cron dispatcher pre-claimed a digest_runs row, it
+   * passes the id here. The pipeline updates that row instead of inserting
+   * a new one — keeps the (spec_id, delivery_minute_utc) UNIQUE contract
+   * authoritative.
+   */
+  digestRunId?: string;
   /** When true: skip Telegram send even if linked. */
   dryRun?: boolean;
   /** Skip source-fetching errors (Brave key missing etc) and continue with what we have. */
@@ -66,7 +73,7 @@ function todayIsoUtc(): string {
 }
 
 export async function runDigestPipeline(params: RunDigestParams): Promise<RunDigestResult> {
-  const { userId, dryRun = false, tolerateSourceFailures = true } = params;
+  const { userId, dryRun = false, tolerateSourceFailures = true, digestRunId } = params;
   const runDate = params.runDate ?? todayIsoUtc();
 
   // 1. Load user + current spec
@@ -135,7 +142,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     composeCostUsd = out.costUsd ?? 0;
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    // Persist failed run for visibility.
+    // Persist failed run for visibility. T-302: prefer UPDATE on the claimed row.
+    if (digestRunId) {
+      await db
+        .update(digestRuns)
+        .set({ status: "failed", error, lastError: error, attemptCount: 1, updatedAt: new Date() })
+        .where(eq(digestRuns.id, digestRunId));
+      return {
+        status: "failed",
+        digestRunId,
+        markdown: null,
+        partsSent: 0,
+        telegramMessageId: null,
+        error,
+      };
+    }
     const failedRow = await db
       .insert(digestRuns)
       .values({
@@ -145,8 +166,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         runDate,
         error,
       })
-      .returning({ id: digestRuns.id })
-      .onConflictDoNothing({ target: [digestRuns.userId, digestRuns.runDate] });
+      .returning({ id: digestRuns.id });
     return {
       status: "failed",
       digestRunId: failedRow[0]?.id ?? null,
@@ -180,6 +200,29 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       const error = err instanceof Error ? err.message : String(err);
       console.error("[digest:send]", err);
       // Failed delivery still records the run; allows retry via T-303 later.
+      if (digestRunId) {
+        await db
+          .update(digestRuns)
+          .set({
+            status: "failed",
+            composedMarkdown: markdown,
+            sourcesBundle: sources,
+            costUsd: composeCostUsd.toString(),
+            error,
+            lastError: error,
+            attemptCount: 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(digestRuns.id, digestRunId));
+        return {
+          status: "failed",
+          digestRunId,
+          markdown,
+          partsSent,
+          telegramMessageId,
+          error,
+        };
+      }
       const failedRow = await db
         .insert(digestRuns)
         .values({
@@ -192,8 +235,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           costUsd: composeCostUsd.toString(),
           error,
         })
-        .returning({ id: digestRuns.id })
-        .onConflictDoNothing({ target: [digestRuns.userId, digestRuns.runDate] });
+        .returning({ id: digestRuns.id });
       return {
         status: "failed",
         digestRunId: failedRow[0]?.id ?? null,
@@ -220,7 +262,32 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     };
   }
 
-  // 6. Persist (or skip-if-duplicate when scheduled)
+  // 6. Persist
+  //   - T-302 cron path: dispatcher pre-claimed a `pending` row; UPDATE it.
+  //   - Legacy / manual path: INSERT a fresh row.
+  if (digestRunId) {
+    await db
+      .update(digestRuns)
+      .set({
+        status: status === "delivered" ? "delivered" : "composing",
+        composedMarkdown: markdown,
+        sourcesBundle: sources,
+        telegramMessageId: telegramMessageId ?? undefined,
+        costUsd: composeCostUsd.toString(),
+        attemptCount: 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(digestRuns.id, digestRunId));
+
+    return {
+      status,
+      digestRunId,
+      markdown,
+      partsSent,
+      telegramMessageId,
+    };
+  }
+
   const inserted = await db
     .insert(digestRuns)
     .values({
@@ -233,13 +300,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       telegramMessageId: telegramMessageId ?? undefined,
       costUsd: composeCostUsd.toString(),
     })
-    .returning({ id: digestRuns.id })
-    .onConflictDoNothing({ target: [digestRuns.userId, digestRuns.runDate] });
-
-  if (inserted.length === 0) {
-    // The unique (user_id, run_date) already had a row — this run is a duplicate.
-    return { status: "duplicate", digestRunId: null, markdown, partsSent, telegramMessageId };
-  }
+    .returning({ id: digestRuns.id });
 
   return {
     status,

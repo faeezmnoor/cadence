@@ -132,6 +132,20 @@ export const digestRuns = pgTable(
       .references(() => digestSpecs.id, { onDelete: "restrict" }),
     status: text("status").notNull().default("pending"), // pending | composing | delivered | failed
     runDate: date("run_date").notNull(),
+    /**
+     * The exact UTC minute the cron dispatcher claimed for this run, truncated
+     * to second/ms = 0. Idempotency key (with spec_id): two dispatcher fires
+     * in the same minute race on the UNIQUE partial index defined in
+     * migration 0004; only the row-creator dispatches.
+     *
+     * Nullable to keep historical sampleNow / pre-Phase-3 rows valid.
+     */
+    deliveryMinuteUtc: timestamp("delivery_minute_utc", { withTimezone: true }),
+    /** T-303 readiness — bumped before each pipeline attempt. */
+    attemptCount: integer("attempt_count").notNull().default(0),
+    /** T-303 readiness — separate from `error` so the retry path can record
+     *  the latest transient failure without overwriting the original. */
+    lastError: text("last_error"),
     sourcesBundle: jsonb("sources_bundle"),
     composedMarkdown: text("composed_markdown"),
     telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
@@ -141,7 +155,12 @@ export const digestRuns = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    userRunDateUq: uniqueIndex("digest_runs_user_run_date_uq").on(t.userId, t.runDate),
+    // T-302: idempotency contract — one row per (spec, UTC-minute). Partial
+    // because legacy rows have NULL delivery_minute_utc.
+    specMinuteUq: uniqueIndex("digest_runs_spec_minute_uq")
+      .on(t.specId, t.deliveryMinuteUtc)
+      .where(sql`${t.deliveryMinuteUtc} IS NOT NULL`),
+    userRunDateIdx: index("idx_digest_runs_user_run_date").on(t.userId, t.runDate),
     userCreatedIdx: index("idx_digest_runs_user_created").on(t.userId, t.createdAt.desc()),
   })
 );
