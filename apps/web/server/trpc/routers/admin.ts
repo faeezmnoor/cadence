@@ -18,9 +18,11 @@
  *     state='delivery_broken'. Lets us triage stuck users at a glance.
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
+import { inngest } from "@/server/inngest/client";
 import { adminProcedure, router } from "../trpc";
 
 const LIST_RUNS_DEFAULT_LIMIT = 25;
@@ -112,5 +114,89 @@ export const adminRouter = router({
         rows: rows.slice(0, limit),
         nextCursor,
       };
+    }),
+
+  /**
+   * T-305 (CAD-40): admin.replayRun — manual override that re-dispatches a
+   * specific digest_runs row.
+   *
+   * Semantics: update-in-place.
+   *   - attempt_count -> 0
+   *   - last_error    -> NULL
+   *   - error         -> NULL
+   *   - status        -> 'pending'
+   *   - updated_at    -> now()
+   *
+   * History on prior attempts is intentionally discarded (decision locked
+   * with founder 2026-06-02). If we ever need a forensic trail we'll add a
+   * `run_attempts` audit table; today the audit is the dispatcher's
+   * structured logs + Inngest's own run history.
+   *
+   * Dispatch path: we emit `digest/run.scheduled` directly with
+   * `{ digestRunId, replay: true }`. We deliberately skip the cron
+   * dispatcher's (spec_id, delivery_minute_utc) idempotency claim because
+   * the row already exists — the claim is for inserting a NEW row, and
+   * replay reuses the existing one.
+   *
+   * The pipeline's auto-heal path (digest/run.ts) flips users.state from
+   * 'delivery_broken' back to 'active' on successful delivery, so a
+   * successful replay also unbricks the user.
+   */
+  replayRun: adminProcedure
+    .input(z.object({ runId: z.string().uuid() }))
+    .mutation(async ({ input }) => {
+      // Look up the existing row first so we can 404 cleanly (the update
+      // would otherwise return zero rows and we'd lose the distinction
+      // between "doesn't exist" and "couldn't update").
+      const existing = await db
+        .select({
+          id: digestRuns.id,
+          userId: digestRuns.userId,
+          specId: digestRuns.specId,
+          runDate: digestRuns.runDate,
+          deliveryMinuteUtc: digestRuns.deliveryMinuteUtc,
+        })
+        .from(digestRuns)
+        .where(eq(digestRuns.id, input.runId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Run ${input.runId} not found.`,
+        });
+      }
+      const row = existing[0]!;
+
+      // In-place reset. status -> 'pending' so the runs viewer reflects the
+      // freshly-queued state immediately.
+      await db
+        .update(digestRuns)
+        .set({
+          status: "pending",
+          attemptCount: 0,
+          lastError: null,
+          error: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(digestRuns.id, row.id));
+
+      // Direct event publish — bypasses the cron claim because the row is
+      // already there. The `replay: true` flag is informational so the
+      // handler / logs can distinguish replays from cron-driven runs.
+      await inngest.send({
+        name: "digest/run.scheduled",
+        data: {
+          userId: row.userId,
+          digestRunId: row.id,
+          runDate: row.runDate,
+          deliveryMinuteUtc: row.deliveryMinuteUtc
+            ? row.deliveryMinuteUtc.toISOString()
+            : undefined,
+          replay: true,
+        },
+      });
+
+      return { ok: true as const, runId: row.id };
     }),
 });

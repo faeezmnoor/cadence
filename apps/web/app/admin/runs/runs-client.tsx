@@ -18,6 +18,8 @@ import { trpc } from "@/lib/trpc/client";
  */
 export function RunsClient({ adminEmail }: { adminEmail: string }) {
   const [brokenOnly, setBrokenOnly] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const utils = trpc.useUtils();
 
   const query = trpc.admin.listRuns.useInfiniteQuery(
     { limit: 25, brokenOnly },
@@ -25,6 +27,28 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
       getNextPageParam: (last) => last.nextCursor ?? undefined,
     }
   );
+
+  /**
+   * T-305: manual replay. We don't optimistically mutate the row — the
+   * server has already reset attempt_count/last_error in-place by the time
+   * `onSuccess` fires, so a short delay + refetch gives the admin honest
+   * state without us having to model the reset client-side.
+   */
+  const replayRun = trpc.admin.replayRun.useMutation({
+    onSuccess: async (_data, vars) => {
+      setToast(`Replay queued for ${vars.runId.slice(0, 8)}…`);
+      // Tiny delay so the worker has a moment to start; the row's status
+      // pill will flip back through pending -> composing -> delivered.
+      setTimeout(() => {
+        void utils.admin.listRuns.invalidate();
+      }, 500);
+      setTimeout(() => setToast(null), 4000);
+    },
+    onError: (err) => {
+      setToast(`Replay failed: ${err.message}`);
+      setTimeout(() => setToast(null), 6000);
+    },
+  });
 
   const rows = useMemo(
     () => query.data?.pages.flatMap((p) => p.rows) ?? [],
@@ -50,6 +74,16 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
           Broken users only
         </label>
       </header>
+
+      {toast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"
+        >
+          {toast}
+        </div>
+      ) : null}
 
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading runs…</p>
@@ -118,11 +152,16 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                   <td className="px-3 py-2 whitespace-nowrap">
                     <button
                       type="button"
-                      disabled
-                      title="Replay handler ships in T-305"
-                      className="cursor-not-allowed rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-400"
+                      onClick={() => replayRun.mutate({ runId: r.id })}
+                      disabled={
+                        replayRun.isPending && replayRun.variables?.runId === r.id
+                      }
+                      title="Reset attempt_count + last_error and re-dispatch."
+                      className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Replay (T-305)
+                      {replayRun.isPending && replayRun.variables?.runId === r.id
+                        ? "Queuing…"
+                        : "Replay"}
                     </button>
                   </td>
                 </tr>

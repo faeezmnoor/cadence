@@ -53,6 +53,14 @@ interface ScheduledPayload {
   digestRunId?: string;
   runDate?: string;
   deliveryMinuteUtc?: string;
+  /**
+   * T-305: set by admin.replayRun. The run row already exists (reset in
+   * place by the procedure), so the handler treats it identically to a
+   * cron-dispatched scheduled event — same hydrate-by-id codepath. The
+   * flag is informational: surfaces in structured logs so we can tell
+   * replays apart from organic retries in the Inngest dashboard.
+   */
+  replay?: boolean;
 }
 
 /**
