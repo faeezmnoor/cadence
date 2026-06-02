@@ -17,13 +17,18 @@ import { protectedProcedure, router } from "../trpc";
 import { runDigestPipeline } from "@/server/digest/run";
 
 /**
- * Cool-down window for digest.sampleNow. Migration 0004 dropped the
- * (user_id, run_date) UNIQUE that previously folded back-to-back clicks; we
- * replace that protection with a short application-level guard so two
- * "Sample Now" clicks 200 ms apart don't trigger two parallel
- * Anthropic + Telegram round-trips.
+ * Cool-down window for digest.sampleNow.
+ *
+ * PM-audit #9: bumped from 30s to 5min so the "Send sample now" button on
+ * /app/link and /settings/account can't be used to mass-burn credits in a
+ * tight loop. 5 minutes is the smallest window that still feels generous
+ * for "I didn't see it, send again" while gating the LLM cost ceiling at
+ * one paid compose per 5 minutes per user.
+ *
+ * Migration 0004 dropped the (user_id, run_date) UNIQUE that previously
+ * folded back-to-back clicks; this is the application-level replacement.
  */
-const SAMPLE_NOW_COOLDOWN_MS = 30_000;
+const SAMPLE_NOW_COOLDOWN_MS = 5 * 60_000;
 
 export const digestRouter = router({
   /** Compose now. Sends to Telegram unless dryRun is true. */
@@ -50,7 +55,8 @@ export const digestRouter = router({
         if (recent.length > 0) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
-            message: "You just generated a brief — give it a moment before trying again.",
+            message:
+              "You just sent a brief. Try again in a few minutes.",
           });
         }
       }

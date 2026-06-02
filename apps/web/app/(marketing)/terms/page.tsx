@@ -36,7 +36,7 @@ export default function TermsPage() {
           Cadence is sold as pre-paid credit packs. One brief = one credit. Credits do
           not expire. You may request a refund of unused credits within 14 days of
           purchase by emailing{" "}
-          <a className="underline-offset-2 hover:underline" href="mailto:faeez@cadence.news">faeez@cadence.news</a>.
+          <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>.
           We grant 3 free credits on signup; those are not refundable for cash.
         </p>
       </section>
@@ -86,7 +86,7 @@ export default function TermsPage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Questions? <a className="underline-offset-2 hover:underline" href="mailto:faeez@cadence.news">faeez@cadence.news</a>.
+        Questions? <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>.
       </p>
     </article>
   );

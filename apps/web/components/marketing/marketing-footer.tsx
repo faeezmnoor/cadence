@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Wordmark } from "./wordmark";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/server/support/contact";
 
 /**
  * Public marketing footer. Pricing/how-it-works/privacy/terms links + "Built in KL" line.
@@ -37,6 +38,9 @@ export function MarketingFooter() {
           <Link href={"/terms" as Route} className="hover:text-foreground">
             Terms
           </Link>
+          <a href={SUPPORT_MAILTO} className="hover:text-foreground">
+            {SUPPORT_EMAIL}
+          </a>
           <a
             href="https://www.linkedin.com/in/faeezmnoor/"
             target="_blank"

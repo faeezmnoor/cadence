@@ -70,7 +70,7 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">Deletion requests</h2>
         <p className="text-muted-foreground">
-          Email <a className="underline-offset-2 hover:underline" href="mailto:faeez@cadence.news">faeez@cadence.news</a>{" "}
+          Email <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>{" "}
           from the address on file and we&apos;ll delete everything within 30 days. No
           forms, no rituals.
         </p>
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Questions? <a className="underline-offset-2 hover:underline" href="mailto:faeez@cadence.news">faeez@cadence.news</a>.
+        Questions? <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>.
       </p>
     </article>
   );

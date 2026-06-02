@@ -50,6 +50,34 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
     },
   });
 
+  /**
+   * PM-audit #2: refund the credit for a failed run + send the apology
+   * email. Confirm before firing so a stray click can't quietly credit
+   * a user. The result toast surfaces "already refunded" idempotency
+   * cleanly so a duplicate click isn't read as a successful re-credit.
+   */
+  const refundRun = trpc.admin.refundRun.useMutation({
+    onSuccess: async (data, vars) => {
+      if (data.ok) {
+        setToast(
+          `Refunded ${vars.runId.slice(0, 8)} · balance now ${data.balanceAfter}`
+        );
+      } else if (data.reason === "already_refunded") {
+        setToast(`Already refunded earlier — balance ${data.balanceAfter}`);
+      } else if (data.reason === "run_delivered") {
+        setToast("Won't refund: run was delivered.");
+      } else {
+        setToast(`No refund: ${data.reason}`);
+      }
+      void utils.admin.listRuns.invalidate();
+      setTimeout(() => setToast(null), 5000);
+    },
+    onError: (err) => {
+      setToast(`Refund failed: ${err.message}`);
+      setTimeout(() => setToast(null), 6000);
+    },
+  });
+
   const rows = useMemo(
     () => query.data?.pages.flatMap((p) => p.rows) ?? [],
     [query.data]
@@ -158,19 +186,47 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                     )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => replayRun.mutate({ runId: r.id })}
-                      disabled={
-                        replayRun.isPending && replayRun.variables?.runId === r.id
-                      }
-                      title="Reset attempt_count + last_error and re-dispatch."
-                      className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {replayRun.isPending && replayRun.variables?.runId === r.id
-                        ? "Queuing…"
-                        : "Replay"}
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => replayRun.mutate({ runId: r.id })}
+                        disabled={
+                          replayRun.isPending && replayRun.variables?.runId === r.id
+                        }
+                        title="Reset attempt_count + last_error and re-dispatch."
+                        className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {replayRun.isPending && replayRun.variables?.runId === r.id
+                          ? "Queuing…"
+                          : "Replay"}
+                      </button>
+                      {r.status !== "delivered" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt(
+                              `Refund 1 credit for run ${r.id.slice(0, 8)}?\n\nOptional reason (will appear in the apology email):`,
+                              ""
+                            );
+                            // null = user cancelled; "" = confirmed without a note.
+                            if (reason === null) return;
+                            refundRun.mutate({
+                              runId: r.id,
+                              reason: reason.trim() || undefined,
+                            });
+                          }}
+                          disabled={
+                            refundRun.isPending && refundRun.variables?.runId === r.id
+                          }
+                          title="Credit +1 + send apology email. Idempotent per run."
+                          className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {refundRun.isPending && refundRun.variables?.runId === r.id
+                            ? "Refunding…"
+                            : "Refund"}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

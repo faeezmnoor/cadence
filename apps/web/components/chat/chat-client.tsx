@@ -87,9 +87,38 @@ export function ChatClient({
 
   const isStreamingState = status === "submitted" || status === "streaming";
 
+  // Stream E #7 (PM audit G4) — language honesty.
+  // We only deliver briefs in English today. Until BM/中文 ship E2E, intercept
+  // the language chips: instead of sending the chip as a user reply (which
+  // would let the agent set language=ms / zh in the spec — a positioning
+  // lie), capture interest and acknowledge.
+  // See feedback_cadence_positioning.
+  const registerLangInterest = trpc.interest.registerLanguage.useMutation();
+  const [langAck, setLangAck] = useState<null | "ms" | "zh">(null);
+
+  function classifyLanguageChip(text: string): null | "ms" | "zh" {
+    const t = text.toLowerCase();
+    if (t.includes("bahasa") || t.includes("malay")) return "ms";
+    // Chinese chip — match the actual CJK or 'chinese' English label.
+    if (/[一-鿿]/.test(text) || t.includes("chinese")) return "zh";
+    return null;
+  }
+
   // T-410 / CAD-72: suggestion chips dispatch a user message on tap.
   const handleSuggestion = (text: string) => {
     if (isStreamingState || !text.trim()) return;
+    const lang = classifyLanguageChip(text);
+    if (lang) {
+      // Intercept — capture interest, do not send the chip to the agent.
+      registerLangInterest.mutate(
+        { languageCode: lang },
+        {
+          onSuccess: () => setLangAck(lang),
+          onError: () => setLangAck(lang), // still ack; the row insert is best-effort
+        }
+      );
+      return;
+    }
     void append({ role: "user", content: text });
   };
 
@@ -247,16 +276,39 @@ export function ChatClient({
                 className="flex flex-wrap gap-1.5"
                 aria-label="Quick reply suggestions"
               >
-                {latestQuickReplies.map((c, i) => (
-                  <button
-                    key={`${c}-${i}`}
-                    type="button"
-                    onClick={() => handleSuggestion(c)}
-                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {c}
-                  </button>
-                ))}
+                {latestQuickReplies.map((c, i) => {
+                  // Stream E #7 — relabel BM/中文 chips as "coming July".
+                  const lang = classifyLanguageChip(c);
+                  const label = lang
+                    ? `${c} · coming July — notify me`
+                    : c;
+                  return (
+                    <button
+                      key={`${c}-${i}`}
+                      type="button"
+                      onClick={() => handleSuggestion(c)}
+                      data-language-interest={lang ?? undefined}
+                      className={
+                        lang
+                          ? "inline-flex items-center rounded-full border border-dashed border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          : "inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {langAck && (
+              <div
+                data-testid="language-interest-ack"
+                role="status"
+                className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground"
+              >
+                Got it — I&rsquo;ll email you the moment{" "}
+                {langAck === "ms" ? "Bahasa Malaysia" : "中文"} briefs ship
+                (targeting July). For now, please continue in English.
               </div>
             )}
             {isStreaming && (

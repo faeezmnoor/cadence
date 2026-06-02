@@ -1,0 +1,345 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > power > html matches snapshot 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Receipt — Power pack (200 credits) — Cadence</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <div style="font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Cadence</div>
+              <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">Receipt</h1>
+              <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#374151;">Thanks for topping up. Your credits are live and ready to spend on your next brief.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Power</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">200</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Amount charged</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">$25 USD <span style="color:#6b7280;font-weight:400;">(RM 118)</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Date</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">02 Jun 2026, 11:00 MYT</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;">Transaction ID</td>
+                  <td style="padding:10px 16px;font-size:12px;color:#0a0a0a;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">txn_power_snapshot</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 24px 28px;">
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">One credit = one brief delivered to your favourite messaging app. Need a tax invoice or to update billing details? Just reply to this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;"><strong style="color:#0a0a0a;">Cadence</strong> — A senior market researcher in your inbox — for a fraction of the cost.</p>
+              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="https://cadence-web-bice.vercel.app" style="color:#0a0a0a;text-decoration:none;">cadence-web-bice.vercel.app</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > power > plain text matches snapshot 1`] = `
+"Cadence — receipt
+
+Thanks for topping up. Your credits are live and ready to spend on your next brief.
+
+Pack:            Power
+Credits added:   200
+Amount charged:  $25 USD (RM 118)
+Date:            02 Jun 2026, 11:00 (MYT)
+Transaction ID:  txn_power_snapshot
+
+One credit = one brief delivered to your favourite messaging app.
+
+Need a tax invoice or to update billing details? Reply to this email.
+
+— Cadence
+A senior market researcher in your inbox — for a fraction of the cost.
+cadence-web-bice.vercel.app"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > power > subject matches snapshot 1`] = `"Receipt — Power pack (200 credits) — Cadence"`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > html matches snapshot 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Receipt — Pro pack (1000 credits) — Cadence</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <div style="font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Cadence</div>
+              <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">Receipt</h1>
+              <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#374151;">Thanks for topping up. Your credits are live and ready to spend on your next brief.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Pro</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">1000</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Amount charged</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">$100 USD <span style="color:#6b7280;font-weight:400;">(RM 470)</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Date</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">02 Jun 2026, 11:00 MYT</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;">Transaction ID</td>
+                  <td style="padding:10px 16px;font-size:12px;color:#0a0a0a;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">txn_pro_snapshot</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 24px 28px;">
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">One credit = one brief delivered to your favourite messaging app. Need a tax invoice or to update billing details? Just reply to this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;"><strong style="color:#0a0a0a;">Cadence</strong> — A senior market researcher in your inbox — for a fraction of the cost.</p>
+              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="https://cadence-web-bice.vercel.app" style="color:#0a0a0a;text-decoration:none;">cadence-web-bice.vercel.app</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > plain text matches snapshot 1`] = `
+"Cadence — receipt
+
+Thanks for topping up. Your credits are live and ready to spend on your next brief.
+
+Pack:            Pro
+Credits added:   1000
+Amount charged:  $100 USD (RM 470)
+Date:            02 Jun 2026, 11:00 (MYT)
+Transaction ID:  txn_pro_snapshot
+
+One credit = one brief delivered to your favourite messaging app.
+
+Need a tax invoice or to update billing details? Reply to this email.
+
+— Cadence
+A senior market researcher in your inbox — for a fraction of the cost.
+cadence-web-bice.vercel.app"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > subject matches snapshot 1`] = `"Receipt — Pro pack (1000 credits) — Cadence"`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > html matches snapshot 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Receipt — Standard pack (70 credits) — Cadence</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <div style="font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Cadence</div>
+              <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">Receipt</h1>
+              <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#374151;">Thanks for topping up. Your credits are live and ready to spend on your next brief.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Standard</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">70</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Amount charged</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">$10 USD <span style="color:#6b7280;font-weight:400;">(RM 47)</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Date</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">02 Jun 2026, 11:00 MYT</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;">Transaction ID</td>
+                  <td style="padding:10px 16px;font-size:12px;color:#0a0a0a;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">txn_standard_snapshot</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 24px 28px;">
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">One credit = one brief delivered to your favourite messaging app. Need a tax invoice or to update billing details? Just reply to this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;"><strong style="color:#0a0a0a;">Cadence</strong> — A senior market researcher in your inbox — for a fraction of the cost.</p>
+              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="https://cadence-web-bice.vercel.app" style="color:#0a0a0a;text-decoration:none;">cadence-web-bice.vercel.app</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > plain text matches snapshot 1`] = `
+"Cadence — receipt
+
+Thanks for topping up. Your credits are live and ready to spend on your next brief.
+
+Pack:            Standard
+Credits added:   70
+Amount charged:  $10 USD (RM 47)
+Date:            02 Jun 2026, 11:00 (MYT)
+Transaction ID:  txn_standard_snapshot
+
+One credit = one brief delivered to your favourite messaging app.
+
+Need a tax invoice or to update billing details? Reply to this email.
+
+— Cadence
+A senior market researcher in your inbox — for a fraction of the cost.
+cadence-web-bice.vercel.app"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > subject matches snapshot 1`] = `"Receipt — Standard pack (70 credits) — Cadence"`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > taste > html matches snapshot 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Receipt — Taste pack (30 credits) — Cadence</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <div style="font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Cadence</div>
+              <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">Receipt</h1>
+              <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#374151;">Thanks for topping up. Your credits are live and ready to spend on your next brief.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Taste</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">30</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Amount charged</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">$5 USD <span style="color:#6b7280;font-weight:400;">(RM 23)</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Date</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">02 Jun 2026, 11:00 MYT</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;font-size:13px;color:#6b7280;">Transaction ID</td>
+                  <td style="padding:10px 16px;font-size:12px;color:#0a0a0a;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">txn_taste_snapshot</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 24px 28px;">
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">One credit = one brief delivered to your favourite messaging app. Need a tax invoice or to update billing details? Just reply to this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;"><strong style="color:#0a0a0a;">Cadence</strong> — A senior market researcher in your inbox — for a fraction of the cost.</p>
+              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="https://cadence-web-bice.vercel.app" style="color:#0a0a0a;text-decoration:none;">cadence-web-bice.vercel.app</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > taste > plain text matches snapshot 1`] = `
+"Cadence — receipt
+
+Thanks for topping up. Your credits are live and ready to spend on your next brief.
+
+Pack:            Taste
+Credits added:   30
+Amount charged:  $5 USD (RM 23)
+Date:            02 Jun 2026, 11:00 (MYT)
+Transaction ID:  txn_taste_snapshot
+
+One credit = one brief delivered to your favourite messaging app.
+
+Need a tax invoice or to update billing details? Reply to this email.
+
+— Cadence
+A senior market researcher in your inbox — for a fraction of the cost.
+cadence-web-bice.vercel.app"
+`;
+
+exports[`Stream E #10 — renderReceiptEmail (per pack) > taste > subject matches snapshot 1`] = `"Receipt — Taste pack (30 credits) — Cadence"`;

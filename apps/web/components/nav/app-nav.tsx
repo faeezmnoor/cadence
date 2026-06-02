@@ -2,7 +2,14 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/marketing/wordmark";
 
-export type AppNavTab = "chat" | "spec" | "link" | "billing" | "admin" | null;
+export type AppNavTab =
+  | "chat"
+  | "spec"
+  | "link"
+  | "learning"
+  | "billing"
+  | "admin"
+  | null;
 
 type TabDef = {
   key: Exclude<AppNavTab, null>;
@@ -21,6 +28,8 @@ const TABS: TabDef[] = [
   { key: "chat", label: "Chat", href: "/chat" },
   { key: "spec", label: "Spec", href: "/spec" },
   { key: "link", label: "Delivery", href: "/app/link" },
+  // Stream E #4 — "What I've learned about you" surface (PM audit G3).
+  { key: "learning", label: "Learning", href: "/settings/learning" },
   { key: "billing", label: "Billing", href: "/settings/billing" },
 ];
 

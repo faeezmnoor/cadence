@@ -29,6 +29,9 @@ import {
 } from "@/server/db/schema";
 import { inngest } from "@/server/inngest/client";
 import { adminProcedure, router } from "../trpc";
+import { refundForFailedRun } from "@/server/billing/refund";
+import { sendEmail } from "@/server/email/send";
+import { buildRefundEmail } from "@/server/email/refund-template";
 
 const LIST_RUNS_DEFAULT_LIMIT = 25;
 const LIST_RUNS_MAX_LIMIT = 100;
@@ -204,6 +207,82 @@ export const adminRouter = router({
       });
 
       return { ok: true as const, runId: row.id };
+    }),
+
+  /**
+   * PM-audit #2: refund a failed digest_runs row by inserting a +1 credit
+   * `refund` transaction and emailing the user an apology.
+   *
+   * Idempotent — re-clicking the button on a row already refunded is a
+   * no-op (refundForFailedRun returns refunded=false with
+   * reason='already_refunded'). The mutation surfaces that to the UI so
+   * the admin sees "already refunded" instead of a fake success.
+   *
+   * Email send is best-effort: a Resend outage must NOT roll back the
+   * credit (the ledger is the source of truth, the email is courtesy).
+   */
+  refundRun: adminProcedure
+    .input(
+      z.object({
+        runId: z.string().uuid(),
+        reason: z.string().max(280).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Capture user email + run date for the apology mail
+      const runRows = await db
+        .select({
+          id: digestRuns.id,
+          runDate: digestRuns.runDate,
+          status: digestRuns.status,
+          userEmail: users.email,
+        })
+        .from(digestRuns)
+        .innerJoin(users, eq(users.id, digestRuns.userId))
+        .where(eq(digestRuns.id, input.runId))
+        .limit(1);
+      if (runRows.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Run not found." });
+      }
+      const row = runRows[0]!;
+
+      const result = await refundForFailedRun({
+        digestRunId: input.runId,
+        refundedBy: ctx.user.email ?? "admin",
+        reason: input.reason,
+      });
+
+      if (!result.refunded) {
+        return {
+          ok: false as const,
+          reason: result.reason,
+          balanceAfter: result.balanceAfter,
+        };
+      }
+
+      // Best-effort apology email. Don't fail the mutation on send error —
+      // the credit is already on the user's account and the ledger row
+      // is committed.
+      try {
+        const email = buildRefundEmail({
+          runDate: row.runDate ?? "your missed brief",
+          balanceAfter: result.balanceAfter!,
+          reason: input.reason,
+        });
+        await sendEmail({
+          to: row.userEmail,
+          subject: email.subject,
+          text: email.text,
+        });
+      } catch (err) {
+        console.warn("[admin.refundRun] email send failed", err);
+      }
+
+      return {
+        ok: true as const,
+        balanceAfter: result.balanceAfter,
+        transactionId: result.transactionId,
+      };
     }),
 
   /**
