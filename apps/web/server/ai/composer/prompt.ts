@@ -1,13 +1,18 @@
 /**
- * Composer prompt builder (T-208).
+ * Composer system prompt v2 (Stream A — brief-template-v1).
  *
- * Mirrors the contract in blueprint/04-data-model-and-apis.md (Composer LLM).
- * Pure: no I/O, no LLM call — so it's trivially unit-testable.
+ * v1 emitted free-form markdown driven by 10 instructions. v2 locks
+ * the contract: the LLM emits a single JSON object matching
+ * `briefJsonSchema`, with structure + voice anchored by two few-shot
+ * exemplars in maximally different industries.
+ *
+ * Channel-agnostic — this prompt MUST NOT identify the output as a
+ * "Telegram brief". It's just a daily research brief.
+ *
+ * Pure: no I/O, no LLM call.
  */
-import type {
-  ComposerInput,
-  ComposerSourcesBundle,
-} from "./types";
+import { BRIEF_SCHEMA_VERSION } from "./schema";
+import type { ComposerInput, ComposerSourcesBundle } from "./types";
 
 const HARD_CHAR_CAP = 3800;
 
@@ -89,6 +94,198 @@ function summarizeSources(sources: ComposerSourcesBundle): string {
   return parts.join("\n") || "(no sources available)";
 }
 
+/* -------------------------------------------------------------------------- */
+/* Few-shot exemplars                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Few-shot example 1: palm oil commodities, trader voice, prices on.
+ * Hand-authored — never copied verbatim by the model.
+ */
+const FEWSHOT_PALM_OIL: string = JSON.stringify(
+  {
+    schema_version: 1,
+    header: {
+      date: "2 Jun 2026",
+      cadence_label: "Daily",
+      industry: "Palm oil & feedstock",
+      personalization_summary:
+        "KL plantation trader watching CPO, soyoil and Bursa planters",
+    },
+    tldr: "CPO holds RM3,920 (▼0.4%); MPOB lifts June export quota 12%; soyoil firms on US Midwest dryness [1][2].",
+    sections: [
+      {
+        heading: "Prices",
+        bullets: [
+          {
+            text: "CPO Aug: RM3,920 ▼0.4% 24h · ▲2.1% 7d — tight Bursa range, oversold RSI",
+            citation_markers: [],
+          },
+          {
+            text: "Soyoil 47.2¢/lb ▲1.1% on Midwest dryness forecast",
+            citation_markers: [2],
+          },
+          {
+            text: "Brent $82.4 — soft Asia demand, watch China crude imports Thu",
+            citation_markers: [],
+          },
+        ],
+      },
+      {
+        heading: "What moved",
+        bullets: [
+          {
+            text: "MPOB raised June export quota 12% on May stock build-up — bearish near-term but supportive for sticky volume flows",
+            citation_markers: [1],
+          },
+          {
+            text: "China soy crush margins widened to 18-month high — bullish read-through for the vegoil complex",
+            citation_markers: [3],
+          },
+        ],
+      },
+      {
+        heading: "Watch this week",
+        bullets: [
+          {
+            text: "Thu: Felda Q1 earnings call — consensus -8% YoY",
+            citation_markers: [],
+          },
+          {
+            text: "Fri: MPOB May stocks report — consensus 1.85m tonnes",
+            citation_markers: [],
+          },
+        ],
+      },
+    ],
+    why_it_matters:
+      "Your CPO short held since May gets a near-term tailwind from the quota lift; soyoil long in the pair-trade is in the money on 7d. Felda earnings Thu is the next mark-to-market event for the basket.",
+    feedback_cta: 'Reply 👍 / 👎 — or "tune: <what to change>"',
+    sources: [
+      {
+        marker: 1,
+        title: "MPOB — June export quota",
+        url: "https://bepi.mpob.gov.my/export-quota-jun-26",
+      },
+      {
+        marker: 2,
+        title: "Reuters — Soyoil firms on Midwest weather",
+        url: "https://reuters.com/markets/commodities/soyoil-weather-2026-06-01",
+      },
+      {
+        marker: 3,
+        title: "S&P Platts — China crush margins",
+        url: "https://platts.com/oilseeds/china-crush-2026-w22",
+      },
+    ],
+  },
+  null,
+  2
+);
+
+/**
+ * Few-shot example 2: Malaysian halal F&B SME, casual-newsletter voice,
+ * weekly cadence, NO prices, focus on channel + competitor + ops cost.
+ *
+ * Maximally different from example 1 so Haiku doesn't anchor on
+ * trader-jargon for every brief.
+ */
+const FEWSHOT_HALAL_FNB: string = JSON.stringify(
+  {
+    schema_version: 1,
+    header: {
+      date: "Week of 26 May 2026",
+      cadence_label: "Weekly",
+      industry: "Malaysian halal F&B (frozen & ready-to-eat)",
+      personalization_summary:
+        "KL-based halal frozen-meals founder selling on Shopee + 7-Eleven, watching JAKIM, retailers and ringgit feedstock costs",
+    },
+    tldr: "Shopee 6.6 ramp begins Mon; JAKIM tightens slaughterhouse audits; chicken wholesale eases 4% WoW [1][2][3].",
+    sections: [
+      {
+        heading: "Channel & retail",
+        bullets: [
+          {
+            text: "Shopee 6.6 mid-year sale opens Mon 2 Jun — frozen halal SKUs eligible for platform-funded vouchers if you opt in by Wed",
+            citation_markers: [1],
+          },
+          {
+            text: "7-Eleven MY rotates ready-to-eat planogram next week; pitch window for new SKUs closes Fri",
+            citation_markers: [4],
+          },
+        ],
+      },
+      {
+        heading: "Regulatory",
+        bullets: [
+          {
+            text: "JAKIM published tightened halal audit checklist for slaughterhouses — affects upstream suppliers, not packers directly, but expect price pass-through within 30 days",
+            citation_markers: [2],
+          },
+        ],
+      },
+      {
+        heading: "Costs",
+        bullets: [
+          {
+            text: "Wholesale chicken eased 4% WoW to RM8.40/kg — first sustained drop since Feb",
+            citation_markers: [3],
+          },
+          {
+            text: "MYR/USD 4.71 — flat WoW; imported packaging steady",
+            citation_markers: [],
+          },
+        ],
+      },
+      {
+        heading: "Competitor watch",
+        bullets: [
+          {
+            text: "Adabi launched a new RTE rendang line at RM12.90 — undercuts your premium tier by RM2; expect Shopee voucher stack to widen the gap during 6.6",
+            citation_markers: [5],
+          },
+        ],
+      },
+    ],
+    why_it_matters:
+      "If chicken stays soft for another week your margin headroom funds a 6.6 voucher match against Adabi without dipping into Q3 budget. 7-Eleven pitch window is the bigger lever — that's a recurring shelf, not a sale spike.",
+    feedback_cta: 'Reply 👍 / 👎 — or "tune: <what to change>"',
+    sources: [
+      {
+        marker: 1,
+        title: "Shopee MY — Seller Center 6.6 brief",
+        url: "https://seller.shopee.com.my/edu/article/6-6-2026",
+      },
+      {
+        marker: 2,
+        title: "JAKIM — Halal slaughterhouse audit update",
+        url: "https://www.halal.gov.my/v4/news/2026/audit-may",
+      },
+      {
+        marker: 3,
+        title: "DOSM — Wholesale price index May W4",
+        url: "https://www.dosm.gov.my/v1/index.php?wpi-2026-w22",
+      },
+      {
+        marker: 4,
+        title: "The Edge — 7-Eleven MY planogram refresh",
+        url: "https://theedgemalaysia.com/article/7-eleven-my-planogram-2026",
+      },
+      {
+        marker: 5,
+        title: "Adabi — New rendang RTE launch",
+        url: "https://adabi.com.my/news/rendang-rte-2026",
+      },
+    ],
+  },
+  null,
+  2
+);
+
+/* -------------------------------------------------------------------------- */
+/* System prompt builder                                                      */
+/* -------------------------------------------------------------------------- */
+
 export function buildComposerSystemPrompt(input: ComposerInput): string {
   const { spec, sources, distilledPrefs, recentRawNotes } = input;
   const distilled =
@@ -113,7 +310,59 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
   });
 
   return [
-    "You are Cadence, a daily market intelligence brief generator.",
+    "You are Cadence — a sharp trader-desk friend writing a 60-second morning note for a busy industry operator. Concrete, scannable, never corporate. You are NOT a chatbot; you are a senior market researcher delivering a daily report at a fraction of the cost of hiring one.",
+    "",
+    "OUTPUT CONTRACT",
+    `Emit ONE JSON object matching this shape. \`schema_version\` MUST equal ${BRIEF_SCHEMA_VERSION}.`,
+    "",
+    "```",
+    "{",
+    `  "schema_version": ${BRIEF_SCHEMA_VERSION},`,
+    '  "header": {',
+    '    "date": "<human date, e.g. 2 Jun 2026>",',
+    '    "cadence_label": "Daily" | "Weekly" | "Monthly",',
+    '    "industry": "<short industry tag>",',
+    '    "personalization_summary": "<1 line: who this brief is tuned for>"',
+    "  },",
+    '  "tldr": "<1-2 sentences. May carry [n] markers.>",',
+    '  "sections": [',
+    "    {",
+    '      "heading": "<H2-style, 2-4 words>",',
+    '      "bullets": [',
+    '        { "text": "<bullet, may carry [n] markers>", "citation_markers": [<n>, ...] }',
+    "      ]",
+    "    }",
+    "  ],",
+    '  "why_it_matters": "<closer that ties the day\'s news to THIS user\'s spec / position>",',
+    '  "feedback_cta": "Reply 👍 / 👎 — or \\"tune: <what to change>\\"",',
+    '  "sources": [ { "marker": 1, "title": "<publisher / headline>", "url": "<https://...>" } ]',
+    "}",
+    "```",
+    "",
+    "HARD RULES",
+    "1. Output JSON ONLY. No preamble, no code fences, no commentary outside the object.",
+    `2. Total rendered length will be capped at ~${HARD_CHAR_CAP} characters; keep bullets tight.`,
+    "3. `sections`: 3 to 5. Each section: 1 to 5 bullets (prefer 2-3).",
+    "4. Citations: every `[n]` you write inline MUST appear in `sources[].marker`. Every source in `sources` MUST be cited somewhere in body. No orphans either way.",
+    "5. Cite ONLY URLs that appear in the SOURCES block below. Do NOT invent URLs.",
+    "6. `why_it_matters` is REQUIRED. Connect today's news to the user's spec, entities, or stated position. This is how we earn the daily delivery.",
+    "7. Skip sections you don't have high-signal items for, rather than padding. (Still emit min 3 — if signal is thin, narrow the scope of sections.)",
+    "8. Respect `keywords_exclude` — never mention those topics. Apply LEARNED PREFERENCES and RECENT FEEDBACK aggressively.",
+    "9. Write in the user's `language` setting (en / ms / zh). Headings and `feedback_cta` translate too.",
+    "10. Voice: short sentences, numbers over adjectives, no \"in this brief we will…\" filler. Never identify the output as a Telegram message — it's just a brief.",
+    "",
+    "FEW-SHOT EXAMPLES",
+    "These two examples teach SHAPE and VOICE, not facts. Different industries on purpose — do NOT copy specifics; do NOT anchor on commodity or F&B phrasing unless the user's spec calls for it. Cite ONLY URLs from the SOURCES block of the actual request.",
+    "",
+    "Example A — palm oil daily for a KL trader:",
+    "```json",
+    FEWSHOT_PALM_OIL,
+    "```",
+    "",
+    "Example B — weekly Malaysian halal F&B for an SME founder:",
+    "```json",
+    FEWSHOT_HALAL_FNB,
+    "```",
     "",
     "USER PROFILE",
     `- Tone preset: ${spec.tone_preset}`,
@@ -129,20 +378,10 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
     "DIGEST SPEC",
     specYaml,
     "",
-    "SOURCES (already fetched and deduped)",
+    "SOURCES (already fetched and deduped — cite only these)",
     summarizeSources(sources),
     "",
-    "INSTRUCTIONS",
-    `1. Produce a single Telegram-safe Markdown message <= ${HARD_CHAR_CAP} characters.`,
-    "2. Lead with a 1-sentence headline.",
-    "3. Group by section per the spec's topic order. Use `## Topic` headings.",
-    "4. For prices, include 24h change with arrow (▲ / ▼) and percentage.",
-    "5. Cite sources inline as [n] with a final `## Sources` footer mapping n -> URL.",
-    "6. Skip sections with zero high-signal items rather than padding.",
-    "7. Apply RECENT FEEDBACK and LEARNED PREFERENCES aggressively (drop topics the user said to drop, etc).",
-    `8. Respect keywords_exclude — never mention those topics.`,
-    "9. Write in the user's `language` setting.",
-    "10. Return ONLY the Markdown brief. No preamble, no apology, no \"here is your brief:\".",
+    "Emit the JSON brief now.",
   ].join("\n");
 }
 

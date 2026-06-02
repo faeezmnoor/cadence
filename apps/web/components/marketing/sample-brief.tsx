@@ -1,9 +1,10 @@
 /**
- * Sample brief preview. Renders a messaging-app mockup of a Cadence daily brief.
+ * Sample brief preview. Renders a channel-neutral messaging-app mockup of a
+ * Cadence daily brief — content mirrors `public/sample-brief.html` and
+ * `cadence/blueprint/sample-brief-palm-oil.md` (the locked exemplar).
  *
- * TODO(stream-a): replace the inline placeholder content with `public/sample-brief.png`
- * (or .html embed) once Stream A's composer lands a real exemplar. This component is
- * already styled as a phone frame so swapping in an image is a one-line change.
+ * Channel-neutral: never identifies the surface as Telegram. It's just a
+ * daily research brief delivered to your messaging app of choice.
  */
 export function SampleBrief() {
   return (
@@ -18,34 +19,48 @@ export function SampleBrief() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold">Cadence</p>
-              <p className="text-xs text-muted-foreground">bot · today 07:00</p>
+              <p className="text-xs text-muted-foreground">today · 07:00</p>
             </div>
           </div>
 
-          {/* brief body — content is a representative sample */}
-          <div className="mt-3 space-y-2.5 text-left text-[13px] leading-relaxed">
+          {/* brief body — content mirrors the locked exemplar */}
+          <div className="mt-3 space-y-2 text-left text-[13px] leading-relaxed">
             <p className="font-semibold">
-              <span aria-hidden>🌾</span> Cadence · Daily · 2 Jun
+              <span aria-hidden>🌾</span> Cadence · Daily · 2 Jun 2026
             </p>
             <p className="text-muted-foreground">Palm oil &amp; feedstock</p>
-
-            <p>
-              <span className="font-medium">TL;DR —</span> CPO holds at RM 3,920
-              (<span className="text-red-500">▼0.4%</span>); MPOB raises June export quota;
-              Indonesia DMO talk returns.
+            <p className="text-muted-foreground italic">
+              Tuned for: KL plantation trader watching CPO + Bursa planters
             </p>
 
-            <p className="font-medium">Prices</p>
+            <p className="pt-1">
+              <span className="font-medium">TL;DR —</span> CPO holds RM3,920
+              (<span className="text-red-500">▼0.4%</span>); MPOB lifts June export
+              quota 12%; soyoil firms on US dryness{" "}
+              <span className="text-sky-500">[1][2]</span>.
+            </p>
+
+            <p className="pt-1 font-medium text-brand">Prices</p>
             <ul className="space-y-1 text-muted-foreground">
-              <li>• CPO Aug: RM 3,920 <span className="text-red-500">▼0.4%</span> (24h)</li>
-              <li>• Soyoil: 47.2¢ <span className="text-emerald-500">▲1.1%</span></li>
-              <li>• Brent: $82.4 — soft demand</li>
+              <li>• CPO Aug: RM3,920 <span className="text-red-500">▼0.4%</span> · 7d <span className="text-emerald-500">▲2.1%</span></li>
+              <li>• Soyoil 47.2¢/lb <span className="text-emerald-500">▲1.1%</span> on US dryness <span className="text-sky-500">[2]</span></li>
+              <li>• Brent $82.4 — soft Asia demand signal</li>
             </ul>
 
-            <p className="font-medium">What moved</p>
+            <p className="pt-1 font-medium text-brand">What moved</p>
+            <ul className="space-y-1 text-muted-foreground">
+              <li>• MPOB raised June export quota 12% on May stock build-up <span className="text-sky-500">[1]</span></li>
+              <li>• China soy crush margins at 18-month high <span className="text-sky-500">[3]</span></li>
+            </ul>
+
+            <p className="pt-2 font-medium">Why this matters to you</p>
             <p className="text-muted-foreground">
-              MPOB raised June export quota 12% on stock build-up. Bearish near-term.
-              Indonesia floats reinstating DMO at 30% — bullish if confirmed.
+              Your CPO short gets a near-term tailwind from the quota lift; soyoil
+              long in the pair-trade is in the money on 7d.
+            </p>
+
+            <p className="pt-2 text-xs italic text-muted-foreground">
+              Reply 👍 / 👎 — or &quot;tune: &lt;what to change&gt;&quot;
             </p>
 
             <div className="mt-2 flex gap-2 border-t border-border pt-3 text-xs text-muted-foreground">

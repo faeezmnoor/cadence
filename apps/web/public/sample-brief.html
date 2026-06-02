@@ -2,100 +2,112 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=390,initial-scale=1" />
-<title>Cadence — sample brief</title>
+<meta name="viewport" content="width=420,initial-scale=1" />
+<title>Cadence — sample daily brief</title>
 <style>
   :root {
-    --bg: #0e1621;       /* Telegram dark bg */
-    --bubble: #182533;   /* Telegram in-bubble */
-    --text: #ffffff;
-    --muted: #8195a8;
-    --accent: #6ab7ff;
-    --rule: #243447;
+    --bg: #0b0d10;
+    --card: #14181d;
+    --bubble: #1b2027;
+    --text: #e8edf3;
+    --muted: #8a96a3;
+    --brand: #d8a957;       /* warm amber — channel-neutral, ties to wordmark */
+    --rule: #232a32;
+    --accent: #8fb3d8;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); }
-  body {
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: var(--text);
+  }
+  body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    padding: 24px 12px;
+    padding: 24px 12px 48px;
   }
   .phone {
-    width: 366px;
+    width: 380px;
     max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
   }
   .topbar {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 4px 16px;
-    color: var(--muted);
-    font-size: 13px;
+    padding: 4px 6px 14px;
+    border-bottom: 1px solid var(--rule);
   }
   .avatar {
-    width: 36px; height: 36px;
+    width: 38px; height: 38px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #2b5876, #4e4376);
+    background: linear-gradient(135deg, #d8a957, #b07c2a);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 600; font-size: 15px; color: white;
+    font-weight: 700; font-size: 16px; color: #1a1207;
   }
-  .name { color: var(--text); font-weight: 600; font-size: 15px; }
-  .meta { font-size: 12px; color: var(--muted); }
+  .name { font-weight: 600; font-size: 15px; line-height: 1.2; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .bubble {
     background: var(--bubble);
-    border-radius: 14px;
-    border-top-left-radius: 4px;
-    padding: 12px 14px;
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    border-top-left-radius: 6px;
+    padding: 14px 16px;
     font-size: 14.5px;
-    line-height: 1.5;
+    line-height: 1.55;
+    margin-top: 12px;
     word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
   }
-  .bubble .line { margin: 0; }
+  .bubble p, .bubble .line { margin: 0; }
+  .bubble .line + .line { margin-top: 2px; }
+  .bubble .gap { height: 10px; }
   .bubble h3 {
-    font-size: 14.5px;
-    margin: 14px 0 6px;
-    color: var(--accent);
+    font-size: 13.5px;
+    margin: 14px 0 4px;
+    color: var(--brand);
     font-weight: 600;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
+    text-transform: none;
   }
   .bubble h3:first-child { margin-top: 0; }
   .bubble .bullet {
-    margin: 2px 0 2px 4px;
+    margin: 2px 0 2px 2px;
     color: var(--text);
   }
-  .bubble strong { color: var(--text); }
+  .bubble .muted { color: var(--muted); }
+  .bubble strong { color: var(--text); font-weight: 600; }
   .bubble em { color: var(--muted); font-style: normal; }
-  .bubble a { color: var(--accent); }
+  .cite { color: var(--accent); font-size: 12px; }
+  .sources-line { color: var(--muted); font-size: 12.5px; word-break: break-all; }
   .timestamp {
-    align-self: flex-end;
     color: var(--muted);
     font-size: 11px;
-    padding: 2px 8px 0;
+    padding: 4px 8px 0;
+    text-align: right;
   }
   .keyboard {
     display: flex;
     gap: 6px;
-    margin-top: 8px;
+    margin-top: 10px;
   }
   .keyboard button {
     flex: 1;
-    background: #2b3a4c;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 0;
-    font-size: 14px;
+    background: #232b35;
+    color: var(--text);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 9px 0;
+    font-size: 13.5px;
     font-weight: 500;
-    cursor: pointer;
+    cursor: default;
   }
-  .keyboard button:hover { background: #344659; }
+  .footer-note {
+    margin-top: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+  }
 </style>
 </head>
 <body>
@@ -104,45 +116,54 @@
       <div class="avatar">C</div>
       <div>
         <div class="name">Cadence</div>
-        <div class="meta">bot · online</div>
+        <div class="meta">today · 07:00</div>
       </div>
     </div>
+
     <div class="bubble">
-      <div class="line">🌾 <strong>Cadence</strong> · Daily · 2 Jun 2026</div>
-      <div class="line">Palm oil &amp; feedstock</div>
-      <div class="line"><em>Tuned for: KL trader, prices on, no Indonesia politics</em></div>
-      
-      <div class="line"><strong>TL;DR</strong> — CPO holds at RM 3,920 (▼0.4%); MPOB lifts June export quota by 12%; soyoil firms on US Midwest dryness [1][2].</div>
-      
+      <div class="line"><strong>🌾 Cadence</strong> · Daily · 2 Jun 2026</div>
+      <div class="line muted">Palm oil &amp; feedstock</div>
+      <div class="line"><em>Tuned for: KL plantation trader watching CPO, soyoil and Bursa-listed planters</em></div>
+      <div class="gap"></div>
+
+      <div class="line"><strong>TL;DR</strong> — CPO holds RM3,920 (▼0.4%); MPOB lifts June export quota 12%; soyoil firms on US Midwest dryness <span class="cite">[1][2]</span>.</div>
+
       <h3>Prices</h3>
-      <div class="bullet">• CPO Aug: RM 3,920 ▼0.4% (24h) · ▲2.1% (7d)</div>
-      <div class="bullet">• Soyoil: 47.2¢/lb ▲1.1% on Midwest dry-pattern forecast [2]</div>
-      <div class="bullet">• Brent: $82.4 — soft Asia demand signal, watch China crude imports</div>
-      
+      <div class="bullet">• CPO Aug: RM3,920 ▼0.4% 24h · ▲2.1% 7d — tight Bursa range, oversold RSI</div>
+      <div class="bullet">• Soyoil 47.2¢/lb ▲1.1% on US Midwest dryness forecast <span class="cite">[2]</span></div>
+      <div class="bullet">• Brent $82.4 — soft Asia demand; watch China crude imports Thu</div>
+
       <h3>What moved</h3>
-      <div class="bullet">• MPOB raised June export quota 12% on May stock build-up [1] — bearish near-term but supportive for sticky volume flows.</div>
-      <div class="bullet">• China soy crush margins widened to 18-month high [3] — bullish read-through for the vegoil complex.</div>
-      
+      <div class="bullet">• MPOB raised June export quota 12% on May stock build-up — bearish near-term, supportive for sticky volume flows <span class="cite">[1]</span></div>
+      <div class="bullet">• China soy crush margins widened to 18-month high — bullish read-through for the vegoil complex <span class="cite">[3]</span></div>
+
       <h3>Watch this week</h3>
-      <div class="bullet">• Thu: Felda Q1 earnings call (consensus -8% YoY)</div>
+      <div class="bullet">• Thu: Felda Q1 earnings call — consensus -8% YoY</div>
       <div class="bullet">• Fri: MPOB May stocks report — consensus 1.85m tonnes</div>
-      
+
+      <div class="gap"></div>
       <div class="line"><strong>Why this matters to you</strong></div>
-      <div class="line">Your CPO short held since May gets a near-term tailwind from the quota lift; the soyoil long leg of the pair-trade is in the money on 7d. Felda earnings Thu is the next mark-to-market event for the basket.</div>
-      
-      <div class="line"><em>Reply 👍 / 👎 — or &quot;tune: &lt;what to change&gt;&quot;</em></div>
-      
+      <div class="line">Your CPO short held since May gets a near-term tailwind from the quota lift; soyoil long in the pair-trade is in the money on 7d. Felda earnings Thu is the next mark-to-market event for the basket.</div>
+
+      <div class="gap"></div>
+      <div class="line"><em>Reply 👍 / 👎 — or "tune: &lt;what to change&gt;"</em></div>
+
       <h3>Sources</h3>
-      <div class="line">[1] MPOB — https://bepi.mpob.gov.my/export-quota-jun-26</div>
-      <div class="line">[2] Reuters — https://reuters.com/markets/commodities/soyoil-weather-2026-06-01</div>
-      <div class="line">[3] S&amp;P Platts — https://platts.com/oilseeds/china-crush-2026-w22</div>
-      
+      <div class="sources-line">[1] MPOB — bepi.mpob.gov.my/export-quota-jun-26</div>
+      <div class="sources-line">[2] Reuters — reuters.com/markets/commodities/soyoil-weather-2026-06-01</div>
+      <div class="sources-line">[3] S&amp;P Platts — platts.com/oilseeds/china-crush-2026-w22</div>
     </div>
+
     <div class="timestamp">07:00</div>
+
     <div class="keyboard">
       <button>👍</button>
       <button>👎</button>
       <button>Tune…</button>
+    </div>
+
+    <div class="footer-note">
+      Representative sample. Yours is composed fresh, in your language, every morning.
     </div>
   </div>
 </body>
