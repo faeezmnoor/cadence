@@ -2,6 +2,7 @@
 
 import { trpc } from "@/lib/trpc/client";
 import { PACKS, PACK_LABELS, type PackId } from "@/server/billing/packs";
+import { SUPPORT_EMAIL } from "@/server/support/contact";
 
 function formatUsd(minor: number) {
   return `$${(minor / 100).toFixed(minor % 100 === 0 ? 0 : 2)}`;
@@ -93,8 +94,8 @@ export function BillingClient() {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           Stripe MY KYC is in flight. Until top-ups are live, you can email{" "}
-          <a className="underline-offset-2 hover:underline" href="mailto:faeez@cadence.news">
-            faeez@cadence.news
+          <a className="underline-offset-2 hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
+            {SUPPORT_EMAIL}
           </a>{" "}
           to request a manual credit grant.
         </p>
