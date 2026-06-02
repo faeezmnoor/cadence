@@ -1,0 +1,152 @@
+/**
+ * account.* — self-service account operations.
+ *
+ * PM-audit #11: account.deleteSelf — the user-facing right-to-erasure
+ * path. PDPA-required; also a Stripe MY KYC nice-to-have so the reviewer
+ * sees that we honor consent withdrawal.
+ *
+ * Semantics (decision locked 2026-06-02): IMMEDIATE deletion, no 24-hour
+ * grace. Reasoning:
+ *   - Adds a "scheduled deletions" worker we don't have time to build.
+ *   - The free-credits grant on signup means a malicious user can re-create
+ *     accounts anyway; the grace window doesn't prevent abuse, just delays
+ *     it.
+ *   - Users expect "delete" to mean "delete" — a hidden 24-hour window
+ *     gets us complaints, not goodwill.
+ *
+ * Cascade chain:
+ *   1. INSERT audit row in account_deletions (independent of users FK)
+ *   2. UPDATE public.users SET deleted_at = now()
+ *      (FKs from chat/digest/transactions point at users — they cascade
+ *      via ON DELETE CASCADE in 0000_init_schema if we ever hard-delete)
+ *   3. Best-effort: hit Supabase Admin API to delete the auth.users row
+ *      (signs the user out of any other tab/device)
+ *   4. Best-effort: send a confirmation email (acknowledgment, not opt-in)
+ *
+ * The client invokes supabase.auth.signOut() after the mutation returns
+ * to clear local cookies and redirect.
+ */
+import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { db } from "@/server/db/client";
+import { accountDeletions, users } from "@/server/db/schema";
+import { protectedProcedure, router } from "../trpc";
+import { sendEmail } from "@/server/email/send";
+import { SUPPORT_EMAIL } from "@/server/support/contact";
+
+async function deleteAuthUser(userId: string): Promise<{ deleted: boolean; reason?: string }> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return { deleted: false, reason: "no_service_role_key" };
+  }
+  try {
+    const res = await fetch(`${url}/auth/v1/admin/users/${userId}`, {
+      method: "DELETE",
+      headers: {
+        apikey: serviceKey,
+        authorization: `Bearer ${serviceKey}`,
+      },
+    });
+    if (!res.ok && res.status !== 404) {
+      const body = await res.text().catch(() => "");
+      console.warn("[account.deleteSelf] supabase admin delete failed", res.status, body.slice(0, 200));
+      return { deleted: false, reason: `supabase_${res.status}` };
+    }
+    return { deleted: true };
+  } catch (err) {
+    console.warn("[account.deleteSelf] supabase admin delete threw", err);
+    return { deleted: false, reason: "network" };
+  }
+}
+
+export const accountRouter = router({
+  /**
+   * Soft-delete the signed-in user. See module-level doc for cascade.
+   * Returns { ok: true } on success so the client can call signOut() and
+   * redirect to the marketing home.
+   */
+  deleteSelf: protectedProcedure
+    .input(
+      z
+        .object({
+          reason: z.string().max(500).optional(),
+          /**
+           * Required acknowledgment string from the confirm dialog. We
+           * don't trust the existence of the mutation call alone — a
+           * stray fetch from a misconfigured client should not silently
+           * delete an account.
+           */
+          confirm: z.literal("DELETE"),
+        })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const email = ctx.user.email;
+      if (!email) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Account has no email on file — contact support.",
+        });
+      }
+
+      // 1. Audit row first. If the soft-delete fails we still want the
+      // attempt logged.
+      await db.insert(accountDeletions).values({
+        userId: ctx.user.id,
+        email,
+        reason: input.reason ?? null,
+      });
+
+      // 2. Soft-delete the application row. We don't hard-delete because
+      // FKs from transactions / digest_runs reference users(id) and we
+      // want the financial trail intact for tax / refund disputes. The
+      // unique index on `email` would block re-signups; clear the email
+      // by suffixing the user_id so re-signup with the same address is
+      // possible (PDPA spirit: full disassociation).
+      await db
+        .update(users)
+        .set({
+          deletedAt: new Date(),
+          email: `deleted+${ctx.user.id}@cadence.invalid`,
+          telegramChatId: null,
+          telegramUsername: null,
+          state: "paused",
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, ctx.user.id));
+
+      // 3. Best-effort: kill the Supabase auth row so any other open
+      // sessions immediately stop working.
+      const authResult = await deleteAuthUser(ctx.user.id);
+
+      // 4. Best-effort confirmation email.
+      try {
+        await sendEmail({
+          to: email,
+          subject: "Your Cadence account has been deleted",
+          text: [
+            "Hi,",
+            "",
+            "Your Cadence account has been deleted. We've removed your",
+            "messaging link, paused all future briefs, and disassociated",
+            "your email from the account row.",
+            "",
+            "Financial records (credit purchases, refunds) are retained per",
+            "Malaysian tax law but contain no profile data.",
+            "",
+            `If this wasn't you, reply now — ${SUPPORT_EMAIL}.`,
+            "",
+            "— Cadence",
+          ].join("\n"),
+        });
+      } catch (err) {
+        console.warn("[account.deleteSelf] confirmation email failed", err);
+      }
+
+      return {
+        ok: true as const,
+        authDeleted: authResult.deleted,
+      };
+    }),
+});
