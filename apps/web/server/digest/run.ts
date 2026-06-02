@@ -21,7 +21,7 @@
  *     scheduled idempotency slot for the same UTC date and doesn't
  *     leave ghost "composing" rows in history.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
 import { composeDigest } from "@/server/ai/composer/compose";
@@ -33,6 +33,7 @@ import { formatComposerOutput } from "@/server/telegram/format";
 import { isTelegramConfigured, getBot } from "@/server/telegram/client";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
+import { sanitizeError, classifyError, type ErrorClass } from "./errors";
 
 export interface RunDigestParams {
   userId: string;
@@ -66,7 +67,27 @@ export interface RunDigestResult {
   partsSent: number;
   telegramMessageId: number | null;
   error?: string;
+  /**
+   * T-303: when status === "failed", tells the Inngest handler whether to
+   * throw (let Inngest retry) or to give up and flip the user to
+   * delivery_broken. `undefined` on success paths.
+   */
+  errorClass?: ErrorClass;
+  /**
+   * T-303: post-increment value of digest_runs.attempt_count for the row
+   * persisted by this invocation. The caller compares against
+   * MAX_DELIVERY_ATTEMPTS to decide whether to escalate to delivery_broken.
+   */
+  attemptCount?: number;
 }
+
+/**
+ * T-303: max attempts BEFORE we flip the user to delivery_broken. Inngest's
+ * native function retries handle the actual backoff; this caps the total
+ * number of pipeline invocations per claimed digest_runs row across all
+ * retries.
+ */
+export const MAX_DELIVERY_ATTEMPTS = 3;
 
 function todayIsoUtc(): string {
   return new Date().toISOString().slice(0, 10);
@@ -141,13 +162,23 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
   } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    // Persist failed run for visibility. T-302: prefer UPDATE on the claimed row.
+    const error = sanitizeError(err);
+    const errorClass = classifyError(err);
+    // Persist failed run for visibility. T-302/T-303: prefer UPDATE on the
+    // claimed row and atomically bump attempt_count via SQL so retries
+    // never race-clobber the counter.
     if (digestRunId) {
-      await db
+      const updated = await db
         .update(digestRuns)
-        .set({ status: "failed", error, lastError: error, attemptCount: 1, updatedAt: new Date() })
-        .where(eq(digestRuns.id, digestRunId));
+        .set({
+          status: "failed",
+          error,
+          lastError: error,
+          attemptCount: sql`${digestRuns.attemptCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(digestRuns.id, digestRunId))
+        .returning({ attemptCount: digestRuns.attemptCount });
       return {
         status: "failed",
         digestRunId,
@@ -155,6 +186,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         partsSent: 0,
         telegramMessageId: null,
         error,
+        errorClass,
+        attemptCount: updated[0]?.attemptCount ?? undefined,
       };
     }
     const failedRow = await db
@@ -165,8 +198,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         status: "failed",
         runDate,
         error,
+        lastError: error,
+        attemptCount: 1,
       })
-      .returning({ id: digestRuns.id });
+      .returning({ id: digestRuns.id, attemptCount: digestRuns.attemptCount });
     return {
       status: "failed",
       digestRunId: failedRow[0]?.id ?? null,
@@ -174,6 +209,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       partsSent: 0,
       telegramMessageId: null,
       error,
+      errorClass,
+      attemptCount: failedRow[0]?.attemptCount ?? undefined,
     };
   }
 
@@ -197,11 +234,15 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       }
       status = "delivered";
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      console.error("[digest:send]", err);
-      // Failed delivery still records the run; allows retry via T-303 later.
+      const error = sanitizeError(err);
+      const errorClass = classifyError(err);
+      // Do NOT console.error the raw err — it may carry PII (chat_id, token).
+      // The sanitized line above is what the caller logs.
+      console.warn("[digest:send] sanitized:", error);
+      // Failed delivery still records the run; T-303 retry decides if we
+      // re-enqueue or escalate to delivery_broken.
       if (digestRunId) {
-        await db
+        const updated = await db
           .update(digestRuns)
           .set({
             status: "failed",
@@ -210,10 +251,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
             costUsd: composeCostUsd.toString(),
             error,
             lastError: error,
-            attemptCount: 1,
+            attemptCount: sql`${digestRuns.attemptCount} + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(digestRuns.id, digestRunId));
+          .where(eq(digestRuns.id, digestRunId))
+          .returning({ attemptCount: digestRuns.attemptCount });
         return {
           status: "failed",
           digestRunId,
@@ -221,6 +263,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           partsSent,
           telegramMessageId,
           error,
+          errorClass,
+          attemptCount: updated[0]?.attemptCount ?? undefined,
         };
       }
       const failedRow = await db
@@ -234,8 +278,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           sourcesBundle: sources,
           costUsd: composeCostUsd.toString(),
           error,
+          lastError: error,
+          attemptCount: 1,
         })
-        .returning({ id: digestRuns.id });
+        .returning({ id: digestRuns.id, attemptCount: digestRuns.attemptCount });
       return {
         status: "failed",
         digestRunId: failedRow[0]?.id ?? null,
@@ -243,6 +289,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         partsSent,
         telegramMessageId,
         error,
+        errorClass,
+        attemptCount: failedRow[0]?.attemptCount ?? undefined,
       };
     }
   } else {
@@ -274,7 +322,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         sourcesBundle: sources,
         telegramMessageId: telegramMessageId ?? undefined,
         costUsd: composeCostUsd.toString(),
-        attemptCount: 1,
+        // T-303: bump attempt_count atomically. On a fresh row this goes
+        // 0 -> 1; on a retry of a previously-failed claim this records the
+        // attempt count at which we succeeded (visible in T-304 admin viewer).
+        // We do NOT clear last_error on success — keep the diagnostic trail.
+        attemptCount: sql`${digestRuns.attemptCount} + 1`,
         updatedAt: new Date(),
       })
       .where(eq(digestRuns.id, digestRunId));

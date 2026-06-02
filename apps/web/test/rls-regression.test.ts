@@ -22,9 +22,9 @@
  *
  * Skips the whole suite if any of those is missing (e.g. CI without secrets).
  */
-import { createClient } from "@supabase/supabase-js";
-import postgres from "postgres";
-import { afterAll, describe, expect, it } from "vitest";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import postgres, { type Sql } from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -42,13 +42,21 @@ const haveCreds = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && DATABASE_URL);
 const describeIf = haveCreds ? describe : describe.skip;
 
 describeIf("RLS regression (live Supabase)", () => {
-  const adminSql = postgres(DATABASE_URL!, { prepare: false, max: 1 });
-  const anon = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  // Lazy-instantiate inside beforeAll so a missing env at collection time
+  // doesn't explode the whole module (vitest still walks the describe body
+  // even when the suite is later skipped). See bonus-fix in T-303 (CAD-38).
+  let adminSql: Sql;
+  let anon: SupabaseClient;
+
+  beforeAll(() => {
+    adminSql = postgres(DATABASE_URL!, { prepare: false, max: 1 });
+    anon = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
   });
 
   afterAll(async () => {
-    await adminSql.end();
+    if (adminSql) await adminSql.end();
   });
 
   // Enumerate tables in public schema via service role.

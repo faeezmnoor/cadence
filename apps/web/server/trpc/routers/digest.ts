@@ -9,11 +9,21 @@
  * Listing past runs is also exposed for the /app history view.
  */
 import { z } from "zod";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { db } from "@/server/db/client";
 import { digestRuns } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
 import { runDigestPipeline } from "@/server/digest/run";
+
+/**
+ * Cool-down window for digest.sampleNow. Migration 0004 dropped the
+ * (user_id, run_date) UNIQUE that previously folded back-to-back clicks; we
+ * replace that protection with a short application-level guard so two
+ * "Sample Now" clicks 200 ms apart don't trigger two parallel
+ * Anthropic + Telegram round-trips.
+ */
+const SAMPLE_NOW_COOLDOWN_MS = 30_000;
 
 export const digestRouter = router({
   /** Compose now. Sends to Telegram unless dryRun is true. */
@@ -21,12 +31,33 @@ export const digestRouter = router({
     .input(z.object({ dryRun: z.boolean().default(false) }).optional())
     .mutation(async ({ ctx, input }) => {
       const dryRun = input?.dryRun ?? false;
+
+      // Dedup guard (replaces the dropped user_run_date_uq, per T-303 bonus).
+      // Skip the cool-down for dry-runs — previewing twice is cheap and
+      // doesn't hit Telegram.
+      if (!dryRun) {
+        const since = new Date(Date.now() - SAMPLE_NOW_COOLDOWN_MS);
+        const recent = await db
+          .select({ id: digestRuns.id, status: digestRuns.status })
+          .from(digestRuns)
+          .where(
+            and(
+              eq(digestRuns.userId, ctx.user.id),
+              gte(digestRuns.createdAt, since)
+            )
+          )
+          .limit(1);
+        if (recent.length > 0) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "You just generated a brief — give it a moment before trying again.",
+          });
+        }
+      }
+
       return runDigestPipeline({
         userId: ctx.user.id,
         dryRun,
-        // Sample requests use today's date — duplicates get folded by the
-        // (user_id, run_date) unique index, which is the desired UX:
-        // "you already got today's brief; check Telegram."
       });
     }),
 
