@@ -31,6 +31,7 @@ interface FakeRun {
   createdAt: Date;
   specId: string;
   specVersion: number;
+  specIsSmoke: boolean;
   userId: string;
   userEmail: string;
   userState: string;
@@ -49,6 +50,7 @@ const allRows: FakeRun[] = [
     createdAt: new Date("2026-06-02T00:30:01Z"),
     specId: "spec-a",
     specVersion: 3,
+    specIsSmoke: true,
     userId: "user-a",
     userEmail: "active@example.com",
     userState: "active",
@@ -65,6 +67,7 @@ const allRows: FakeRun[] = [
     createdAt: new Date("2026-06-01T00:30:02Z"),
     specId: "spec-b",
     specVersion: 1,
+    specIsSmoke: false,
     userId: "user-b",
     userEmail: "broken@example.com",
     userState: "delivery_broken",
@@ -81,6 +84,7 @@ const allRows: FakeRun[] = [
     createdAt: new Date("2026-05-31T00:30:00Z"),
     specId: "spec-a",
     specVersion: 2,
+    specIsSmoke: true,
     userId: "user-a",
     userEmail: "active@example.com",
     userState: "active",
@@ -237,6 +241,14 @@ describe("admin.listRuns gate", () => {
     expect(out.rows[0]!.userState).toBe("delivery_broken");
     expect(out.rows[0]!.userEmail).toBe("broken@example.com");
     expect(lastQuery?.brokenOnly).toBe(true);
+  });
+
+  it("surfaces specIsSmoke so the admin UI can flag dogfood rows", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const out = await caller.admin.listRuns({ limit: 10 });
+    const bySpec = Object.fromEntries(out.rows.map((r) => [r.specId, r.specIsSmoke]));
+    expect(bySpec["spec-a"]).toBe(true);
+    expect(bySpec["spec-b"]).toBe(false);
   });
 
   it("pagination cursor advances past the first page", async () => {

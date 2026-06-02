@@ -94,6 +94,7 @@ export const adminRouter = router({
           createdAt: digestRuns.createdAt,
           specId: digestRuns.specId,
           specVersion: digestSpecs.version,
+          specIsSmoke: digestSpecs.isSmoke,
           userId: users.id,
           userEmail: users.email,
           userState: users.state,

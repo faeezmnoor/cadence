@@ -132,6 +132,14 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                     >
                       v{r.specVersion}
                     </Link>
+                    {r.specIsSmoke ? (
+                      <span
+                        title="Smoke / dogfood spec"
+                        className="ml-1 text-xs text-neutral-400"
+                      >
+                        🧪
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <StatusPill
