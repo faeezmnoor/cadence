@@ -54,6 +54,7 @@ import type {
   ComposerSourcesBundle,
 } from "@/server/ai/composer/types";
 import { formatComposerOutput } from "@/server/telegram/format";
+import { buildFeedbackKeyboard } from "@/server/telegram/keyboard";
 import { isTelegramConfigured, getBot } from "@/server/telegram/client";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
@@ -249,9 +250,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   if (canSend) {
     try {
       const bot = getBot();
-      for (const part of parts) {
+      // T-401 (CAD-42): attach inline-keyboard ONLY to the final part, and
+      // ONLY when:
+      //   - the spec has keyboard_enabled = true (per-spec opt-in), and
+      //   - we already have a digestRunId (cron path pre-claimed a row).
+      // Manual sampleNow path (no pre-claimed id) skips the keyboard —
+      // dev-time previews don't need feedback collection.
+      const keyboardOn = specRow.keyboardEnabled && digestRunId != null;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+        const replyMarkup =
+          keyboardOn && isLast ? buildFeedbackKeyboard(digestRunId!) : undefined;
         const m = await bot.api.sendMessage(Number(user.telegramChatId), part.text, {
           parse_mode: part.parseMode,
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         });
         if (telegramMessageId == null) telegramMessageId = m.message_id;
         partsSent++;

@@ -82,6 +82,12 @@ export const digestSpecs = pgTable(
      * Toggle false to silence the smoke without deleting the row.
      */
     isSmoke: boolean("is_smoke").notNull().default(false),
+    /**
+     * T-401 (CAD-42): when true (default), delivered briefs include the
+     * 4-button inline feedback keyboard. Toggle false to silence per spec
+     * without losing delivery.
+     */
+    keyboardEnabled: boolean("keyboard_enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -178,18 +184,33 @@ export const digestRuns = pgTable(
 // ---------------------------------------------------------------------------
 // feedback_events
 // ---------------------------------------------------------------------------
-export const feedbackEvents = pgTable("feedback_events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  digestRunId: uuid("digest_run_id")
-    .notNull()
-    .references(() => digestRuns.id, { onDelete: "cascade" }),
-  signalType: text("signal_type").notNull(), // thumbs_up | thumbs_down | too_long | more_depth
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const feedbackEvents = pgTable(
+  "feedback_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    digestRunId: uuid("digest_run_id")
+      .notNull()
+      .references(() => digestRuns.id, { onDelete: "cascade" }),
+    /** Legacy/free-text signal label. Made nullable in 0006 — callback rows fill `vote`. */
+    signalType: text("signal_type"), // thumbs_up | thumbs_down | too_long | more_depth
+    /** T-402 (CAD-43): high-level intent from the inline keyboard. up | down | love | skip */
+    vote: text("vote"),
+    /** T-402: Telegram callback_query.id — UNIQUE for webhook-retry dedupe. */
+    telegramCallbackId: text("telegram_callback_id"),
+    /** T-402: origin of this signal. inline_keyboard | free_text | tune_command */
+    source: text("source").notNull().default("free_text"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    callbackIdUq: uniqueIndex("feedback_events_telegram_callback_id_uq")
+      .on(t.telegramCallbackId)
+      .where(sql`${t.telegramCallbackId} IS NOT NULL`),
+  })
+);
 
 // ---------------------------------------------------------------------------
 // learning_log

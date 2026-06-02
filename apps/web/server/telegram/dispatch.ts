@@ -15,6 +15,8 @@
  */
 import { resolveAndLinkToken } from "./link-token";
 import { getBot } from "./client";
+import { recordFeedbackCallback } from "./feedback-callback";
+import { parseCallbackData, VOTE_TOAST } from "./keyboard";
 
 interface TelegramUpdate {
   update_id: number;
@@ -23,6 +25,15 @@ interface TelegramUpdate {
     chat: { id: number; type: string };
     from?: { id: number; username?: string; first_name?: string };
     text?: string;
+  };
+  callback_query?: {
+    id: string;
+    from: { id: number; username?: string; first_name?: string };
+    data?: string;
+    message?: {
+      message_id: number;
+      chat: { id: number; type: string };
+    };
   };
 }
 
@@ -46,6 +57,15 @@ const MSG_UNKNOWN =
 export async function dispatchTelegramUpdate(
   update: TelegramUpdate
 ): Promise<void> {
+  // T-402 (CAD-43): handle inline-keyboard taps. Telegram gives us 5s to
+  // answerCallbackQuery before the spinner times out on the user's screen,
+  // so we keep the DB write tight and answer inline. answerCallbackQuery
+  // is best-effort — even if it errors we don't surface to the webhook.
+  if (update.callback_query) {
+    await dispatchCallbackQuery(update.callback_query);
+    return;
+  }
+
   const msg = update.message;
   if (!msg || !msg.text) return;
 
@@ -86,6 +106,51 @@ export async function dispatchTelegramUpdate(
 
   // Free-text — future: write into feedback_events / learning_log
   await safeSend(chatId, MSG_UNKNOWN);
+}
+
+type CallbackQuery = NonNullable<TelegramUpdate["callback_query"]>;
+
+async function dispatchCallbackQuery(cb: CallbackQuery): Promise<void> {
+  const parsed = parseCallbackData(cb.data);
+  if (!parsed) {
+    // Unknown callback shape — still answer Telegram so the spinner stops.
+    await safeAnswerCallback(cb.id, "Unknown action — try /tune.");
+    return;
+  }
+
+  const result = await recordFeedbackCallback({
+    callbackId: cb.id,
+    telegramUserId: cb.from.id,
+    telegramChatId: cb.message?.chat.id ?? null,
+    runId: parsed.runId,
+    vote: parsed.vote,
+  });
+
+  // Always answer — even on duplicate / unknown user — so the user's UI
+  // doesn't hang spinning. We pick the toast text based on outcome.
+  let toast: string;
+  switch (result.kind) {
+    case "recorded":
+    case "duplicate":
+      toast = VOTE_TOAST[parsed.vote];
+      break;
+    case "unknown_user":
+      toast = "Link this chat to Cadence in the web app first.";
+      break;
+    case "unknown_run":
+      toast = "That brief is too old to react to. Try the next one.";
+      break;
+  }
+  await safeAnswerCallback(cb.id, toast);
+}
+
+async function safeAnswerCallback(callbackId: string, text: string): Promise<void> {
+  try {
+    const bot = getBot();
+    await bot.api.answerCallbackQuery(callbackId, { text });
+  } catch (err) {
+    console.error("[telegram:answerCallbackQuery]", err);
+  }
 }
 
 async function safeSend(chatId: number, text: string): Promise<void> {

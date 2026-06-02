@@ -12,6 +12,8 @@ type Row = {
   createdVia: string;
   // T-306 (CAD-41): keep in sync with digest_specs.is_smoke schema column.
   isSmoke: boolean;
+  // T-401 (CAD-42): keep in sync with digest_specs.keyboard_enabled.
+  keyboardEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
   spec: unknown;
