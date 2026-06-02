@@ -38,6 +38,18 @@ export const users = pgTable(
     telegramUsername: text("telegram_username"),
     state: text("state").notNull().default("active"), // active | paused | delivery_broken
     distilledPrefs: jsonb("distilled_prefs"),
+    /** T-501a: whole credits, 1 credit = 1 brief. May go transiently negative (1-brief debt rule). */
+    creditsBalance: integer("credits_balance").notNull().default(0),
+    /** T-501a: lifetime sum of cost-to-us in micro-USD (1e-6 USD). Hidden from user. */
+    costToUsMicroUsd: bigint("cost_to_us_micro_usd", { mode: "number" }).notNull().default(0),
+    /** T-501a: ISO-3166-1 alpha-2 country code; drives MYR vs USD display. */
+    countryCode: text("country_code"),
+    /** T-501a: v1.5 placeholder — saved auto-top-up pack. NULL = off. */
+    autoTopupPackId: text("auto_topup_pack_id"),
+    /** T-501a: v1.5 placeholder — credits threshold that triggers auto-top-up. */
+    autoTopupThresholdCredits: integer("auto_topup_threshold_credits"),
+    /** T-501a: set when 3-credit trial grant fires. Prevents re-grant on re-signup. */
+    trialCreditsGrantedAt: timestamp("trial_credits_granted_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -341,6 +353,85 @@ export const feedbackEvalRuns = pgTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// pricing_snapshots (T-501a / T-502a)
+//
+// Append-only price + FX snapshot. Current pack row has active_to = NULL.
+// Price changes write a NEW row + UPDATE the prior current row's active_to.
+// `transactions.pricing_snapshot_id` FKs back so every receipt reconciles
+// against the snapshot that was active at sale time.
+// ---------------------------------------------------------------------------
+export const pricingSnapshots = pgTable(
+  "pricing_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'taste' | 'standard' | 'power' | 'pro' */
+    packId: text("pack_id").notNull(),
+    /** 30 | 70 | 200 | 1000 */
+    credits: integer("credits").notNull(),
+    /** Cents USD. Source of truth for charging. */
+    priceMinorUsd: integer("price_minor_usd").notNull(),
+    /** Sen MYR. Display value for MY users. */
+    priceMinorMyr: integer("price_minor_myr").notNull(),
+    /** USD->MYR rate snapshotted at sale time. */
+    fxRateUsdToMyr: numeric("fx_rate_usd_to_myr", { precision: 10, scale: 6 }).notNull(),
+    /** COGS estimate per credit, micro-USD. */
+    costToUsMicroPerCredit: bigint("cost_to_us_micro_per_credit", { mode: "number" }).notNull(),
+    activeFrom: timestamp("active_from", { withTimezone: true }).defaultNow().notNull(),
+    /** NULL = currently active. */
+    activeTo: timestamp("active_to", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    packActiveIdx: index("idx_pricing_snapshots_pack_active")
+      .on(t.packId)
+      .where(sql`${t.activeTo} IS NULL`),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// transactions (T-501a)
+//
+// Credit ledger. `balance_after` is the running balance snapshot post-apply
+// — used for UI and audit so we don't need a separate ledger view.
+// types: topup | charge | trial_grant | admin_grant | refund | promo
+// ---------------------------------------------------------------------------
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    /** Positive on topup/grant/refund, negative on charge. */
+    creditsDelta: integer("credits_delta").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    /** Cents (USD) or sen (MYR). Only on topup / refund. */
+    amountMinor: integer("amount_minor"),
+    /** 'USD' | 'MYR'. Only on topup / refund. */
+    currency: text("currency"),
+    fxRateToUsd: numeric("fx_rate_to_usd", { precision: 10, scale: 6 }),
+    /** UNIQUE (partial) — Stripe webhook idempotency key. */
+    stripeSessionId: text("stripe_session_id"),
+    pricingSnapshotId: uuid("pricing_snapshot_id").references(() => pricingSnapshots.id),
+    /** Only on type='charge'. */
+    digestRunId: uuid("digest_run_id").references(() => digestRuns.id, { onDelete: "set null" }),
+    /** Snapshot of our cost for THIS brief, micro-USD. Only on charge. */
+    costToUsMicroUsd: bigint("cost_to_us_micro_usd", { mode: "number" }),
+    metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userCreatedIdx: index("idx_transactions_user_created").on(t.userId, t.createdAt.desc()),
+    stripeSessionUq: uniqueIndex("transactions_stripe_session_id_uq")
+      .on(t.stripeSessionId)
+      .where(sql`${t.stripeSessionId} IS NOT NULL`),
+  })
+);
+
 // Re-export sql for callers that want raw expressions.
 export { sql };
 
@@ -359,3 +450,7 @@ export type CostEvent = typeof costEvents.$inferSelect;
 export type TelegramLinkToken = typeof telegramLinkTokens.$inferSelect;
 export type FeedbackEvalRun = typeof feedbackEvalRuns.$inferSelect;
 export type NewFeedbackEvalRun = typeof feedbackEvalRuns.$inferInsert;
+export type PricingSnapshot = typeof pricingSnapshots.$inferSelect;
+export type NewPricingSnapshot = typeof pricingSnapshots.$inferInsert;
+export type Transaction = typeof transactions.$inferSelect;
+export type NewTransaction = typeof transactions.$inferInsert;
