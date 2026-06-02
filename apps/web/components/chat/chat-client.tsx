@@ -8,6 +8,10 @@ import type { PersistedMessage } from "./types";
 import { MessageBubble } from "./message-bubble";
 import { SpecSidebar, type DraftLike } from "./spec-sidebar";
 import { trpc } from "@/lib/trpc/client";
+import {
+  detectMultiTopic,
+  MULTI_TOPIC_REFUSAL,
+} from "@/lib/chat/multi-topic";
 
 /**
  * Streaming chat client for the config agent.
@@ -71,8 +75,16 @@ export function ChatClient({
     }
   );
   const resetMut = trpc.chat.resetThread.useMutation();
+  const appendMsg = trpc.chat.appendMessage.useMutation();
 
-  const { messages, input, handleInputChange, handleSubmit, status, error, append, setMessages } =
+  // MUST-SHIP #5: when the user proposes 3+ topics in one message, refuse
+  // gracefully instead of letting the config agent silently fold them all
+  // into one spec. Track an ephemeral chip set sourced from the detector
+  // — tapping a chip re-enters the chat as a normal user message picking
+  // a single topic, which the agent then handles as the brief topic.
+  const [refusalChips, setRefusalChips] = useState<string[]>([]);
+
+  const { messages, input, handleInputChange, handleSubmit, status, error, append, setMessages, setInput } =
     useChat({
       api: "/api/chat",
       id: threadId,
@@ -84,6 +96,58 @@ export function ChatClient({
         void utils.chat.getDraft.invalidate({ threadId });
       },
     });
+
+  /**
+   * MUST-SHIP #5: intercept submit. If the typed message looks like a
+   * multi-topic enumeration (3+ candidates), short-circuit the round-trip:
+   *  - clear the input
+   *  - persist a user_text row (so resume-on-reload sees the typed message)
+   *  - persist + render an assistant refusal bubble
+   *  - render refusal chips (one per detected candidate); tapping a chip
+   *    sends it as a normal user message and the chat resumes single-topic.
+   * The assistant agent never sees the multi-topic message, so it can't
+   * fold three topics into one spec.
+   */
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const typed = input.trim();
+    const detection = detectMultiTopic(typed);
+    if (!detection.multiTopic) {
+      handleSubmit(e);
+      return;
+    }
+    e.preventDefault();
+    // Optimistically render the user message + refusal so the UI feels
+    // instant; persist both rows server-side for the resume case.
+    const userId = `local-user-${Date.now()}`;
+    const refusalId = `local-refusal-${Date.now()}`;
+    setMessages([
+      ...messages,
+      { id: userId, role: "user", content: typed },
+      { id: refusalId, role: "assistant", content: MULTI_TOPIC_REFUSAL },
+    ]);
+    setInput("");
+    setRefusalChips(detection.candidates);
+    void appendMsg.mutateAsync({
+      threadId,
+      role: "user",
+      content: { kind: "user_text", text: typed },
+    });
+    void appendMsg.mutateAsync({
+      threadId,
+      role: "assistant",
+      content: {
+        kind: "assistant_turn",
+        text: MULTI_TOPIC_REFUSAL,
+        toolResults: [],
+      },
+    });
+  };
+
+  const handleRefusalChip = (chip: string) => {
+    if (isStreamingState) return;
+    setRefusalChips([]);
+    void append({ role: "user", content: chip });
+  };
 
   const isStreamingState = status === "submitted" || status === "streaming";
 
@@ -311,6 +375,25 @@ export function ChatClient({
                 (targeting July). For now, please continue in English.
               </div>
             )}
+            {refusalChips.length > 0 && (
+              <div
+                data-testid="multi-topic-refusal-chips"
+                className="flex flex-wrap gap-1.5"
+                aria-label="Pick one topic"
+              >
+                {refusalChips.map((c, i) => (
+                  <button
+                    key={`${c}-${i}`}
+                    type="button"
+                    onClick={() => handleRefusalChip(c)}
+                    disabled={isStreaming}
+                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
             {isStreaming && (
               <div className="text-xs text-muted-foreground">Thinking…</div>
             )}
@@ -328,7 +411,7 @@ export function ChatClient({
         </div>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={onSubmit}
           className="border-t border-border bg-background px-4 py-3 sm:px-6 lg:border-t"
         >
           <div className="mx-auto flex w-full max-w-2xl gap-2">
