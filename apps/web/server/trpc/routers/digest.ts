@@ -9,7 +9,7 @@
  * Listing past runs is also exposed for the /app history view.
  */
 import { z } from "zod";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/server/db/client";
 import { digestRuns } from "@/server/db/schema";
@@ -40,6 +40,15 @@ export const digestRouter = router({
       // Dedup guard (replaces the dropped user_run_date_uq, per T-303 bonus).
       // Skip the cool-down for dry-runs — previewing twice is cheap and
       // doesn't hit Telegram.
+      //
+      // QA P1 #5: the cooldown query previously counted EVERY digest_runs
+      // row in the window, including status='failed'. A failed compose
+      // (no Telegram link, model error, source bundle empty) would lock
+      // the user out for 5 minutes even though no brief actually went out.
+      // Dry-runs already short-circuit before the persist block in
+      // server/digest/run.ts so they don't land in digest_runs at all —
+      // we only need to exclude 'failed' here. Status values that should
+      // count as a real send: 'composing' (in-flight) and 'delivered'.
       if (!dryRun) {
         const since = new Date(Date.now() - SAMPLE_NOW_COOLDOWN_MS);
         const recent = await db
@@ -48,7 +57,8 @@ export const digestRouter = router({
           .where(
             and(
               eq(digestRuns.userId, ctx.user.id),
-              gte(digestRuns.createdAt, since)
+              gte(digestRuns.createdAt, since),
+              ne(digestRuns.status, "failed")
             )
           )
           .limit(1);
