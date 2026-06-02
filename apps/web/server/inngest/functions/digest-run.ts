@@ -28,10 +28,12 @@
  *     `where(eq(users.state, 'active'))` immediately stops claiming new
  *     minute slots for this user. Recovery is owned by T-305 admin replay
  *     (which resets state -> 'active') or by a spec update path.
- *   - Successful delivery does NOT auto-clear delivery_broken. A user who
- *     was broken wouldn't have been dispatched in the first place; if they
- *     manage to ship via sampleNow/replay, the explicit action handles
- *     state restoration.
+ *   - T-304 update (2026-06-02): successful delivery DOES auto-clear
+ *     delivery_broken. The dispatcher's `state = 'active'` filter means a
+ *     broken user wouldn't normally reach this handler, but a manual
+ *     sampleNow / Inngest replay can succeed and we want that to heal the
+ *     user automatically. Implementation lives in
+ *     `runDigestPipeline` (one helper covers both entry points).
  *
  * Idempotency:
  *   The dispatcher already won the race; the pipeline trusts that. The old

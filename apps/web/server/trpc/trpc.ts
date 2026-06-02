@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { Context } from "./context";
+import { isAdminEmail } from "@/server/auth/admin";
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -19,6 +20,23 @@ export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+/**
+ * T-304: requires an authenticated user whose email is in CADENCE_ADMIN_EMAILS.
+ * Used by `admin.*` routers (runs viewer today, replay tomorrow).
+ *
+ * Returns 403 (FORBIDDEN) for signed-in non-admins so the UI can distinguish
+ * "log in" from "you can't see this".
+ */
+export const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  if (!isAdminEmail(ctx.user.email)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Admin only." });
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
 });

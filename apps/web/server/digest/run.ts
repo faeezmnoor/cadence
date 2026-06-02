@@ -24,6 +24,30 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
+
+/**
+ * Auto-heal: any successful delivery clears users.state === "delivery_broken".
+ *
+ * Covers both pipeline entry points:
+ *   - Cron-dispatched path (digest-run.ts handler): a successful retry after
+ *     a previous failure flips the user back to active so the next minute's
+ *     dispatch claims them again.
+ *   - Manual sampleNow path: lets a broken user self-recover by pushing a
+ *     successful brief, without going through admin replay (T-305).
+ *
+ * Guarded by an equality predicate so we only write when the row actually
+ * transitions broken -> active. No-op on already-active users keeps audit
+ * noise / updated_at churn down.
+ *
+ * Decision locked 2026-06-02: single-tenant prod, low blast radius, lower
+ * friction than admin-only recovery.
+ */
+async function autoHealDeliveryBroken(userId: string): Promise<void> {
+  await db
+    .update(users)
+    .set({ state: "active", updatedAt: new Date() })
+    .where(and(eq(users.id, userId), eq(users.state, "delivery_broken")));
+}
 import { composeDigest } from "@/server/ai/composer/compose";
 import type {
   ComposerInput,
@@ -331,6 +355,13 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       })
       .where(eq(digestRuns.id, digestRunId));
 
+    // T-304 bonus: auto-heal delivery_broken on success. No-op if active.
+    // Future per-spec rows naturally start with attempt_count=0; we don't
+    // need to touch the just-updated row's counter.
+    if (status === "delivered") {
+      await autoHealDeliveryBroken(userId);
+    }
+
     return {
       status,
       digestRunId,
@@ -353,6 +384,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       costUsd: composeCostUsd.toString(),
     })
     .returning({ id: digestRuns.id });
+
+  // T-304 bonus: auto-heal on a successful manual / sampleNow delivery too.
+  if (status === "delivered") {
+    await autoHealDeliveryBroken(userId);
+  }
 
   return {
     status,
