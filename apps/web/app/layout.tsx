@@ -4,9 +4,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCProvider } from "@/lib/trpc/provider";
 
 export const metadata: Metadata = {
-  title: "Cadence — daily market briefs on Telegram",
+  title: "Cadence — a daily market researcher for your industry",
   description:
-    "Periodical, self-learning market-research digests delivered to the messaging app you already check.",
+    "Daily, sourced market briefs for your industry — delivered to the messaging app you already use. Senior-researcher quality for the price of coffee.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
