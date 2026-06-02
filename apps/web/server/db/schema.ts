@@ -74,12 +74,22 @@ export const digestSpecs = pgTable(
     version: integer("version").notNull(),
     spec: jsonb("spec").notNull(),
     isCurrent: boolean("is_current").notNull().default(true),
-    createdVia: text("created_via").notNull(), // chat_agent | manual_edit
+    createdVia: text("created_via").notNull(), // chat_agent | manual_edit | smoke_seed
+    /**
+     * T-306 (CAD-41): mark this spec as a self-dogfooded smoke spec. Smoke
+     * specs are dispatched normally by the cron but are reported on by the
+     * daily smoke summary cron and ignored by user-facing analytics.
+     * Toggle false to silence the smoke without deleting the row.
+     */
+    isSmoke: boolean("is_smoke").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     userCurrentIdx: index("idx_digest_specs_user_current").on(t.userId, t.isCurrent),
+    smokeIdx: index("idx_digest_specs_is_smoke")
+      .on(t.id)
+      .where(sql`${t.isSmoke} = true`),
   })
 );
 
