@@ -43,7 +43,6 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { transactions, users } from "@/server/db/schema";
 import { costToUsMicroUsdForRun } from "./cost";
-import { TRIAL_CREDITS } from "./packs";
 
 /**
  * PRD §6.1: 1-brief grace credit means a user at balance=0 still gets
@@ -75,7 +74,10 @@ export interface DebitResult {
   costMicros: number;
   /** id of the transactions row we just inserted. */
   transactionId: string;
-  /** T-506a: true iff this delivery also fired the one-shot trial grant. */
+  /**
+   * T-506b: trial grant moved to signup (DB trigger handle_new_auth_user).
+   * Field retained on the result for caller compatibility; always false.
+   */
   trialGranted: boolean;
 }
 
@@ -88,35 +90,11 @@ export async function debitForDelivery(params: {
 
   // Drizzle wraps `db.transaction(tx => ...)` in a real Postgres transaction.
   return await db.transaction(async (tx) => {
-    // T-506a: one-shot trial grant. We check `trial_credits_granted_at IS
-    // NULL` and SET it inside the same SQL so a retry under racy delivery
-    // can't double-grant. The grant fires whether or not the user already
-    // has credits — we want every user to see "3 trial briefs" once.
-    // Order matters: grant THEN debit, so first delivery lands at
-    // (3 - 1) = 2 instead of 0 -> -1 then +3 = 2. Both reach the same
-    // end-state but the ledger reads more naturally this way.
-    const trialUpdate = await tx
-      .update(users)
-      .set({
-        creditsBalance: sql`${users.creditsBalance} + ${TRIAL_CREDITS}`,
-        trialCreditsGrantedAt: sql`NOW()`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(users.id, userId), isNull(users.trialCreditsGrantedAt))
-      )
-      .returning({ balance: users.creditsBalance });
-    const trialGranted = trialUpdate.length > 0;
-    if (trialGranted) {
-      await tx.insert(transactions).values({
-        userId,
-        type: "trial_grant",
-        creditsDelta: TRIAL_CREDITS,
-        balanceAfter: trialUpdate[0]!.balance,
-        metadata: { source: "first_brief_delivered", digestRunId },
-      });
-    }
-
+    // T-506b: trial grant is no longer wired here. It fires on signup
+    // via the public.handle_new_auth_user() DB trigger (migration 0013),
+    // so by the time we reach debitForDelivery the user already has their
+    // 3-credit grant (or already spent it). `trialGranted` is kept on the
+    // return shape for caller compatibility but is always false now.
     const updated = await tx
       .update(users)
       .set({
@@ -154,7 +132,7 @@ export async function debitForDelivery(params: {
       balanceAfter,
       costMicros: cost.micros,
       transactionId: inserted[0]!.id,
-      trialGranted,
+      trialGranted: false,
     };
   });
 }
