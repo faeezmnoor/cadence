@@ -85,8 +85,17 @@ function makeSelectChain(rowsByTable: Map<unknown, unknown[]>) {
     where() {
       return this;
     },
+    orderBy() {
+      return this;
+    },
     limit() {
       return Promise.resolve(rowsByTable.get(activeTable) ?? []);
+    },
+    // Drizzle select-without-limit pattern (e.g. learning_log candidates
+    // are queried with .limit(50) — handled above — but be tolerant of
+    // future callers that omit limit and `await` the chain directly).
+    then(resolve: (rows: unknown[]) => unknown) {
+      return Promise.resolve(rowsByTable.get(activeTable) ?? []).then(resolve);
     },
   };
 }

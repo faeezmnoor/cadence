@@ -21,9 +21,10 @@
  *     scheduled idempotency slot for the same UTC date and doesn't
  *     leave ghost "composing" rows in history.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs, users } from "@/server/db/schema";
+import { digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
+import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
 
 /**
  * Auto-heal: any successful delivery clears users.state === "delivery_broken".
@@ -174,18 +175,63 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   }
 
   // 3. Compose
+  //
+  // T-404: hybrid feedback injection.
+  //   - users.distilled_prefs (canonical bias from T-405; may be null
+  //     until the first weekly distill lands).
+  //   - Recent undistilled learning_log rows (newest first, verbatim).
+  // The builder enforces a 500-token cap; we pull a generous candidate
+  // window (50 rows) and let it trim. Stamp consumed_at on included rows
+  // after the LLM call succeeds — failures shouldn't burn the signal.
+  const distilledPrefs = Array.isArray(user.distilledPrefs)
+    ? (user.distilledPrefs as string[])
+    : null;
+  const rawCandidateRows = await db
+    .select({
+      id: learningLog.id,
+      rawText: learningLog.rawText,
+      createdAt: learningLog.createdAt,
+    })
+    .from(learningLog)
+    .where(and(eq(learningLog.userId, userId), isNull(learningLog.distilledAt)))
+    .orderBy(desc(learningLog.createdAt))
+    .limit(50);
+
+  const feedbackBlock = buildFeedbackBlock({
+    distilledPrefs,
+    rawCandidates: rawCandidateRows,
+  });
+
   let markdown: string;
   let composeCostUsd = 0;
   try {
     const composerInput: ComposerInput = {
       spec: specRow.spec as ComposerInput["spec"],
       sources,
+      distilledPrefs: feedbackBlock.distilledPrefs.length > 0
+        ? feedbackBlock.distilledPrefs
+        : undefined,
+      recentRawNotes: feedbackBlock.recentRawNotes.length > 0
+        ? feedbackBlock.recentRawNotes
+        : undefined,
       userId,
       digestRunId: null, // updated below once row exists
     };
     const out = await composeDigest(composerInput);
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
+
+    // T-404: mark raw learning_log rows as consumed *after* a successful
+    // compose. If compose throws we keep them unconsumed so the next
+    // attempt re-injects them. We don't gate on dryRun: a preview should
+    // still record that the signal was seen — the row isn't re-distilled
+    // by this stamp (T-405 owns distilled_at semantics).
+    if (feedbackBlock.consumedRawIds.length > 0) {
+      await db
+        .update(learningLog)
+        .set({ consumedAt: new Date() })
+        .where(inArray(learningLog.id, feedbackBlock.consumedRawIds));
+    }
   } catch (err) {
     const error = sanitizeError(err);
     const errorClass = classifyError(err);

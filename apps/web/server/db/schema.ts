@@ -237,6 +237,7 @@ export const learningLog = pgTable(
     source: text("source").notNull(), // tune_command | feedback_event | distilled
     rawText: text("raw_text").notNull(),
     distilledAt: timestamp("distilled_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

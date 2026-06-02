@@ -229,6 +229,9 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
               where() {
                 return chain;
               },
+              orderBy() {
+                return chain;
+              },
               limit() {
                 if (activeTable === schema.users) {
                   return Promise.resolve([
@@ -236,6 +239,7 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
                       id: "user-1",
                       telegramChatId: 12345,
                       state: "active",
+                      distilledPrefs: null,
                     },
                   ]);
                 }
@@ -248,6 +252,9 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
                       keyboardEnabled: opts.keyboardEnabled,
                     },
                   ]);
+                }
+                if (activeTable === schema.learningLog) {
+                  return Promise.resolve([]);
                 }
                 return Promise.resolve([]);
               },
