@@ -64,6 +64,8 @@ import {
   recordSkipForCredits,
   shouldSkipForCredits,
 } from "@/server/billing/debit";
+import { buildLowBalanceFooter, type Cadence } from "@/server/billing/low-balance-footer";
+import { TRIAL_CREDITS } from "@/server/billing/packs";
 import { sanitizeError, classifyError, type ErrorClass } from "./errors";
 
 export interface RunDigestParams {
@@ -326,6 +328,32 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       errorClass,
       attemptCount: failedRow[0]?.attemptCount ?? undefined,
     };
+  }
+
+  // T-507a: append low-balance footer to the brief markdown BEFORE splitting.
+  // We use the pre-debit balance (-1 from where the user will land after this
+  // delivery's debit) because the footer copy is about the user's state going
+  // forward. balance==1 here → after debit becomes 0 → paywall tier fires.
+  //
+  // Skipping for dryRun: preview shouldn't surface nudges based on a balance
+  // that won't actually decrement. Skipping for unconfigured app URL too —
+  // we'd emit a broken link otherwise.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  if (!dryRun && appUrl.length > 0) {
+    const spec = specRow.spec as { cadence?: { frequency?: Cadence } };
+    const frequency = spec.cadence?.frequency ?? "daily";
+    // The balance going into this brief — debit not yet applied. Subtract 1
+    // to reason about post-delivery state.
+    const projectedBalance = user.creditsBalance - 1;
+    const trialActive =
+      user.trialCreditsGrantedAt != null && user.creditsBalance <= TRIAL_CREDITS;
+    const footer = buildLowBalanceFooter({
+      creditsBalance: projectedBalance,
+      cadence: frequency,
+      trialActive,
+      appUrl,
+    });
+    if (footer) markdown = markdown + footer;
   }
 
   // 4. Format for Telegram
