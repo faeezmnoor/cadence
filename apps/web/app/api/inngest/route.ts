@@ -5,8 +5,9 @@ import { rssPoll } from "@/server/inngest/functions/rss-poll";
 import { digestRunFn } from "@/server/inngest/functions/digest-run";
 import { cronDispatch } from "@/server/inngest/functions/cron-dispatch";
 import { smokeSummary } from "@/server/inngest/functions/smoke-summary";
+import { weeklyDistill } from "@/server/inngest/functions/weekly-distill";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [hello, rssPoll, digestRunFn, cronDispatch, smokeSummary],
+  functions: [hello, rssPoll, digestRunFn, cronDispatch, smokeSummary, weeklyDistill],
 });
