@@ -1,9 +1,17 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { LinkTelegramClient } from "@/components/telegram/link-telegram-client";
+import { AppNav } from "@/components/nav/app-nav";
 
 /**
  * /app/link — Telegram linking screen.
+ *
+ * Designer #2 fix (post-confirm landing): users arrive here straight
+ * from chat's confirm_and_save (chat-client.tsx:131). Page reads as a
+ * friendly milestone, not a settings form. The connect-bot CTA is the
+ * single primary action; "Linked!" state collapses to a tomorrow-promise.
  *
  * Auth-checks, then mounts the client component that issues a link token
  * via tRPC and subscribes to Realtime for instant "Linked!" feedback.
@@ -16,17 +24,30 @@ export default async function LinkPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/sign-in");
+  const isAdmin = isAdminEmail(user.email);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Link Telegram</h1>
-        <p className="text-sm text-muted-foreground">
-          Cadence delivers your briefs as Telegram messages. Tap the button
-          below to open Telegram and link this account in one tap.
+    <div className="min-h-screen bg-background">
+      <AppNav active="link" />
+      <main className="mx-auto flex max-w-xl flex-col gap-6 px-6 py-12">
+        <header className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-green-600/30 bg-green-50/50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-950/30 dark:text-green-300">
+            <span aria-hidden="true">✓</span>
+            <span>Brief saved</span>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Now connect Telegram
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Your brief is configured. One last step — link your Telegram so
+            Cadence can deliver it. Your first brief lands tomorrow at 07:00 MYT.
+          </p>
+        </header>
+        <LinkTelegramClient userId={user.id} isAdmin={isAdmin} />
+        <p className="text-xs text-muted-foreground">
+          Want to tweak the spec? <Link href={"/spec" as never} className="underline underline-offset-2 hover:text-foreground">View your spec</Link> · <Link href={"/chat" as never} className="underline underline-offset-2 hover:text-foreground">Continue the chat</Link>
         </p>
-      </header>
-      <LinkTelegramClient userId={user.id} />
-    </main>
+      </main>
+    </div>
   );
 }

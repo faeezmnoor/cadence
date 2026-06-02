@@ -6,6 +6,12 @@ import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 interface Props {
   userId: string;
+  /**
+   * Admin gating for the "bot not configured" engineering banner.
+   * Non-admins should never see env-var setup copy (audit Designer #4 / #2).
+   * Defaults to false so the safe path is silence for end users.
+   */
+  isAdmin?: boolean;
 }
 
 /**
@@ -19,7 +25,7 @@ interface Props {
  *  2. Fallback 5s poll on telegram.status (in case Realtime is disabled
  *     or the subscription handshake fails locally)
  */
-export function LinkTelegramClient({ userId }: Props) {
+export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
   const statusQuery = trpc.telegram.status.useQuery(undefined, {
     refetchInterval: 5000, // fallback poll
   });
@@ -96,14 +102,14 @@ export function LinkTelegramClient({ userId }: Props) {
 
   if (linked) {
     return (
-      <div className="rounded-lg border border-green-600/30 bg-green-50/40 p-4 dark:bg-green-950/20">
-        <p className="text-sm font-medium text-green-700 dark:text-green-300">
-          Linked
-          {statusQuery.data?.username ? ` as @${statusQuery.data.username}` : ""}.
+      <div className="rounded-lg border border-green-600/30 bg-green-50/50 p-5 dark:bg-green-950/20">
+        <p className="text-base font-semibold text-green-700 dark:text-green-300">
+          Telegram connected
+          {statusQuery.data?.username ? ` · @${statusQuery.data.username}` : ""}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          You&apos;ll get your next brief on schedule. Reply to any brief with
-          feedback — Cadence will adjust.
+        <p className="mt-2 text-sm text-muted-foreground">
+          You&apos;re set. Your first brief arrives tomorrow at 07:00 MYT.
+          Reply to any brief with feedback — Cadence learns from it.
         </p>
       </div>
     );
@@ -111,10 +117,15 @@ export function LinkTelegramClient({ userId }: Props) {
 
   return (
     <div className="space-y-4">
-      {!botConfigured && (
+      {!botConfigured && isAdmin && (
         <div className="rounded-lg border border-amber-600/30 bg-amber-50/40 p-3 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">
           Bot not yet configured. Set <code>TELEGRAM_BOT_TOKEN</code> and{" "}
           <code>BOT_USERNAME</code> in env. See docs/TELEGRAM_BOT_SETUP.md.
+        </div>
+      )}
+      {!botConfigured && !isAdmin && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          Linking is temporarily unavailable. Try again in a moment.
         </div>
       )}
 
@@ -127,12 +138,14 @@ export function LinkTelegramClient({ userId }: Props) {
           href={token.deepLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-foreground px-6 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
         >
           Open Telegram to link
         </a>
       ) : (
-        <p className="text-sm text-muted-foreground">Issuing link…</p>
+        <p className="text-sm text-muted-foreground">
+          <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40 align-middle" aria-hidden="true" /> Preparing your link…
+        </p>
       )}
 
       {token && (

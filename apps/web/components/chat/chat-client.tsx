@@ -119,8 +119,11 @@ export function ChatClient({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
-  // If the last assistant turn includes a confirm_and_save tool result,
-  // route to /spec — the chat is done.
+  // Designer #2 fix: if the last assistant turn includes a confirm_and_save
+  // tool result, route to /app/link (the Telegram connect step) instead of
+  // /spec. Largest conversion leak in the product per design-audit-v1 §5 —
+  // the user finishes the chat triumphant and needs the next action surfaced
+  // before they see raw JSON. /spec remains reachable via the AppNav.
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant") return;
@@ -128,7 +131,7 @@ export function ChatClient({
       (t) => t.toolName === "confirm_and_save" && t.state === "result"
     );
     if (saved) {
-      router.push("/spec" as never);
+      router.push("/app/link" as never);
     }
   }, [messages, router]);
 
