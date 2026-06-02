@@ -33,6 +33,10 @@ import type {
   ConfigAgentContext,
   ConfigAgentSession,
 } from "@/server/ai/config-agent/types";
+import {
+  digestSpecDraftSchema,
+  type DigestSpecDraft,
+} from "@/lib/digest-spec/schema";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -94,13 +98,27 @@ export async function POST(req: Request) {
     });
   }
 
-  // Session is per-request: the agent's draft state lives in memory for
-  // this turn only. If a previous turn called confirm_and_save we reflect
-  // that by checking digest_specs, but for now the LLM rebuilds draft
-  // intent from prior tool calls (which it sees in the message history).
+  // T-408 / CAD-70: rehydrate the working draft from chat_threads.draft_spec
+  // so multi-turn edits compose. Validate against the draft schema before
+  // trusting it — a malformed row (e.g. from an older schema version) should
+  // degrade to an empty draft rather than poisoning the agent.
+  let hydratedDraft: DigestSpecDraft | undefined;
+  if (thread.draftSpec !== null && thread.draftSpec !== undefined) {
+    const parsed = digestSpecDraftSchema.safeParse(thread.draftSpec);
+    if (parsed.success) {
+      hydratedDraft = parsed.data;
+    } else {
+      log.warn("chat: discarding malformed draft_spec on thread", {
+        threadId: thread.id,
+        issues: parsed.error.issues.length,
+      });
+    }
+  }
+
   const session: ConfigAgentSession = {
     userId: user.id,
     threadId: thread.id,
+    draft: hydratedDraft,
   };
   const agentCtx: ConfigAgentContext = {
     session,
@@ -142,11 +160,25 @@ export async function POST(req: Request) {
             },
           });
 
-          // If the agent successfully saved, mark the thread completed.
+          // T-408: persist the working draft so the next turn sees it.
+          // On successful save we also clear draft_spec (the canonical
+          // record is now in digest_specs) and mark the thread completed.
           if (session.savedSpecId) {
             await db
               .update(chatThreads)
-              .set({ status: "completed", updatedAt: new Date() })
+              .set({
+                status: "completed",
+                draftSpec: null,
+                updatedAt: new Date(),
+              })
+              .where(eq(chatThreads.id, thread.id));
+          } else if (session.draft) {
+            await db
+              .update(chatThreads)
+              .set({
+                draftSpec: session.draft,
+                updatedAt: new Date(),
+              })
               .where(eq(chatThreads.id, thread.id));
           }
         } catch (err) {

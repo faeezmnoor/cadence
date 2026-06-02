@@ -55,13 +55,22 @@ export function ChatClient({
     })
     .filter((m): m is Message => m !== null);
 
-  const { messages, input, handleInputChange, handleSubmit, status, error } =
+  const { messages, input, handleInputChange, handleSubmit, status, error, append } =
     useChat({
       api: "/api/chat",
       id: threadId,
       initialMessages: hydrated,
       body: { threadId },
     });
+
+  const isStreamingState = status === "submitted" || status === "streaming";
+
+  // T-410 / CAD-72: suggestion chips dispatch a user message on tap.
+  // Disabled while streaming so we don't pile turns on top of an in-flight one.
+  const handleSuggestion = (text: string) => {
+    if (isStreamingState || !text.trim()) return;
+    void append({ role: "user", content: text });
+  };
 
   // Auto-scroll on new messages.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -82,7 +91,7 @@ export function ChatClient({
     }
   }, [messages, router]);
 
-  const isStreaming = status === "submitted" || status === "streaming";
+  const isStreaming = isStreamingState;
 
   return (
     <main className="flex h-[100dvh] flex-col bg-background">
@@ -107,7 +116,12 @@ export function ChatClient({
             </div>
           )}
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} />
+            <MessageBubble
+              key={m.id}
+              message={m}
+              onSuggestionClick={handleSuggestion}
+              suggestionsDisabled={isStreaming}
+            />
           ))}
           {isStreaming && (
             <div className="text-xs text-muted-foreground">Thinking…</div>

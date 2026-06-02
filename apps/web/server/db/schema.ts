@@ -122,6 +122,9 @@ export const chatThreads = pgTable("chat_threads", {
     .references(() => users.id, { onDelete: "cascade" }),
   purpose: text("purpose").notNull(), // initial_config | reconfigure
   status: text("status").notNull().default("active"), // active | completed
+  // T-408: in-progress DigestSpecDraft so multi-turn edits compose. NULL
+  // until first write; cleared back to NULL on successful confirm_and_save.
+  draftSpec: jsonb("draft_spec"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
