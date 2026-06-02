@@ -60,5 +60,12 @@ export function buildAiSdkTools(ctx: ConfigAgentContext) {
         configAgentTools.confirm_and_save.handler(input, ctx)
       ),
     }),
+    suggest_quick_replies: tool({
+      description: configAgentTools.suggest_quick_replies.description,
+      parameters: configAgentTools.suggest_quick_replies.schema,
+      execute: safeExecute("suggest_quick_replies", (input) =>
+        configAgentTools.suggest_quick_replies.handler(input, ctx)
+      ),
+    }),
   };
 }

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
@@ -63,7 +63,12 @@ export default async function ChatPage() {
       createdAt: chatMessages.createdAt,
     })
     .from(chatMessages)
-    .where(eq(chatMessages.threadId, thread.id))
+    .where(
+      and(
+        eq(chatMessages.threadId, thread.id),
+        isNull(chatMessages.archivedAt)
+      )
+    )
     .orderBy(asc(chatMessages.createdAt));
 
   const initialMessages: PersistedMessage[] = priorRows.map((r) => ({
@@ -74,6 +79,10 @@ export default async function ChatPage() {
   }));
 
   return (
-    <ChatClient threadId={thread.id} initialMessages={initialMessages} />
+    <ChatClient
+      threadId={thread.id}
+      initialMessages={initialMessages}
+      initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
+    />
   );
 }
