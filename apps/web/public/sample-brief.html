@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=390,initial-scale=1" />
+<title>Cadence — sample brief</title>
+<style>
+  :root {
+    --bg: #0e1621;       /* Telegram dark bg */
+    --bubble: #182533;   /* Telegram in-bubble */
+    --text: #ffffff;
+    --muted: #8195a8;
+    --accent: #6ab7ff;
+    --rule: #243447;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+  .phone {
+    width: 366px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px 16px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2b5876, #4e4376);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 15px; color: white;
+  }
+  .name { color: var(--text); font-weight: 600; font-size: 15px; }
+  .meta { font-size: 12px; color: var(--muted); }
+  .bubble {
+    background: var(--bubble);
+    border-radius: 14px;
+    border-top-left-radius: 4px;
+    padding: 12px 14px;
+    font-size: 14.5px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .bubble .line { margin: 0; }
+  .bubble h3 {
+    font-size: 14.5px;
+    margin: 14px 0 6px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .bubble h3:first-child { margin-top: 0; }
+  .bubble .bullet {
+    margin: 2px 0 2px 4px;
+    color: var(--text);
+  }
+  .bubble strong { color: var(--text); }
+  .bubble em { color: var(--muted); font-style: normal; }
+  .bubble a { color: var(--accent); }
+  .timestamp {
+    align-self: flex-end;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 8px 0;
+  }
+  .keyboard {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .keyboard button {
+    flex: 1;
+    background: #2b3a4c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .keyboard button:hover { background: #344659; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="topbar">
+      <div class="avatar">C</div>
+      <div>
+        <div class="name">Cadence</div>
+        <div class="meta">bot · online</div>
+      </div>
+    </div>
+    <div class="bubble">
+      <div class="line">🌾 <strong>Cadence</strong> · Daily · 2 Jun 2026</div>
+      <div class="line">Palm oil &amp; feedstock</div>
+      <div class="line"><em>Tuned for: KL trader, prices on, no Indonesia politics</em></div>
+      
+      <div class="line"><strong>TL;DR</strong> — CPO holds at RM 3,920 (▼0.4%); MPOB lifts June export quota by 12%; soyoil firms on US Midwest dryness [1][2].</div>
+      
+      <h3>Prices</h3>
+      <div class="bullet">• CPO Aug: RM 3,920 ▼0.4% (24h) · ▲2.1% (7d)</div>
+      <div class="bullet">• Soyoil: 47.2¢/lb ▲1.1% on Midwest dry-pattern forecast [2]</div>
+      <div class="bullet">• Brent: $82.4 — soft Asia demand signal, watch China crude imports</div>
+      
+      <h3>What moved</h3>
+      <div class="bullet">• MPOB raised June export quota 12% on May stock build-up [1] — bearish near-term but supportive for sticky volume flows.</div>
+      <div class="bullet">• China soy crush margins widened to 18-month high [3] — bullish read-through for the vegoil complex.</div>
+      
+      <h3>Watch this week</h3>
+      <div class="bullet">• Thu: Felda Q1 earnings call (consensus -8% YoY)</div>
+      <div class="bullet">• Fri: MPOB May stocks report — consensus 1.85m tonnes</div>
+      
+      <div class="line"><strong>Why this matters to you</strong></div>
+      <div class="line">Your CPO short held since May gets a near-term tailwind from the quota lift; the soyoil long leg of the pair-trade is in the money on 7d. Felda earnings Thu is the next mark-to-market event for the basket.</div>
+      
+      <div class="line"><em>Reply 👍 / 👎 — or &quot;tune: &lt;what to change&gt;&quot;</em></div>
+      
+      <h3>Sources</h3>
+      <div class="line">[1] MPOB — https://bepi.mpob.gov.my/export-quota-jun-26</div>
+      <div class="line">[2] Reuters — https://reuters.com/markets/commodities/soyoil-weather-2026-06-01</div>
+      <div class="line">[3] S&amp;P Platts — https://platts.com/oilseeds/china-crush-2026-w22</div>
+      
+    </div>
+    <div class="timestamp">07:00</div>
+    <div class="keyboard">
+      <button>👍</button>
+      <button>👎</button>
+      <button>Tune…</button>
+    </div>
+  </div>
+</body>
+</html>
