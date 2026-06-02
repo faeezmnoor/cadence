@@ -55,6 +55,27 @@ describe("detectMultiTopic", () => {
     expect(r.candidates.length).toBeLessThanOrEqual(4);
   });
 
+  it("flags 3 topics joined by '+' (QA P1 #4)", () => {
+    const r = detectMultiTopic("TikTok Shop + Shopee Live + Klaviyo");
+    expect(r.multiTopic).toBe(true);
+    expect(r.candidates).toHaveLength(3);
+    expect(r.candidates).toContain("TikTok Shop");
+    expect(r.candidates).toContain("Shopee Live");
+    expect(r.candidates).toContain("Klaviyo");
+  });
+
+  it("flags 3 topics joined by '&'", () => {
+    const r = detectMultiTopic("crypto & AI & palm oil");
+    expect(r.multiTopic).toBe(true);
+    expect(r.candidates.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("flags mixed-separator enumerations including '+'", () => {
+    const r = detectMultiTopic("crypto + AI, palm oil and EVs");
+    expect(r.multiTopic).toBe(true);
+    expect(r.candidates.length).toBeGreaterThanOrEqual(3);
+  });
+
   it("de-duplicates candidates case-insensitively", () => {
     const r = detectMultiTopic("Crypto, crypto and CRYPTO and AI");
     // After dedup we drop to fewer than 3 distinct candidates and the

@@ -38,6 +38,7 @@ import {
   type DigestSpecDraft,
 } from "@/lib/digest-spec/schema";
 import { log } from "@/lib/log";
+import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
 
   // Persist the latest user message (the one the client just sent).
   const lastMsg = body.messages[body.messages.length - 1];
+  let lastUserText = "";
   if (lastMsg?.role === "user") {
     // Guard: ai-sdk message.content can be string OR a parts array. Coerce
     // to string so persistence never throws on non-string payloads (e.g.
@@ -91,11 +93,43 @@ export async function POST(req: Request) {
       typeof lastMsg.content === "string"
         ? lastMsg.content
         : JSON.stringify(lastMsg.content ?? "");
+    lastUserText = text;
     await db.insert(chatMessages).values({
       threadId: thread.id,
       role: "user",
       content: { kind: "user_text", text },
     });
+  }
+
+  // QA P1 #4: server-side mirror of the multi-topic refusal. The client
+  // intercepts before submit, but non-browser callers (curl, future API
+  // clients, a buggy/tampered client) would otherwise hit the LLM directly
+  // and let three topics fold into one spec. Mirror the same heuristic
+  // here and short-circuit with a persisted assistant refusal turn — no
+  // streamText call, no LLM cost.
+  if (lastMsg?.role === "user") {
+    const detection = detectMultiTopic(lastUserText);
+    if (detection.multiTopic) {
+      await db.insert(chatMessages).values({
+        threadId: thread.id,
+        role: "assistant",
+        content: {
+          kind: "assistant_turn",
+          text: MULTI_TOPIC_REFUSAL,
+          toolResults: [],
+          multiTopicRefusal: true,
+          candidates: detection.candidates,
+        },
+      });
+      return NextResponse.json(
+        {
+          error: "multi_topic_refused",
+          message: MULTI_TOPIC_REFUSAL,
+          candidates: detection.candidates,
+        },
+        { status: 422 }
+      );
+    }
   }
 
   // T-408 / CAD-70: rehydrate the working draft from chat_threads.draft_spec

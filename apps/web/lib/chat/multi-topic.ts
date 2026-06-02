@@ -29,6 +29,7 @@ const CONJUNCTIONS = [
   /\s+and\s+/i,
   /\s+plus\s+/i,
   /\s+&\s+/,
+  /\s*\+\s*/,
   /\s*,\s*/,
 ];
 
