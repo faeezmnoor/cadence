@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
 import { digestSpecs } from "@/server/db/schema";
 import { SpecClient } from "./spec-client";
+import { AppNav } from "@/components/nav/app-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +34,10 @@ export default async function SpecPage() {
     .where(eq(digestSpecs.userId, user.id))
     .orderBy(desc(digestSpecs.version));
 
-  return <SpecClient initialCurrent={current} initialVersions={versions} />;
+  return (
+    <div className="min-h-screen bg-background">
+      <AppNav active="spec" />
+      <SpecClient initialCurrent={current} initialVersions={versions} />
+    </div>
+  );
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { isAdminEmail } from "@/server/auth/admin";
 import { RunsClient } from "./runs-client";
+import { AppNav } from "@/components/nav/app-nav";
 
 /**
  * T-304 (CAD-39): /admin/runs — paginated runs viewer.
@@ -39,5 +40,10 @@ export default async function AdminRunsPage() {
     );
   }
 
-  return <RunsClient adminEmail={user.email ?? ""} />;
+  return (
+    <div className="min-h-screen bg-background">
+      <AppNav active="admin" />
+      <RunsClient adminEmail={user.email ?? ""} />
+    </div>
+  );
 }
