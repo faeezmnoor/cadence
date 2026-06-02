@@ -33,7 +33,7 @@ export default async function AdminRunsPage() {
       <div className="mx-auto max-w-xl px-6 py-24 text-center">
         <h1 className="text-2xl font-semibold">Not found</h1>
         <p className="mt-2 text-sm text-neutral-500">
-          The page you're looking for doesn't exist or you don't have access.
+          The page you&apos;re looking for doesn&apos;t exist or you don&apos;t have access.
         </p>
       </div>
     );
