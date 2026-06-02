@@ -59,6 +59,11 @@ import { buildFeedbackKeyboard } from "@/server/telegram/keyboard";
 import { isTelegramConfigured, getBot } from "@/server/telegram/client";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
+import {
+  debitForDelivery,
+  recordSkipForCredits,
+  shouldSkipForCredits,
+} from "@/server/billing/debit";
 import { sanitizeError, classifyError, type ErrorClass } from "./errors";
 
 export interface RunDigestParams {
@@ -84,7 +89,9 @@ export type RunStatus =
   | "no_telegram_link"
   | "no_spec"
   | "duplicate"
-  | "failed";
+  | "failed"
+  /** T-505a: balance ≤ −1 at gate-check time. Composer + send skipped. */
+  | "skipped_no_credits";
 
 export interface RunDigestResult {
   status: RunStatus;
@@ -137,6 +144,42 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   const specRow = specRows[0];
   if (!specRow) {
     return { status: "no_spec", digestRunId: null, markdown: null, partsSent: 0, telegramMessageId: null };
+  }
+
+  // T-505a: skip-when-broke gate. Runs BEFORE Brave/RSS/composer so we
+  // don't pay LLM cost for a brief we'll never deliver. PRD §6.1: balance=0
+  // still delivers (1-brief grace credit), balance ≤ −1 is broke.
+  //
+  // Bypass for dryRun: preview/sampleNow paths don't debit, so they
+  // shouldn't gate on balance either — Faeez wants to inspect output even
+  // for a paused user.
+  if (!dryRun) {
+    const decision = shouldSkipForCredits(user.creditsBalance);
+    if (decision.skip) {
+      // Mark the claimed digest_runs row (if any) with the skip status so
+      // the admin viewer sees it instead of an empty "composing" row.
+      if (digestRunId) {
+        await db
+          .update(digestRuns)
+          .set({
+            status: "skipped_no_credits",
+            updatedAt: new Date(),
+          })
+          .where(eq(digestRuns.id, digestRunId));
+        await recordSkipForCredits({
+          userId,
+          digestRunId,
+          balance: decision.balance,
+        });
+      }
+      return {
+        status: "skipped_no_credits",
+        digestRunId: digestRunId ?? null,
+        markdown: null,
+        partsSent: 0,
+        telegramMessageId: null,
+      };
+    }
   }
 
   // 2. Sources — Brave + RSS. yfinance/prices deferred.
@@ -419,6 +462,18 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // need to touch the just-updated row's counter.
     if (status === "delivered") {
       await autoHealDeliveryBroken(userId);
+      // T-505a: per-brief debit. Runs ONLY after a confirmed Telegram
+      // delivery so we never charge for a failed send. The 1-brief grace
+      // rule means balance may go to −1 here; that's expected — the next
+      // dispatch will hit the skip gate.
+      try {
+        await debitForDelivery({ userId, digestRunId });
+      } catch (err) {
+        // Never break a successful delivery on debit failure. Log and
+        // accept that this brief flew free — preferable to telling Stripe
+        // / the user something inconsistent.
+        console.error("[digest:debit] failed for run", digestRunId, err);
+      }
     }
 
     return {
@@ -447,6 +502,13 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   // T-304 bonus: auto-heal on a successful manual / sampleNow delivery too.
   if (status === "delivered") {
     await autoHealDeliveryBroken(userId);
+    // T-505a: debit even on the legacy / manual sampleNow path so the
+    // ledger is consistent regardless of dispatch entry point. Best-effort.
+    try {
+      await debitForDelivery({ userId, digestRunId: inserted[0]!.id });
+    } catch (err) {
+      console.error("[digest:debit] failed for run", inserted[0]!.id, err);
+    }
   }
 
   return {
