@@ -28,6 +28,11 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
     }
   );
 
+  // MUST-SHIP #12 — passive quality streak. Refetches whenever the runs
+  // table is invalidated (post-replay, post-refund) so the counter reacts
+  // to admin actions.
+  const streakQuery = trpc.admin.qualityStreak.useQuery();
+
   /**
    * T-305: manual replay. We don't optimistically mutate the row — the
    * server has already reset attempt_count/last_error in-place by the time
@@ -41,6 +46,7 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
       // pill will flip back through pending -> composing -> delivered.
       setTimeout(() => {
         void utils.admin.listRuns.invalidate();
+      void utils.admin.qualityStreak.invalidate();
       }, 500);
       setTimeout(() => setToast(null), 4000);
     },
@@ -70,6 +76,7 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
         setToast(`No refund: ${data.reason}`);
       }
       void utils.admin.listRuns.invalidate();
+      void utils.admin.qualityStreak.invalidate();
       setTimeout(() => setToast(null), 5000);
     },
     onError: (err) => {
@@ -92,6 +99,11 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
             Signed in as {adminEmail}
           </p>
         </div>
+        <QualityStreakCard
+          data={streakQuery.data}
+          isLoading={streakQuery.isLoading}
+          isError={streakQuery.isError}
+        />
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -257,6 +269,82 @@ function formatUtc(d: Date | string | null): string {
   // YYYY-MM-DD HH:mm UTC — compact, sortable, tz-explicit.
   const iso = date.toISOString();
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
+}
+
+function QualityStreakCard({
+  data,
+  isLoading,
+  isError,
+}: {
+  data:
+    | {
+        streak: number;
+        lastBreakAt: Date | string | null;
+        lastBreakStatus: string | null;
+        lastBreakError: string | null;
+        truncated: boolean;
+      }
+    | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div
+        data-testid="quality-streak"
+        className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+      >
+        Streak: loading…
+      </div>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <div
+        data-testid="quality-streak"
+        className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700"
+      >
+        Streak: error
+      </div>
+    );
+  }
+  const cls =
+    data.streak >= 10
+      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+      : data.streak >= 1
+      ? "border-blue-300 bg-blue-50 text-blue-800"
+      : "border-amber-300 bg-amber-50 text-amber-800";
+  const lastBreak = data.lastBreakAt
+    ? typeof data.lastBreakAt === "string"
+      ? data.lastBreakAt
+      : data.lastBreakAt.toISOString()
+    : null;
+  return (
+    <div
+      data-testid="quality-streak"
+      title={
+        lastBreak
+          ? `Last break: ${lastBreak} · ${data.lastBreakStatus}${
+              data.lastBreakError ? ` · ${data.lastBreakError}` : ""
+            }`
+          : data.truncated
+          ? "No break in the most recent 1k runs"
+          : "No break on record"
+      }
+      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium ${cls}`}
+    >
+      <span className="font-mono tabular-nums">{data.streak}</span>
+      <span>
+        consecutive briefs delivered
+        {data.truncated ? " (1k+)" : ""}
+      </span>
+      {lastBreak && (
+        <span className="text-[10px] opacity-60">
+          · last break {formatUtc(data.lastBreakAt)}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function StatusPill({

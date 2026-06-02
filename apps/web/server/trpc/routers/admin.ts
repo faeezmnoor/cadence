@@ -30,6 +30,7 @@ import {
 import { inngest } from "@/server/inngest/client";
 import { adminProcedure, router } from "../trpc";
 import { refundForFailedRun } from "@/server/billing/refund";
+import { computeStreak } from "@/server/digest/streak";
 import { sendEmail } from "@/server/email/send";
 import { buildRefundEmail } from "@/server/email/refund-template";
 
@@ -356,4 +357,44 @@ export const adminRouter = router({
 
       return { rows };
     }),
+
+  /**
+   * MUST-SHIP #12 — passive observability streak.
+   *
+   * Counts the number of consecutive `delivered` runs from newest backwards,
+   * stopping at the first non-delivered row. `composing` / `pending` rows
+   * still in flight are NOT counted as breaks (they haven't failed yet) so
+   * a streak isn't visually reset by an in-flight cron. Anything else
+   * (`failed`, `skipped_no_credits`, `no_telegram_link`, `no_spec`,
+   * `composed_dry_run`) terminates the streak; the first of those
+   * encountered is the "last break" reason surfaced to the admin.
+   *
+   * Cheap O(N) scan over the most recent rows. We cap at 1k rows so this
+   * stays a single-page lookup even after months of cron firings — well
+   * beyond any realistic streak. If a streak ever exceeds 1k briefs we
+   * have bigger problems than truncating the counter.
+   */
+  qualityStreak: adminProcedure.query(async () => {
+    const SCAN_LIMIT = 1000;
+    const rows = await db
+      .select({
+        status: digestRuns.status,
+        lastError: digestRuns.lastError,
+        createdAt: digestRuns.createdAt,
+      })
+      .from(digestRuns)
+      .orderBy(desc(digestRuns.createdAt))
+      .limit(SCAN_LIMIT);
+
+    const result = computeStreak(rows);
+    const truncated = rows.length === SCAN_LIMIT && result.lastBreakAt === null;
+    return {
+      ...result,
+      lastBreakError:
+        result.lastBreakError && result.lastBreakError.length > LAST_ERROR_TRUNCATE
+          ? result.lastBreakError.slice(0, LAST_ERROR_TRUNCATE) + "…"
+          : result.lastBreakError,
+      truncated,
+    };
+  }),
 });
