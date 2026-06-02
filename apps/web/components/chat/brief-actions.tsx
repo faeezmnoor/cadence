@@ -1,0 +1,188 @@
+"use client";
+
+/**
+ * MUST-SHIP #8 + #9 — once the draft spec is ready, surface two actions
+ * directly in the chat surface:
+ *
+ *   - "Preview tomorrow's brief" — composes with `dryRun: true`, which
+ *     skips the 5min cooldown, the credit debit, AND the Telegram send.
+ *     Returns markdown we render in-page so the user can see what they
+ *     bought before linking Telegram or committing credits.
+ *
+ *   - "Send me one now" — composes with `dryRun: false`. Only shown when
+ *     Telegram is linked (otherwise the brief has nowhere to land).
+ *     Inherits the 5min cooldown from MUST-SHIP #1.
+ *
+ * Both call `digest.sampleNow`. The cooldown sits at the tRPC layer; the
+ * UI surfaces TRPCError("TOO_MANY_REQUESTS") as a friendly inline note.
+ *
+ * Why one component for both: they share the same gating (isReady), the
+ * same mutation surface, and the same "did Cadence already use this
+ * minute?" feedback. Splitting them duplicates the loading/error
+ * boilerplate without UX benefit.
+ */
+import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
+
+type PreviewState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; markdown: string }
+  | { kind: "error"; message: string };
+
+type SendState =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "sent" }
+  | { kind: "cooldown"; message: string }
+  | { kind: "no_credits"; message: string }
+  | { kind: "error"; message: string };
+
+export function BriefActions({ ready }: { ready: boolean }) {
+  const telegramStatus = trpc.telegram.status.useQuery(undefined, {
+    enabled: ready,
+    refetchOnWindowFocus: false,
+  });
+  const sampleMut = trpc.digest.sampleNow.useMutation();
+  const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
+  const [send, setSend] = useState<SendState>({ kind: "idle" });
+
+  if (!ready) return null;
+
+  const linked = telegramStatus.data?.linked ?? false;
+
+  async function onPreview() {
+    setPreview({ kind: "loading" });
+    try {
+      const res = await sampleMut.mutateAsync({ dryRun: true });
+      if (res.markdown && res.markdown.length > 0) {
+        setPreview({ kind: "ready", markdown: res.markdown });
+      } else if (res.status === "skipped_no_credits") {
+        setPreview({
+          kind: "error",
+          message: "Out of credits — top up to preview.",
+        });
+      } else {
+        setPreview({
+          kind: "error",
+          message: res.error ?? "Couldn't compose a preview right now.",
+        });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview failed.";
+      setPreview({ kind: "error", message });
+    }
+  }
+
+  async function onSendNow() {
+    setSend({ kind: "sending" });
+    try {
+      const res = await sampleMut.mutateAsync({ dryRun: false });
+      if (res.status === "delivered") {
+        setSend({ kind: "sent" });
+      } else if (res.status === "skipped_no_credits") {
+        setSend({
+          kind: "no_credits",
+          message: "Out of credits — top up to send a sample.",
+        });
+      } else if (res.status === "no_telegram_link") {
+        setSend({
+          kind: "error",
+          message: "Link Telegram first so the brief has somewhere to land.",
+        });
+      } else {
+        setSend({
+          kind: "error",
+          message: res.error ?? `Send failed (${res.status}).`,
+        });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Send failed.";
+      // tRPC surfaces TOO_MANY_REQUESTS for the cooldown.
+      if (/many requests|few minutes/i.test(message)) {
+        setSend({
+          kind: "cooldown",
+          message: "You just sent one. Try again in a few minutes.",
+        });
+      } else {
+        setSend({ kind: "error", message });
+      }
+    }
+  }
+
+  return (
+    <div
+      data-testid="brief-actions"
+      className="mx-auto flex w-full max-w-2xl flex-col gap-3 rounded-md border border-border bg-card/40 p-4"
+    >
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold tracking-tight">
+          Looks ready &mdash; want to see it?
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Preview a sample brief from this spec, or send one to your Telegram
+          right now.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-testid="brief-actions-preview"
+          onClick={onPreview}
+          disabled={preview.kind === "loading"}
+          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {preview.kind === "loading"
+            ? "Composing preview…"
+            : "Preview tomorrow's brief"}
+        </button>
+        {linked ? (
+          <button
+            type="button"
+            data-testid="brief-actions-send-now"
+            onClick={onSendNow}
+            disabled={send.kind === "sending"}
+            className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {send.kind === "sending" ? "Sending…" : "Send me one now"}
+          </button>
+        ) : (
+          <span
+            data-testid="brief-actions-send-disabled"
+            className="inline-flex h-9 items-center rounded-md border border-dashed border-border px-3 text-xs text-muted-foreground"
+            title="Link Telegram to enable"
+          >
+            Link Telegram to send now
+          </span>
+        )}
+      </div>
+
+      {send.kind === "sent" && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+          Sent — check Telegram.
+        </p>
+      )}
+      {send.kind === "cooldown" && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {send.message}
+        </p>
+      )}
+      {(send.kind === "no_credits" || send.kind === "error") && (
+        <p className="text-xs text-red-600 dark:text-red-400">{send.message}</p>
+      )}
+
+      {preview.kind === "ready" && (
+        <div
+          data-testid="brief-actions-preview-body"
+          className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 text-[13px] leading-relaxed"
+        >
+          {preview.markdown}
+        </div>
+      )}
+      {preview.kind === "error" && (
+        <p className="text-xs text-red-600 dark:text-red-400">{preview.message}</p>
+      )}
+    </div>
+  );
+}

@@ -7,6 +7,8 @@ import type { Message } from "ai";
 import type { PersistedMessage } from "./types";
 import { MessageBubble } from "./message-bubble";
 import { SpecSidebar, type DraftLike } from "./spec-sidebar";
+import { isReady as draftIsReady } from "./spec-sidebar.helpers";
+import { BriefActions } from "./brief-actions";
 import { trpc } from "@/lib/trpc/client";
 import {
   detectMultiTopic,
@@ -397,6 +399,10 @@ export function ChatClient({
             {isStreaming && (
               <div className="text-xs text-muted-foreground">Thinking…</div>
             )}
+            {/* MUST-SHIP #8 + #9: once the spec is ready, surface preview +
+                send-now actions inline so the user sees the payoff before
+                leaving the chat. */}
+            <BriefActions ready={draftIsReady(draft)} />
             {error && (
               <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                 {error.message}
