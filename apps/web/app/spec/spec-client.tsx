@@ -10,6 +10,8 @@ type Row = {
   version: number;
   isCurrent: boolean;
   createdVia: string;
+  // T-306 (CAD-41): keep in sync with digest_specs.is_smoke schema column.
+  isSmoke: boolean;
   createdAt: Date;
   updatedAt: Date;
   spec: unknown;
