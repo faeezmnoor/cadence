@@ -30,6 +30,19 @@ export default function HomePage() {
             sharp, personal market brief — in the messaging app you already check.
           </p>
 
+          <p className="mt-4 text-xs text-muted-foreground">
+            Built by{" "}
+            <a
+              href="https://www.linkedin.com/in/faeezmnoor/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              Faeez Noor
+            </a>
+            {" "}— ex-Head of Product at respond.io.
+          </p>
+
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
             <a
               href="/auth/sign-in"
