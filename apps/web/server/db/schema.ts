@@ -189,6 +189,11 @@ export const digestRuns = pgTable(
     lastError: text("last_error"),
     sourcesBundle: jsonb("sources_bundle"),
     composedMarkdown: text("composed_markdown"),
+    /**
+     * Stream E #6: 12-char nanoid for public permalink (cadence.app/b/<short_id>).
+     * Unique partial index; nullable for backfill safety, but new rows MUST set it.
+     */
+    shortId: text("short_id"),
     telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
     costUsd: numeric("cost_usd", { precision: 10, scale: 5 }),
     error: text("error"),
@@ -208,6 +213,40 @@ export const digestRuns = pgTable(
       .where(sql`${t.deliveryCalendarDayLocal} IS NOT NULL`),
     userRunDateIdx: index("idx_digest_runs_user_run_date").on(t.userId, t.runDate),
     userCreatedIdx: index("idx_digest_runs_user_created").on(t.userId, t.createdAt.desc()),
+    // Stream E #6: lookup by public shortId.
+    shortIdUq: uniqueIndex("digest_runs_short_id_uq")
+      .on(t.shortId)
+      .where(sql`${t.shortId} IS NOT NULL`),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// language_interest_events (Stream E #7)
+//
+// Captures interest signal when a user taps a "coming July" language chip
+// (Bahasa Malaysia, 中文). Until we ship those languages E2E, this is how
+// we know who to notify on launch.
+// ---------------------------------------------------------------------------
+export const languageInterestEvents = pgTable(
+  "language_interest_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 'ms' | 'zh' */
+    languageCode: text("language_code").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userCreatedIdx: index("idx_language_interest_events_user_created").on(
+      t.userId,
+      t.createdAt.desc()
+    ),
+    langCreatedIdx: index("idx_language_interest_events_lang_created").on(
+      t.languageCode,
+      t.createdAt.desc()
+    ),
   })
 );
 
@@ -437,6 +476,28 @@ export const transactions = pgTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// account_deletions (PM-audit #11)
+//
+// Append-only audit log for user-initiated account deletions. user_id is
+// NOT a FK because the users row may eventually hard-delete and we still
+// want the audit row to survive.
+// ---------------------------------------------------------------------------
+export const accountDeletions = pgTable(
+  "account_deletions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    email: text("email").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("idx_account_deletions_user_id").on(t.userId),
+    createdIdx: index("idx_account_deletions_created_at").on(t.createdAt.desc()),
+  })
+);
+
 // Re-export sql for callers that want raw expressions.
 export { sql };
 
@@ -459,3 +520,7 @@ export type PricingSnapshot = typeof pricingSnapshots.$inferSelect;
 export type NewPricingSnapshot = typeof pricingSnapshots.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
+export type AccountDeletion = typeof accountDeletions.$inferSelect;
+export type NewAccountDeletion = typeof accountDeletions.$inferInsert;
+export type LanguageInterestEvent = typeof languageInterestEvents.$inferSelect;
+export type NewLanguageInterestEvent = typeof languageInterestEvents.$inferInsert;
