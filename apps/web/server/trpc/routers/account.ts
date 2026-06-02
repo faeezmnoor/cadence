@@ -90,6 +90,19 @@ export const accountRouter = router({
         });
       }
 
+      // QA P0 #2: hard-assert the service-role key is configured before we
+      // soft-delete the application row. Without it we cannot kill the
+      // Supabase auth.users row in step 3, so the user could still sign back
+      // in to a now-broken application row and silently fail every request.
+      // Better to refuse the deletion loudly than to half-delete in silence.
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "Account deletion is misconfigured on the server. Email support@cadence.news and we'll process this manually.",
+        });
+      }
+
       // 1. Audit row first. If the soft-delete fails we still want the
       // attempt logged.
       await db.insert(accountDeletions).values({

@@ -70,9 +70,16 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">Deletion requests</h2>
         <p className="text-muted-foreground">
-          Email <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>{" "}
-          from the address on file and we&apos;ll delete everything within 30 days. No
-          forms, no rituals.
+          Sign in and head to{" "}
+          <a className="underline-offset-2 hover:underline" href="/settings/danger">
+            Settings → Danger zone
+          </a>{" "}
+          to delete your account immediately — no email, no forms, no waiting
+          period. Spec, briefs, learning log, and your Telegram link are
+          removed; financial records are retained per Malaysian tax law but
+          contain no profile data. If you can&apos;t sign in for some reason,
+          email <a className="underline-offset-2 hover:underline" href="mailto:support@cadence.news">support@cadence.news</a>{" "}
+          from the address on file and we&apos;ll process it manually.
         </p>
       </section>
 
