@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Wordmark } from "@/components/marketing/wordmark";
 
-export type AppNavTab = "chat" | "spec" | "link" | "admin" | null;
+export type AppNavTab = "chat" | "spec" | "link" | "billing" | "admin" | null;
 
 type TabDef = {
   key: Exclude<AppNavTab, null>;
@@ -9,10 +10,18 @@ type TabDef = {
   href: string;
 };
 
+/**
+ * Tabs the regular signed-in user sees. NOTE on copy:
+ *   - "Delivery" not "Telegram". Cadence is messaging-channel-agnostic;
+ *     Telegram is just today's live channel, WhatsApp is on the roadmap.
+ *     See feedback_cadence_positioning. The /app/link page itself can
+ *     reference Telegram concretely, but the global nav cannot.
+ */
 const TABS: TabDef[] = [
   { key: "chat", label: "Chat", href: "/chat" },
   { key: "spec", label: "Spec", href: "/spec" },
-  { key: "link", label: "Telegram", href: "/app/link" },
+  { key: "link", label: "Delivery", href: "/app/link" },
+  { key: "billing", label: "Billing", href: "/settings/billing" },
 ];
 
 /**
@@ -20,17 +29,14 @@ const TABS: TabDef[] = [
  *
  * Layout: wordmark (left) · tabs (center) · sign-out + theme toggle (right).
  *
- * Mobile: tabs collapse to a single horizontal scroll row beneath the
- * wordmark — half-day scope per the audit; a real hamburger drawer is a
+ * Mobile (< sm): center tabs collapse to a horizontal scroll row beneath
+ * the wordmark — half-day scope per the audit; a hamburger drawer is a
  * follow-up. Sign-out and theme toggle stay visible on the right.
  *
  * Active tab styling is server-rendered via the `active` prop. We don't
  * use `usePathname()` here because every authed page is a server component
  * that knows its own identity — keeps this a pure server component, zero
  * client JS for the shell.
- *
- * Billing is intentionally omitted (no billing route exists yet — adding a
- * dead tab would be worse than no tab; ship when the page lands).
  */
 export function AppNav({ active }: { active: AppNavTab }) {
   return (
@@ -38,9 +44,10 @@ export function AppNav({ active }: { active: AppNavTab }) {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href={"/chat" as never}
-          className="text-base font-semibold tracking-tight text-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:rounded-sm"
+          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Cadence — chat"
         >
-          Cadence
+          <Wordmark asLink={false} className="text-sm" />
         </Link>
 
         <nav

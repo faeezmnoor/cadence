@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { isAdminEmail } from "@/server/auth/admin";
 import { FeedbackEvalClient } from "./feedback-client";
+import { AppNav } from "@/components/nav/app-nav";
 
 /**
  * T-407 (CAD-48): /admin/feedback — feedback-loop eval viewer.
@@ -32,5 +33,10 @@ export default async function AdminFeedbackPage() {
     );
   }
 
-  return <FeedbackEvalClient adminEmail={user.email ?? ""} />;
+  return (
+    <div className="min-h-screen bg-background">
+      <AppNav active="admin" />
+      <FeedbackEvalClient adminEmail={user.email ?? ""} />
+    </div>
+  );
 }

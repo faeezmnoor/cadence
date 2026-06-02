@@ -5,6 +5,7 @@ import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
 import type { PersistedMessage } from "@/components/chat/types";
+import { AppNav } from "@/components/nav/app-nav";
 
 /**
  * /chat — server component. Auth-checks, resolves or creates an active
@@ -79,10 +80,13 @@ export default async function ChatPage() {
   }));
 
   return (
-    <ChatClient
-      threadId={thread.id}
-      initialMessages={initialMessages}
-      initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
-    />
+    <div className="flex h-[100dvh] flex-col bg-background">
+      <AppNav active="chat" />
+      <ChatClient
+        threadId={thread.id}
+        initialMessages={initialMessages}
+        initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
+      />
+    </div>
   );
 }
