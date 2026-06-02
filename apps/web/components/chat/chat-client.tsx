@@ -157,18 +157,28 @@ export function ChatClient({
   const isStreaming = isStreamingState;
   const draft = (draftQuery.data ?? null) as DraftLike;
 
+  const hasMessages = messages.length > 0;
+
+  // Designer #3 (audit §3): seed turn 0 with a welcome bubble + 3 starter
+  // chips so the user sees concrete examples instead of a grey info card.
+  // Chips reflect Cadence's channel-agnostic, industry-customizable framing
+  // — NOT "telegram-y" copy. See feedback_cadence_positioning.
+  // Clicking a chip auto-submits as the user's first message; once any
+  // message exists the welcome state disappears (T-414 contextual chips
+  // take over from there).
+  const STARTER_CHIPS: readonly string[] = [
+    "Palm oil daily",
+    "S&P + my watchlist weekly",
+    "KL F&B trends",
+  ] as const;
+
   return (
-    <main className="flex h-[100dvh] bg-background">
-      <div className="flex flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 bg-background">
+      <div className="flex flex-1 flex-col min-h-0">
         <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Cadence
-            </p>
-            <h1 className="text-lg font-semibold tracking-tight">
-              Configure your brief
-            </h1>
-          </div>
+          <h1 className="text-lg font-semibold tracking-tight">
+            Configure your brief
+          </h1>
           <button
             type="button"
             onClick={handleReset}
@@ -199,10 +209,29 @@ export function ChatClient({
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-            {messages.length === 0 && (
-              <div className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-                Tell me what you want to be briefed on — industry, companies,
-                or commodities. I&apos;ll draft a spec in a few messages.
+            {!hasMessages && (
+              <div data-testid="chat-welcome" className="flex flex-col gap-3">
+                <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  Hey 👋 I&apos;m Cadence. Tell me what industry to watch, in
+                  your words. I&apos;ll handle the rest.
+                </div>
+                <div
+                  data-testid="chat-starter-chips"
+                  className="flex flex-wrap gap-1.5"
+                  aria-label="Starter examples"
+                >
+                  {STARTER_CHIPS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => handleSuggestion(c)}
+                      disabled={isStreaming}
+                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {messages.map((m) => (
