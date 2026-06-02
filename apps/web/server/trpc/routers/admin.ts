@@ -21,7 +21,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs, users } from "@/server/db/schema";
+import {
+  digestRuns,
+  digestSpecs,
+  feedbackEvalRuns,
+  users,
+} from "@/server/db/schema";
 import { inngest } from "@/server/inngest/client";
 import { adminProcedure, router } from "../trpc";
 
@@ -199,5 +204,77 @@ export const adminRouter = router({
       });
 
       return { ok: true as const, runId: row.id };
+    }),
+
+  /**
+   * T-407 (CAD-48): listFeedbackEvals — newest-first eval rows joined
+   * with user email + spec smoke flag so the admin viewer can prioritise
+   * the smoke spec.
+   *
+   * `smokeFirst`: when true (default), rows whose owning user has a
+   * current is_smoke spec are surfaced at the top regardless of
+   * window_end_date. We sort on a boolean expression then by date.
+   *
+   * Pagination: simple offset/limit. Rowcount is bounded by the number
+   * of distinct (user, window_end_date) pairs — at our scale this stays
+   * well under a screen for months.
+   */
+  listFeedbackEvals: adminProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().int().min(1).max(200).default(50),
+          smokeFirst: z.boolean().default(true),
+          smokeOnly: z.boolean().default(false),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const limit = input?.limit ?? 50;
+      const smokeFirst = input?.smokeFirst ?? true;
+      const smokeOnly = input?.smokeOnly ?? false;
+
+      // Sub-correlate: a user "is smoke" if they own at least one
+      // current is_smoke spec. Use EXISTS to keep the join tidy.
+      const isSmokeExpr = sql<boolean>`EXISTS (
+        SELECT 1 FROM ${digestSpecs}
+        WHERE ${digestSpecs.userId} = ${feedbackEvalRuns.userId}
+          AND ${digestSpecs.isSmoke} = true
+          AND ${digestSpecs.isCurrent} = true
+      )`;
+
+      const whereParts = [];
+      if (smokeOnly) {
+        whereParts.push(sql`${isSmokeExpr}`);
+      }
+
+      const orderBy = smokeFirst
+        ? [desc(isSmokeExpr), desc(feedbackEvalRuns.windowEndDate)]
+        : [desc(feedbackEvalRuns.windowEndDate)];
+
+      const rows = await db
+        .select({
+          userId: feedbackEvalRuns.userId,
+          userEmail: users.email,
+          windowEndDate: feedbackEvalRuns.windowEndDate,
+          windowDays: feedbackEvalRuns.windowDays,
+          briefsDeliveredCount: feedbackEvalRuns.briefsDeliveredCount,
+          keyboardTapsCount: feedbackEvalRuns.keyboardTapsCount,
+          engagementRate: feedbackEvalRuns.engagementRate,
+          positiveRate: feedbackEvalRuns.positiveRate,
+          tuneCommandsCount: feedbackEvalRuns.tuneCommandsCount,
+          distilledPrefsPresent: feedbackEvalRuns.distilledPrefsPresent,
+          lastBriefAt: feedbackEvalRuns.lastBriefAt,
+          lastTapAt: feedbackEvalRuns.lastTapAt,
+          computedAt: feedbackEvalRuns.computedAt,
+          isSmoke: isSmokeExpr,
+        })
+        .from(feedbackEvalRuns)
+        .innerJoin(users, eq(users.id, feedbackEvalRuns.userId))
+        .where(whereParts.length > 0 ? and(...whereParts) : undefined)
+        .orderBy(...orderBy)
+        .limit(limit);
+
+      return { rows };
     }),
 });

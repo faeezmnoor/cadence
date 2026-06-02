@@ -8,6 +8,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -305,6 +306,41 @@ export const costEvents = pgTable("cost_events", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ---------------------------------------------------------------------------
+// feedback_eval_runs (T-407 / CAD-48)
+//
+// One row per (user_id, window_end_date). UPSERT semantics from the daily
+// 09:30 MYT eval cron — repeated recomputes overwrite rather than append.
+// See migration 0009 for column rationale.
+// ---------------------------------------------------------------------------
+export const feedbackEvalRuns = pgTable(
+  "feedback_eval_runs",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    windowEndDate: date("window_end_date").notNull(),
+    windowDays: integer("window_days").notNull().default(7),
+    briefsDeliveredCount: integer("briefs_delivered_count").notNull().default(0),
+    keyboardTapsCount: integer("keyboard_taps_count").notNull().default(0),
+    /** 0..1, null when briefs_delivered_count = 0 (avoid 0/0 lying as 0%) */
+    engagementRate: numeric("engagement_rate", { precision: 6, scale: 4 }),
+    /** 0..1, null when keyboard_taps_count = 0 */
+    positiveRate: numeric("positive_rate", { precision: 6, scale: 4 }),
+    tuneCommandsCount: integer("tune_commands_count").notNull().default(0),
+    distilledPrefsPresent: boolean("distilled_prefs_present").notNull().default(false),
+    lastBriefAt: timestamp("last_brief_at", { withTimezone: true }),
+    lastTapAt: timestamp("last_tap_at", { withTimezone: true }),
+    computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.windowEndDate] }),
+    windowEndIdx: index("idx_feedback_eval_runs_window_end_date").on(t.windowEndDate.desc()),
+  })
+);
+
 // Re-export sql for callers that want raw expressions.
 export { sql };
 
@@ -321,3 +357,5 @@ export type RssItem = typeof rssItems.$inferSelect;
 export type SourceCacheRow = typeof sourceCache.$inferSelect;
 export type CostEvent = typeof costEvents.$inferSelect;
 export type TelegramLinkToken = typeof telegramLinkTokens.$inferSelect;
+export type FeedbackEvalRun = typeof feedbackEvalRuns.$inferSelect;
+export type NewFeedbackEvalRun = typeof feedbackEvalRuns.$inferInsert;
