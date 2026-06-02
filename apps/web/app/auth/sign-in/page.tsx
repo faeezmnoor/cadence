@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 /**
- * Email entry form. Posts to /api/auth/sign-in which calls
+ * Sign-in page. Google OAuth is the primary CTA (Faeez, 2026-06-02:
+ * "Google should be our core login/authentication flow — magic link
+ * barely works and is tedious."). Magic-link via signInWithOtp remains
+ * as a fallback under an "or use email" divider.
+ *
+ * On the email form: POSTs to /api/auth/sign-in which calls
  * supabase.auth.signInWithOtp. On success we swap the UI to a
  * "check your inbox" state — no redirect, no client session yet.
  */
@@ -58,6 +64,17 @@ export default function SignInPage() {
               : "We'll email you a magic link. No password required."}
           </p>
         </div>
+
+        {status !== "sent" && (
+          <>
+            <GoogleSignInButton />
+            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>or use email</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
 
         {status !== "sent" && (
           <form onSubmit={onSubmit} className="space-y-3">
