@@ -11,7 +11,15 @@ import type { Message } from "ai";
  *
  * Tool results are read from message.toolInvocations (AI SDK shape).
  */
-export function MessageBubble({ message }: { message: Message }) {
+export function MessageBubble({
+  message,
+  onSuggestionClick,
+  suggestionsDisabled,
+}: {
+  message: Message;
+  onSuggestionClick?: (text: string) => void;
+  suggestionsDisabled?: boolean;
+}) {
   const isUser = message.role === "user";
 
   // Pluck structured tool outputs for richer rendering.
@@ -43,7 +51,11 @@ export function MessageBubble({ message }: { message: Message }) {
         )}
 
         {askQuestion?.state === "result" && (
-          <ToolAskUser invocation={askQuestion} />
+          <ToolAskUser
+            invocation={askQuestion}
+            onSuggestionClick={onSuggestionClick}
+            suggestionsDisabled={suggestionsDisabled}
+          />
         )}
       </div>
 
@@ -68,10 +80,14 @@ export function MessageBubble({ message }: { message: Message }) {
  */
 function ToolAskUser({
   invocation,
+  onSuggestionClick,
+  suggestionsDisabled,
 }: {
   invocation: NonNullable<Message["toolInvocations"]>[number] & {
     state: "result";
   };
+  onSuggestionClick?: (text: string) => void;
+  suggestionsDisabled?: boolean;
 }) {
   const result = invocation.result as
     | { question?: string; suggestions?: string[] }
@@ -85,14 +101,20 @@ function ToolAskUser({
         <p className="text-sm">{question}</p>
       )}
       {suggestions.length > 0 && (
+        // T-410 / CAD-72: real <button>s, not spans. Tap-to-fill on mobile,
+        // a11y-correct (keyboard activation, role=button by default), and
+        // dispatches the suggestion as a user message via the parent handler.
         <div className="flex flex-wrap gap-1.5">
           {suggestions.map((s, i) => (
-            <span
+            <button
               key={i}
-              className="rounded-full border border-border bg-background px-2.5 py-0.5 text-xs text-muted-foreground"
+              type="button"
+              disabled={suggestionsDisabled || !onSuggestionClick}
+              onClick={() => onSuggestionClick?.(s)}
+              className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {s}
-            </span>
+            </button>
           ))}
         </div>
       )}
