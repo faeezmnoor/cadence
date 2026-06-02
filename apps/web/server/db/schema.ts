@@ -141,6 +141,8 @@ export const chatMessages = pgTable(
       .references(() => chatThreads.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // user | assistant | tool
     content: jsonb("content").notNull(),
+    // T-413: soft-archive on conversation reset. NULL = visible.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -66,12 +66,13 @@ describe("config-agent eval harness", () => {
     });
   }
 
-  it("exposes exactly 5 tools", () => {
+  it("exposes exactly 6 tools", () => {
     expect(Object.keys(configAgentTools).sort()).toEqual([
       "add_rss_feed",
       "ask_user",
       "confirm_and_save",
       "propose_spec",
+      "suggest_quick_replies",
       "update_spec_field",
     ]);
   });

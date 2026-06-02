@@ -12,7 +12,7 @@
  *    + db boundary as the rest of the app. Keep it in tRPC.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
@@ -128,8 +128,84 @@ export const chatRouter = router({
           createdAt: chatMessages.createdAt,
         })
         .from(chatMessages)
-        .where(eq(chatMessages.threadId, input.threadId))
+        .where(
+          and(
+            eq(chatMessages.threadId, input.threadId),
+            isNull(chatMessages.archivedAt)
+          )
+        )
         .orderBy(asc(chatMessages.createdAt));
+    }),
+
+  /**
+   * T-413 / CAD-73: Reset a chat conversation.
+   *
+   * Soft-archives every visible message on the thread (sets archived_at=now)
+   * and clears chat_threads.draft_spec back to NULL so the next user turn
+   * sees a blank slate. Keeps the thread row + status to preserve the
+   * existing resume-on-reload contract.
+   */
+  resetThread: protectedProcedure
+    .input(z.object({ threadId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const owned = await db
+        .select({ id: chatThreads.id })
+        .from(chatThreads)
+        .where(
+          and(
+            eq(chatThreads.id, input.threadId),
+            eq(chatThreads.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (!owned[0]) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      await db
+        .update(chatMessages)
+        .set({ archivedAt: sql`now()` })
+        .where(
+          and(
+            eq(chatMessages.threadId, input.threadId),
+            isNull(chatMessages.archivedAt)
+          )
+        );
+
+      await db
+        .update(chatThreads)
+        .set({
+          draftSpec: null,
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(chatThreads.id, input.threadId));
+
+      return { ok: true as const };
+    }),
+
+  /**
+   * T-415 / CAD-75: Live read of the thread's working draft for the sidebar.
+   * Returns null when no draft has been written yet (fresh thread or
+   * post-reset).
+   */
+  getDraft: protectedProcedure
+    .input(z.object({ threadId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const rows = await db
+        .select({ draftSpec: chatThreads.draftSpec })
+        .from(chatThreads)
+        .where(
+          and(
+            eq(chatThreads.id, input.threadId),
+            eq(chatThreads.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (!rows[0]) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      return rows[0].draftSpec ?? null;
     }),
 
   /**
