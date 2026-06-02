@@ -173,13 +173,14 @@ describe("shouldFire", () => {
     }
   });
 
-  it("DST fall-back: London 01:30 fires twice on 2026-10-25 (intentional)", () => {
+  it("DST fall-back: London 01:30 matcher fires at both UTC minutes on 2026-10-25", () => {
     // When clocks fall back, local 01:30 occurs at UTC 00:30 (BST) AND
-    // UTC 01:30 (GMT). We accept the double-fire at the matcher layer —
-    // the (spec_id, delivery_minute_utc) UNIQUE catches it at INSERT
-    // because the two UTC minutes are distinct, so this would produce
-    // two separate digest_runs rows. This test documents the behaviour;
-    // de-duping fall-back is deferred to a future ticket.
+    // UTC 01:30 (GMT). The matcher fires at BOTH instants by design — it's
+    // a pure function of (UTC instant, tz, cadence). De-duping happens one
+    // layer down at the dispatcher: migration 0007 added a partial UNIQUE
+    // on (spec_id, delivery_calendar_day_local) so the second claim
+    // collapses via ON CONFLICT DO NOTHING. See cron-dst-fallback.test.ts
+    // for the end-to-end idempotency assertion.
     const cadence = {
       frequency: "daily" as const,
       delivery_time_local: "01:30",

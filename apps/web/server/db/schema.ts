@@ -157,6 +157,13 @@ export const digestRuns = pgTable(
      * Nullable to keep historical sampleNow / pre-Phase-3 rows valid.
      */
     deliveryMinuteUtc: timestamp("delivery_minute_utc", { withTimezone: true }),
+    /**
+     * CAD-36 follow-up: the user's local calendar day at the moment of the
+     * dispatch claim, in the spec's IANA tz. Second idempotency anchor —
+     * catches the DST fall-back case where local 01:30 happens twice on
+     * different UTC minutes. Nullable for legacy rows.
+     */
+    deliveryCalendarDayLocal: date("delivery_calendar_day_local"),
     /** T-303 readiness — bumped before each pipeline attempt. */
     attemptCount: integer("attempt_count").notNull().default(0),
     /** T-303 readiness — separate from `error` so the retry path can record
@@ -176,6 +183,11 @@ export const digestRuns = pgTable(
     specMinuteUq: uniqueIndex("digest_runs_spec_minute_uq")
       .on(t.specId, t.deliveryMinuteUtc)
       .where(sql`${t.deliveryMinuteUtc} IS NOT NULL`),
+    // CAD-36 follow-up: catches DST fall-back duplicate-fire (same local day,
+    // two distinct UTC minutes).
+    specLocalDayUq: uniqueIndex("digest_runs_spec_local_day_uq")
+      .on(t.specId, t.deliveryCalendarDayLocal)
+      .where(sql`${t.deliveryCalendarDayLocal} IS NOT NULL`),
     userRunDateIdx: index("idx_digest_runs_user_run_date").on(t.userId, t.runDate),
     userCreatedIdx: index("idx_digest_runs_user_created").on(t.userId, t.createdAt.desc()),
   })

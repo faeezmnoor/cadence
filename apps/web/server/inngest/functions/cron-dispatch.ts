@@ -29,7 +29,7 @@ import { and, eq } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
-import { shouldFire, truncateToUtcMinute } from "@/server/cron/match";
+import { projectToZone, shouldFire, truncateToUtcMinute } from "@/server/cron/match";
 import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
 
 interface DispatcherSummary {
@@ -92,8 +92,22 @@ export const cronDispatch = inngest.createFunction(
         if (!fire) continue;
         out.matchedSpecs++;
 
+        // CAD-36 follow-up: the user's local calendar day at claim time, in
+        // the spec's tz. Drives the second idempotency anchor that catches
+        // DST fall-back duplicate-fire (same local day, two distinct UTC
+        // minutes).
+        const localDay = projectToZone(nowUtc, row.timezone).date;
+
         // Claim the minute. ON CONFLICT DO NOTHING + RETURNING id gives us a
         // single round-trip "did I win" signal.
+        //
+        // We have TWO partial UNIQUE indexes on digest_runs:
+        //   - (spec_id, delivery_minute_utc)         — race-safe minute claim
+        //   - (spec_id, delivery_calendar_day_local) — once-per-local-day
+        // The minute index is the primary target; the calendar-day collision
+        // will surface as a generic unique-violation. We catch both via
+        // .onConflictDoNothing() without a target so either constraint
+        // collapses cleanly.
         try {
           const claimed = await db
             .insert(digestRuns)
@@ -103,12 +117,11 @@ export const cronDispatch = inngest.createFunction(
               status: "pending",
               runDate: minuteIso.slice(0, 10), // YYYY-MM-DD in UTC
               deliveryMinuteUtc: minuteUtc,
+              deliveryCalendarDayLocal: localDay,
               attemptCount: 0,
             })
             .returning({ id: digestRuns.id })
-            .onConflictDoNothing({
-              target: [digestRuns.specId, digestRuns.deliveryMinuteUtc],
-            });
+            .onConflictDoNothing();
 
           if (claimed.length === 0) {
             out.collisions++;
