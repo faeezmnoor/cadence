@@ -197,6 +197,12 @@ export const digestRuns = pgTable(
     telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
     costUsd: numeric("cost_usd", { precision: 10, scale: 5 }),
     error: text("error"),
+    /**
+     * Evals Phase 0: ad-hoc per-run signals (source-resolve check, manual
+     * ratings). Strongly-typed in `apps/web/server/digest/metadata.ts` —
+     * jsonb here keeps schema migrations cheap as the eval surface grows.
+     */
+    metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

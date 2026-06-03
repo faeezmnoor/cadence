@@ -67,6 +67,12 @@ import {
 import { buildLowBalanceFooter, type Cadence } from "@/server/billing/low-balance-footer";
 import { TRIAL_CREDITS } from "@/server/billing/packs";
 import { sanitizeError, classifyError, type ErrorClass } from "./errors";
+import {
+  resolveSourceUrls,
+  sourcesResolvedRate,
+  type SourceResolveResult,
+} from "./sources/resolve";
+import type { BriefJson } from "@/server/ai/composer/schema";
 
 export interface RunDigestParams {
   userId: string;
@@ -249,6 +255,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
 
   let markdown: string;
   let composeCostUsd = 0;
+  // Evals Phase 0: post-compose source-resolution metadata. Populated after
+  // a successful compose (we need the brief's sources list to ping). Stored
+  // on `digest_runs.metadata.sourceResolve`. Never blocks delivery — a low
+  // rate is a logged warning, not a failure.
+  let runMetadata: Record<string, unknown> = {};
   try {
     const composerInput: ComposerInput = {
       spec: specRow.spec as ComposerInput["spec"],
@@ -265,6 +276,34 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     const out = await composeDigest(composerInput);
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
+
+    // Evals Phase 0: ping every cited URL post-compose, persist results
+    // into metadata.sourceResolve. Bounded by 5s/url + parallel — at 15
+    // sources max this adds ~5s wall-clock to the worst case, which is
+    // fine relative to the compose call itself.
+    try {
+      const brief = out.brief as BriefJson;
+      const urls = brief.sources.map((s) => s.url);
+      const results = await resolveSourceUrls(urls);
+      const rate = sourcesResolvedRate(results);
+      runMetadata.sourceResolve = {
+        rate,
+        results,
+        checkedAt: new Date().toISOString(),
+      } satisfies {
+        rate: number;
+        results: SourceResolveResult[];
+        checkedAt: string;
+      };
+      if (rate < 0.8) {
+        console.warn(
+          `[digest:eval] source-resolve rate ${(rate * 100).toFixed(0)}% (<80%) for ${urls.length} URLs`
+        );
+      }
+    } catch (err) {
+      // Resolver promises never to throw, but defend the pipeline anyway.
+      console.warn("[digest:eval] source-resolve unexpectedly threw:", err);
+    }
 
     // T-404: mark raw learning_log rows as consumed *after* a successful
     // compose. If compose throws we keep them unconsumed so the next
@@ -403,6 +442,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
             composedMarkdown: markdown,
             sourcesBundle: sources,
             costUsd: composeCostUsd.toString(),
+            metadata: runMetadata,
             error,
             lastError: error,
             attemptCount: sql`${digestRuns.attemptCount} + 1`,
@@ -431,6 +471,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           composedMarkdown: markdown,
           sourcesBundle: sources,
           costUsd: composeCostUsd.toString(),
+          metadata: runMetadata,
           error,
           lastError: error,
           attemptCount: 1,
@@ -476,6 +517,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         sourcesBundle: sources,
         telegramMessageId: telegramMessageId ?? undefined,
         costUsd: composeCostUsd.toString(),
+        metadata: runMetadata,
         // T-303: bump attempt_count atomically. On a fresh row this goes
         // 0 -> 1; on a retry of a previously-failed claim this records the
         // attempt count at which we succeeded (visible in T-304 admin viewer).
@@ -524,6 +566,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       sourcesBundle: sources,
       telegramMessageId: telegramMessageId ?? undefined,
       costUsd: composeCostUsd.toString(),
+      metadata: runMetadata,
     })
     .returning({ id: digestRuns.id });
 

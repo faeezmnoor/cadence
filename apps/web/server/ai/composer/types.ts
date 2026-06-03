@@ -57,4 +57,13 @@ export interface ComposerOutput {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  /**
+   * Structured brief the renderer turned into markdown. Exposed so the
+   * digest pipeline can run downstream evals (Phase 0: source-resolution
+   * check pings every `brief.sources[].url`). Kept as `unknown` here to
+   * avoid a circular type import from `./schema`; the actual shape is
+   * `BriefJson` from `./schema.ts`. Callers that need typing should
+   * import that type and assert.
+   */
+  brief: unknown;
 }

@@ -69,6 +69,7 @@ export async function composeDigest(
     inputTokens,
     outputTokens,
     costUsd,
+    brief,
   };
 }
 

@@ -397,4 +397,93 @@ export const adminRouter = router({
       truncated,
     };
   }),
+
+  /**
+   * Evals Phase 0: single-run detail for /admin/runs/[id]. Returns the
+   * composed markdown, sources bundle, and `metadata` (sourceResolve +
+   * manualRating). Joined on users + digestSpecs the same way listRuns
+   * does so the page header can render owner + spec version.
+   */
+  getRun: adminProcedure
+    .input(z.object({ runId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const rows = await db
+        .select({
+          id: digestRuns.id,
+          status: digestRuns.status,
+          runDate: digestRuns.runDate,
+          createdAt: digestRuns.createdAt,
+          composedMarkdown: digestRuns.composedMarkdown,
+          sourcesBundle: digestRuns.sourcesBundle,
+          metadata: digestRuns.metadata,
+          costUsd: digestRuns.costUsd,
+          attemptCount: digestRuns.attemptCount,
+          specVersion: digestSpecs.version,
+          specIsSmoke: digestSpecs.isSmoke,
+          userId: users.id,
+          userEmail: users.email,
+        })
+        .from(digestRuns)
+        .innerJoin(users, eq(users.id, digestRuns.userId))
+        .innerJoin(digestSpecs, eq(digestSpecs.id, digestRuns.specId))
+        .where(eq(digestRuns.id, input.runId))
+        .limit(1);
+      if (rows.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Run ${input.runId} not found.`,
+        });
+      }
+      return rows[0]!;
+    }),
+
+  /**
+   * Evals Phase 0: write a manual rating into
+   * `digest_runs.metadata.manualRating`. Overwrites any prior rating
+   * (the client surfaces a "previously rated by …" banner before submit).
+   *
+   * We use jsonb_set so we don't clobber metadata.sourceResolve. ratedAt
+   * + ratedBy are server-stamped so the client can't lie about provenance.
+   */
+  rateBrief: adminProcedure
+    .input(
+      z.object({
+        runId: z.string().uuid(),
+        grounding: z.number().int().min(1).max(5),
+        specificity: z.number().int().min(1).max(5),
+        fit: z.number().int().min(1).max(5),
+        notes: z.string().max(1000).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const rating = {
+        grounding: input.grounding,
+        specificity: input.specificity,
+        fit: input.fit,
+        notes: input.notes ?? null,
+        ratedAt: new Date().toISOString(),
+        ratedBy: ctx.user.email ?? "admin",
+      };
+      const ratingJson = JSON.stringify(rating);
+      const updated = await db
+        .update(digestRuns)
+        .set({
+          metadata: sql`jsonb_set(
+            COALESCE(${digestRuns.metadata}, '{}'::jsonb),
+            '{manualRating}',
+            ${ratingJson}::jsonb,
+            true
+          )`,
+          updatedAt: new Date(),
+        })
+        .where(eq(digestRuns.id, input.runId))
+        .returning({ id: digestRuns.id });
+      if (updated.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Run ${input.runId} not found.`,
+        });
+      }
+      return { ok: true as const, rating };
+    }),
 });
