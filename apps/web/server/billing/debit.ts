@@ -42,7 +42,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { transactions, users } from "@/server/db/schema";
-import { costToUsMicroUsdForRun } from "./cost";
+import { costToUsMicroUsdForRun, creditCostForTier, type Tier } from "./cost";
 
 /**
  * PRD §6.1: 1-brief grace credit means a user at balance=0 still gets
@@ -84,8 +84,20 @@ export interface DebitResult {
 export async function debitForDelivery(params: {
   userId: string;
   digestRunId: string;
+  /**
+   * CAD-89: which tier actually delivered this brief. Reads through
+   * `creditCostForTier` so Pro debits 3 credits, default debits 1.
+   *
+   * Note: this is the RESOLVED tier (what actually ran), not the spec's
+   * requested tier. A Pro-requested brief that downgraded to default
+   * (insufficient balance) should pass "default" here so we debit 1.
+   * Defaults to "default" so callers that haven't been updated stay
+   * backwards-compatible.
+   */
+  tier?: Tier;
 }): Promise<DebitResult> {
-  const { userId, digestRunId } = params;
+  const { userId, digestRunId, tier = "default" } = params;
+  const creditCost = creditCostForTier(tier);
   const cost = await costToUsMicroUsdForRun(digestRunId);
 
   // Drizzle wraps `db.transaction(tx => ...)` in a real Postgres transaction.
@@ -98,7 +110,7 @@ export async function debitForDelivery(params: {
     const updated = await tx
       .update(users)
       .set({
-        creditsBalance: sql`${users.creditsBalance} - 1`,
+        creditsBalance: sql`${users.creditsBalance} - ${creditCost}`,
         costToUsMicroUsd: sql`${users.costToUsMicroUsd} + ${cost.micros}`,
         updatedAt: new Date(),
       })
@@ -115,7 +127,7 @@ export async function debitForDelivery(params: {
       .values({
         userId,
         type: "charge",
-        creditsDelta: -1,
+        creditsDelta: -creditCost,
         balanceAfter,
         digestRunId,
         costToUsMicroUsd: cost.micros,
@@ -124,6 +136,9 @@ export async function debitForDelivery(params: {
           // a real-LLM-cost row without joining cost_events.
           costSource: cost.usedFallback ? "fallback" : "cost_events",
           costEventCount: cost.eventCount,
+          // CAD-89: tier snapshot. Pro debits show "🔬 Pro" in the
+          // billing ledger; also drives the refund-amount lookup.
+          tier,
         },
       })
       .returning({ id: transactions.id });

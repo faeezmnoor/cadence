@@ -10,19 +10,26 @@
  *     type='refund' and digest_run_id=<row>.
  *   - The successful-delivery debit (debit.ts) only fires on `delivered`,
  *     so a failed run never had a charge to begin with. We still credit
- *     +1 because the user was either:
+ *     back because the user was either:
  *       (a) charged at a previous flawed code-path (pre-this-PR builds),
  *       (b) entitled to good-faith make-good per Terms ("If we miss a
  *           delivery because of an outage on our side, the credit is
  *           returned.")
  *
+ * CAD-89: refund amount mirrors the original charge. If a prior `charge`
+ * transaction exists for this run, refund `abs(creditsDelta)` from it
+ * (Pro = 3, default = 1). Falls back to the spec's tier when there is no
+ * prior charge — covers the failed-before-delivery case where we want to
+ * make-good for the brief the user expected.
+ *
  * Transaction:
- *     UPDATE users SET credits_balance = credits_balance + 1 RETURNING ...
- *     INSERT INTO transactions (..., type='refund', credits_delta=+1, ...)
+ *     UPDATE users SET credits_balance = credits_balance + N RETURNING ...
+ *     INSERT INTO transactions (..., type='refund', credits_delta=+N, ...)
  */
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestRuns, transactions, users } from "@/server/db/schema";
+import { digestRuns, digestSpecs, transactions, users } from "@/server/db/schema";
+import { creditCostForTier, type Tier } from "./cost";
 
 export interface RefundResult {
   refunded: boolean;
@@ -40,14 +47,17 @@ export async function refundForFailedRun(params: {
 }): Promise<RefundResult> {
   const { digestRunId, refundedBy, reason } = params;
 
-  // Load + validate the run
+  // Load + validate the run (left-joined to the owning spec so we can fall
+  // back to spec.tier when there's no prior charge row to mirror)
   const runRows = await db
     .select({
       id: digestRuns.id,
       userId: digestRuns.userId,
       status: digestRuns.status,
+      specTier: digestSpecs.tier,
     })
     .from(digestRuns)
+    .leftJoin(digestSpecs, eq(digestSpecs.id, digestRuns.specId))
     .where(eq(digestRuns.id, digestRunId))
     .limit(1);
   const run = runRows[0];
@@ -55,6 +65,32 @@ export async function refundForFailedRun(params: {
   if (run.status === "delivered") {
     return { refunded: false, reason: "run_delivered" };
   }
+
+  // CAD-89: discover refund amount. Prefer the actual prior `charge` row
+  // (mirror exactly what we took), fall back to the spec's tier if there
+  // was no charge — failed-before-delivery case.
+  const priorCharge = await db
+    .select({
+      creditsDelta: transactions.creditsDelta,
+      metadata: transactions.metadata,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.digestRunId, digestRunId),
+        eq(transactions.type, "charge")
+      )
+    )
+    .limit(1);
+  const charge = priorCharge[0];
+  // Skip rows are `creditsDelta: 0, metadata.skipped: true` — those never
+  // took money, so they have nothing to refund. Treat as no charge.
+  const chargeAmount =
+    charge && charge.creditsDelta < 0 ? Math.abs(charge.creditsDelta) : 0;
+  const refundAmount =
+    chargeAmount > 0
+      ? chargeAmount
+      : creditCostForTier((run.specTier as Tier | null) ?? "default");
 
   // Idempotency: existing refund row on this run?
   const existing = await db
@@ -80,7 +116,7 @@ export async function refundForFailedRun(params: {
     const updated = await tx
       .update(users)
       .set({
-        creditsBalance: sql`${users.creditsBalance} + 1`,
+        creditsBalance: sql`${users.creditsBalance} + ${refundAmount}`,
         updatedAt: new Date(),
       })
       .where(eq(users.id, run.userId))
@@ -95,13 +131,20 @@ export async function refundForFailedRun(params: {
       .values({
         userId: run.userId,
         type: "refund",
-        creditsDelta: 1,
+        creditsDelta: refundAmount,
         balanceAfter,
         digestRunId,
         metadata: {
           refundedBy,
           reason: reason ?? null,
           runStatus: run.status,
+          // CAD-89: provenance — was the amount mirrored from a real
+          // charge row, or inferred from the spec's tier?
+          tier:
+            (charge?.metadata as { tier?: string } | undefined)?.tier ??
+            (run.specTier as string | null) ??
+            "default",
+          refundSource: chargeAmount > 0 ? "mirror_charge" : "spec_tier",
         },
       })
       .returning({ id: transactions.id });

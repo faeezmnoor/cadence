@@ -32,6 +32,24 @@ import { COST_TO_US_MICRO_PER_CREDIT_V1 } from "./packs";
 export const USD_TO_MICRO = 1_000_000;
 
 /**
+ * CAD-89: per-brief credit cost by tier.
+ *
+ * Pro briefs cost 3 credits to reflect the higher COGS (Sonar Reasoning
+ * Pro search + Sonnet 4.6 composer vs Haiku + Brave). Default stays at 1.
+ *
+ * Single source of truth — every debit + refund path MUST read through
+ * here so the multiplier can never drift between charge and reversal.
+ *
+ * The multiplier (3) is the PRD-locked Phase 5.1 number; revisit only after
+ * eval data shows actual cost ratio is materially different.
+ */
+export type Tier = "default" | "pro";
+
+export function creditCostForTier(tier: Tier | string | null | undefined): number {
+  return tier === "pro" ? 3 : 1;
+}
+
+/**
  * Fallback cost-to-us if we have NO cost_events for a run. Mirrors the
  * pricing_snapshots COGS estimate so audits stay internally consistent
  * even when telemetry is missing.

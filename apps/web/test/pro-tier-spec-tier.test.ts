@@ -56,7 +56,7 @@ describe("CAD-88 — digest/run.ts wiring", () => {
 
   it("reads tier off specRow and calls getProviders(spec.tier)", () => {
     expect(src).toMatch(/specRow\.tier/);
-    expect(src).toMatch(/getProviders\(requestedTier\)/);
+    expect(src).toMatch(/getProviders\(effectiveTier\)/);
   });
 
   it("records requested + resolved tier on runMetadata", () => {

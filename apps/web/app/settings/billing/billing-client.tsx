@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { trpc } from "@/lib/trpc/client";
 import { PACKS, PACK_LABELS, type PackId } from "@/server/billing/packs";
 import { SUPPORT_EMAIL } from "@/server/support/contact";
@@ -25,10 +26,27 @@ function formatDate(d: string | Date) {
 function txLabel(type: string) {
   if (type === "trial_grant") return "Trial credit grant";
   if (type === "message_send") return "Brief delivered";
+  if (type === "charge") return "Brief delivered";
   if (type === "topup") return "Top-up";
   if (type === "adjustment") return "Adjustment";
   if (type === "refund") return "Refund credited";
   return type;
+}
+
+/**
+ * CAD-89: render the 🔬 Pro tier badge next to charge / refund rows where
+ * the underlying metadata.tier === "pro". Pulls from the snapshot we
+ * stamped onto the transaction at debit / refund time.
+ */
+function tierBadge(metadata: unknown): React.ReactNode {
+  if (!metadata || typeof metadata !== "object") return null;
+  const tier = (metadata as { tier?: string }).tier;
+  if (tier !== "pro") return null;
+  return (
+    <span className="ml-2 inline-flex items-center rounded-full border border-brand/40 bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand">
+      🔬 Pro
+    </span>
+  );
 }
 
 export function BillingClient() {
@@ -121,7 +139,10 @@ export function BillingClient() {
                 {ledger.data.map((row) => (
                   <li key={row.id} className="px-4 py-3">
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-sm font-medium">{txLabel(row.type)}</p>
+                      <p className="text-sm font-medium">
+                        {txLabel(row.type)}
+                        {tierBadge(row.metadata)}
+                      </p>
                       <span
                         className={`text-sm tabular-nums ${
                           row.creditsDelta > 0
@@ -162,7 +183,10 @@ export function BillingClient() {
                         <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                           {formatDate(row.createdAt)}
                         </td>
-                        <td className="px-4 py-3">{txLabel(row.type)}</td>
+                        <td className="px-4 py-3">
+                          {txLabel(row.type)}
+                          {tierBadge(row.metadata)}
+                        </td>
                         <td
                           className={`px-4 py-3 text-right tabular-nums ${
                             row.creditsDelta > 0

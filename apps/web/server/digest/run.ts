@@ -64,6 +64,7 @@ import {
   recordSkipForCredits,
   shouldSkipForCredits,
 } from "@/server/billing/debit";
+import { creditCostForTier } from "@/server/billing/cost";
 import { buildLowBalanceFooter, type Cadence } from "@/server/billing/low-balance-footer";
 import { TRIAL_CREDITS } from "@/server/billing/packs";
 import { sanitizeError, classifyError, type ErrorClass } from "./errors";
@@ -278,7 +279,31 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // provider layer falls back to default and we record the *resolved*
     // tier on metadata so admins can see which stack actually ran.
     const requestedTier = (specRow.tier as Tier | undefined) ?? "default";
-    const providers = getProviders(requestedTier);
+
+    // CAD-89: pragmatic downgrade. If a Pro brief costs 3 credits but the
+    // user only has 1 or 2 (positive balance, not broke), don't fail —
+    // serve them via the default stack and debit 1. Skip-when-broke
+    // (balance ≤ -1) already returned above; the grace credit (balance=0)
+    // is handled here too — Pro at balance=0 downgrades to default since
+    // 0 < 3.
+    //
+    // dryRun bypasses (no debit on previews; Faeez should see the Pro
+    // output regardless of the user's balance).
+    let effectiveTier: Tier = requestedTier;
+    let downgradeReason: string | null = null;
+    if (
+      !dryRun &&
+      requestedTier === "pro" &&
+      user.creditsBalance < creditCostForTier("pro")
+    ) {
+      effectiveTier = "default";
+      downgradeReason = "insufficient_credits";
+      console.warn(
+        `[digest:downgrade] user=${userId} balance=${user.creditsBalance} ` +
+          `requested=pro effective=default reason=${downgradeReason}`
+      );
+    }
+    const providers = getProviders(effectiveTier);
     const out = await providers.composer.compose(composerInput);
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
@@ -288,6 +313,17 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       composerId: providers.composer.id,
       composerModelId: providers.composer.modelId,
     };
+    if (downgradeReason) {
+      // CAD-89: per spec, downgrade reason lands on digestRuns.metadata
+      // so the admin run viewer can surface "downgraded from Pro" without
+      // joining transactions.
+      runMetadata.downgrade = {
+        from: "pro",
+        to: "default",
+        reason: downgradeReason,
+        balanceAtDispatch: user.creditsBalance,
+      };
+    }
 
     // Evals Phase 0: ping every cited URL post-compose, persist results
     // into metadata.sourceResolve. Bounded by 5s/url + parallel — at 15
@@ -558,7 +594,12 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       // rule means balance may go to −1 here; that's expected — the next
       // dispatch will hit the skip gate.
       try {
-        await debitForDelivery({ userId, digestRunId });
+        await debitForDelivery({
+          userId,
+          digestRunId,
+          // CAD-89: debit by RESOLVED tier (post-downgrade).
+          tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
+        });
       } catch (err) {
         // Never break a successful delivery on debit failure. Log and
         // accept that this brief flew free — preferable to telling Stripe
@@ -597,7 +638,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // T-505a: debit even on the legacy / manual sampleNow path so the
     // ledger is consistent regardless of dispatch entry point. Best-effort.
     try {
-      await debitForDelivery({ userId, digestRunId: inserted[0]!.id });
+      await debitForDelivery({
+        userId,
+        digestRunId: inserted[0]!.id,
+        tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
+      });
     } catch (err) {
       console.error("[digest:debit] failed for run", inserted[0]!.id, err);
     }
