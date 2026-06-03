@@ -333,8 +333,42 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           `requested=pro effective=default reason=${downgradeReason}`
       );
     }
-    const providers = getProviders(effectiveTier);
-    const out = await providers.composer.compose(composerInput);
+    let providers = getProviders(effectiveTier);
+    let out: Awaited<ReturnType<typeof providers.composer.compose>>;
+    try {
+      out = await providers.composer.compose(composerInput);
+    } catch (composerErr) {
+      // CAD-102 (T3): Pro composer failure → fallback to the default
+      // composer so a flaky Sonar/Sonnet call doesn't deny the user their
+      // brief entirely. Only catches Pro→default; a default composer
+      // failure re-throws and lands in the outer catch below so the
+      // pipeline can retry or escalate to delivery_broken.
+      //
+      // The user gets a default brief (no 🔬 footer, debited at 1 credit
+      // via the resolved=default tier downstream), and the failure is
+      // captured in Sentry + stamped on runMetadata.fallback so admins
+      // can see the rate of Pro→default fallbacks without trawling logs.
+      if (providers.tier !== "pro") {
+        throw composerErr;
+      }
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureException(composerErr, {
+        tags: { route: "digest.compose", tier: "pro" },
+        extra: { userId, digestRunId: digestRunId ?? null },
+      });
+      const reason = sanitizeError(composerErr);
+      console.warn(
+        `[digest:fallback] user=${userId} pro composer failed, retrying on default — ${reason}`
+      );
+      providers = getProviders("default");
+      out = await providers.composer.compose(composerInput);
+      runMetadata.fallback = {
+        from: "pro",
+        to: "default",
+        reason,
+      };
+      effectiveTier = "default";
+    }
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
     runMetadata.tier = {
