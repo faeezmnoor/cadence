@@ -7,7 +7,8 @@
  *                 ~$0.04–0.08 cost-to-us, 1 credit per brief.
  *   - "pro"     — Perplexity Sonar Reasoning Pro + Claude Sonnet 4.6.
  *                 ~$0.25–0.40 cost-to-us, 3 credits per brief.
- *                 Internal codename "pro"; user-facing copy is "🔬 Deep research".
+ *                 Internal codename "pro"; user-facing footer is
+ *                 "🔬 Pro brief — deeper research, 3 credits." (CAD-91).
  *
  * This file defines the narrow interfaces every provider must satisfy so
  * the digest pipeline can swap stacks without conditionals scattered

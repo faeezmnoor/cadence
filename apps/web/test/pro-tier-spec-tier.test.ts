@@ -68,10 +68,13 @@ describe("CAD-88 — digest/run.ts wiring", () => {
     expect(src).toMatch(/providers\.composer\.compose\(composerInput\)/);
   });
 
-  it("🔬 Pro badge is double-gated (alpha flag AND resolved tier)", () => {
-    // Both conditions must be present in the same boolean clause.
-    expect(src).toMatch(/isProTierAlphaEnabled\(\)\s*&&\s*resolvedTier === "pro"/);
-    expect(src).toMatch(/🔬 Deep research \(Pro\)/);
+  it("🔬 Pro badge is gated on resolved tier (CAD-91)", () => {
+    // CAD-91: the alpha-flag gate was removed from the badge predicate
+    // because the resolved tier itself already encodes the flag state
+    // (getProviders falls back to "default" when the flag is off). The
+    // badge now appends iff the brief was actually composed on Pro.
+    expect(src).toMatch(/resolvedTier === "pro"/);
+    expect(src).toMatch(/🔬 Pro brief — deeper research, 3 credits\./);
   });
 });
 

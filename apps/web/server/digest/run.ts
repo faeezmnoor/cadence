@@ -135,6 +135,17 @@ function todayIsoUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * CAD-91: Pro tier footer copy. Exported so tests can lock the exact
+ * wording — the badge is user-visible and ties the 3-credit debit to
+ * an explanation in the brief itself.
+ */
+export const PRO_BADGE_FOOTER = "🔬 Pro brief — deeper research, 3 credits.";
+
+export function appendProBadge(markdown: string): string {
+  return markdown + "\n\n" + PRO_BADGE_FOOTER;
+}
+
 export async function runDigestPipeline(params: RunDigestParams): Promise<RunDigestResult> {
   const { userId, dryRun = false, tolerateSourceFailures = true, digestRunId } = params;
   const runDate = params.runDate ?? todayIsoUtc();
@@ -443,13 +454,15 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     if (footer) markdown = markdown + footer;
   }
 
-  // CAD-88: 🔬 Pro tier badge. Only emitted when the alpha flag is on
-  // AND the brief was actually composed on the Pro stack (resolved
-  // tier === "pro"). Surfaced to the user so they can see which
-  // stack served them and tie it back to the 3-credit charge.
+  // CAD-91: 🔬 Pro tier badge. Only emitted when the brief was actually
+  // composed on the Pro stack (resolved tier === "pro"). Surfaced to the
+  // user so they can see which stack served them and tie it back to the
+  // 3-credit charge. Reads tier from runMetadata.tier.resolved which is
+  // populated post-CAD-89 (the resolved tier, not the requested tier —
+  // downgraded briefs MUST NOT carry the Pro badge).
   const resolvedTier = (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved;
-  if (isProTierAlphaEnabled() && resolvedTier === "pro") {
-    markdown = markdown + "\n\n— 🔬 Deep research (Pro)";
+  if (resolvedTier === "pro") {
+    markdown = appendProBadge(markdown);
   }
 
   // 4. Format for Telegram
