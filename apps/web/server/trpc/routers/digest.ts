@@ -74,6 +74,10 @@ export const digestRouter = router({
       return runDigestPipeline({
         userId: ctx.user.id,
         dryRun,
+        // UX P0 #2: surface the sample-brief banner. Both the auto-fire
+        // post-link path and the manual "Send sample now" button hit this
+        // mutation, and both should label the result as a sample.
+        trigger: "sample",
       });
     }),
 

@@ -199,25 +199,89 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
   }
 
   if (linked) {
+    // UX P0 #1: live progress card. The dead zone between "linked!" and
+    // "brief lands in Telegram" is the largest single drop-off in the
+    // funnel — users app-switch on the success screen and miss the
+    // delivery. We now derive a 3-step state machine from existing local
+    // state so the user sees forward motion in real time:
+    //
+    //   step 1 — Telegram linked    (always done once we reach this branch)
+    //   step 2 — Crafting your brief (sampleStatus.kind === "sending")
+    //   step 3 — Delivering to Telegram → ✅ Brief delivered
+    //
+    // Failure paths (no_credits / error) still surface inline so the user
+    // isn't stuck on a fake "loading…" if anything went sideways.
+    //
+    // Auto-fire is already triggered via the autoSampleFiredRef effect; we
+    // don't add new polling. The tRPC mutation already awaits delivery and
+    // updates sampleStatus → that's our progress signal. No new infra.
+    type StepState = "done" | "active" | "pending" | "failed";
+    const step1: StepState = "done";
+    const step2: StepState =
+      sampleStatus.kind === "sending"
+        ? "active"
+        : sampleStatus.kind === "sent"
+          ? "done"
+          : sampleStatus.kind === "error" || sampleStatus.kind === "no_credits"
+            ? "failed"
+            : "pending";
+    const step3: StepState =
+      sampleStatus.kind === "sent"
+        ? "done"
+        : sampleStatus.kind === "sending"
+          ? "active"
+          : sampleStatus.kind === "error" || sampleStatus.kind === "no_credits"
+            ? "failed"
+            : "pending";
+
+    const showHangWarning =
+      sampleStatus.kind === "sending"; // Mutation timeout itself surfaces error.
+
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-green-600/30 bg-green-50/50 p-5 dark:bg-green-950/20">
+        <div
+          data-testid="link-progress-card"
+          className="rounded-lg border border-green-600/30 bg-green-50/50 p-5 dark:bg-green-950/20"
+        >
           <p className="text-base font-semibold text-green-700 dark:text-green-300">
-            Connected
-            {statusQuery.data?.username ? ` · @${statusQuery.data.username}` : ""}
+            {sampleStatus.kind === "sent"
+              ? "Brief delivered to Telegram"
+              : "Almost there"}
+            {statusQuery.data?.username
+              ? ` · @${statusQuery.data.username}`
+              : ""}
           </p>
-          {sampleStatus.kind === "sending" ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              <span
-                className="inline-block h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40 align-middle"
-                aria-hidden="true"
-              />{" "}
-              Sending your first brief now…
-            </p>
-          ) : sampleStatus.kind === "sent" ? (
-            <div className="mt-2 space-y-3">
+
+          <ol
+            data-testid="link-progress-steps"
+            className="mt-3 space-y-2 text-sm"
+            aria-label="Setup progress"
+          >
+            <ProgressStep
+              state={step1}
+              label="Telegram linked"
+              testId="step-link"
+            />
+            <ProgressStep
+              state={step2}
+              label="Crafting your first brief"
+              testId="step-compose"
+            />
+            <ProgressStep
+              state={step3}
+              label={
+                step3 === "done"
+                  ? "Delivered to Telegram"
+                  : "Delivering to Telegram"
+              }
+              testId="step-deliver"
+            />
+          </ol>
+
+          {sampleStatus.kind === "sent" && (
+            <div className="mt-4 space-y-2">
               <p className="text-sm text-muted-foreground">
-                Sent! Check your messaging app — your first brief is on its way.
+                Check your messaging app — your sample is waiting.
               </p>
               <a
                 href={telegramAppLink}
@@ -225,22 +289,40 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
                 rel="noopener noreferrer"
                 className="inline-flex h-10 items-center justify-center rounded-md bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90"
               >
-                Open and read it
+                Open Telegram
               </a>
             </div>
-          ) : sampleStatus.kind === "no_credits" ? (
-            <p className="mt-2 text-sm text-muted-foreground">
+          )}
+
+          {sampleStatus.kind === "no_credits" && (
+            <p className="mt-3 text-sm text-muted-foreground">
               {sampleStatus.scheduledNote}
             </p>
-          ) : sampleStatus.kind === "error" ? (
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              {sampleStatus.message} Your next scheduled brief still lands at
-              07:00 MYT.
+          )}
+
+          {sampleStatus.kind === "error" && (
+            <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
+              Hmm, something&rsquo;s off. We&rsquo;ll retry — or contact{" "}
+              <a
+                href="mailto:support@cadence.news"
+                className="underline hover:opacity-80"
+              >
+                support@cadence.news
+              </a>
+              .
             </p>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              You&apos;re set. Your first brief arrives tomorrow at 07:00 MYT.
-              Reply to any brief with feedback — Cadence learns from it.
+          )}
+
+          {showHangWarning && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              This usually takes 10–30 seconds. Hang tight.
+            </p>
+          )}
+
+          {sampleStatus.kind === "idle" && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Your first scheduled brief lands tomorrow at 07:00 MYT. Reply to
+              any brief with feedback — Cadence learns from it.
             </p>
           )}
         </div>
@@ -326,5 +408,72 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * UX P0 #1: one row in the post-link progress checklist.
+ * States:
+ *  - done    → solid green check + bold label
+ *  - active  → animated dot + emphasized label (in-flight)
+ *  - pending → muted dot + muted label (not started)
+ *  - failed  → amber dot + amber label (composer/delivery error)
+ *
+ * Tiny component, kept in-file because it isn't reused elsewhere yet.
+ */
+function ProgressStep({
+  state,
+  label,
+  testId,
+}: {
+  state: "done" | "active" | "pending" | "failed";
+  label: string;
+  testId?: string;
+}) {
+  const icon =
+    state === "done" ? (
+      <span
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-600 text-[10px] font-bold text-white"
+        aria-hidden="true"
+      >
+        ✓
+      </span>
+    ) : state === "active" ? (
+      <span
+        className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-foreground"
+        aria-hidden="true"
+      />
+    ) : state === "failed" ? (
+      <span
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white"
+        aria-hidden="true"
+      >
+        !
+      </span>
+    ) : (
+      <span
+        className="h-3 w-3 shrink-0 rounded-full border border-muted-foreground/40"
+        aria-hidden="true"
+      />
+    );
+
+  const textClass =
+    state === "done"
+      ? "text-foreground"
+      : state === "active"
+        ? "font-medium text-foreground"
+        : state === "failed"
+          ? "text-amber-700 dark:text-amber-300"
+          : "text-muted-foreground";
+
+  return (
+    <li
+      className="flex items-center gap-2.5"
+      data-testid={testId}
+      data-state={state}
+    >
+      {icon}
+      <span className={textClass}>{label}</span>
+    </li>
   );
 }
