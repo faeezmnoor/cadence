@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs } from "@/server/db/schema";
+import { digestRuns, digestSpecs, users } from "@/server/db/schema";
 import { isValidShortId } from "@/server/digest/share";
 import { Wordmark } from "@/components/marketing/wordmark";
 
@@ -52,6 +52,9 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
   const { shortId } = await params;
   if (!isValidShortId(shortId)) notFound();
 
+  // Security MEDIUM #2: join through users + filter users.deleted_at IS NULL,
+  // so briefs belonging to a soft-deleted account 404 immediately rather than
+  // remaining publicly visible until the daily purge cron runs.
   const rows = await db
     .select({
       id: digestRuns.id,
@@ -64,7 +67,8 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
     })
     .from(digestRuns)
     .innerJoin(digestSpecs, eq(digestRuns.specId, digestSpecs.id))
-    .where(eq(digestRuns.shortId, shortId))
+    .innerJoin(users, eq(digestSpecs.userId, users.id))
+    .where(and(eq(digestRuns.shortId, shortId), isNull(users.deletedAt)))
     .limit(1);
 
   const row = rows[0];
