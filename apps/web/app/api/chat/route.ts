@@ -39,6 +39,10 @@ import {
 } from "@/lib/digest-spec/schema";
 import { log } from "@/lib/log";
 import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
+import { checkRateLimit } from "@/server/rate-limit/check";
+
+const CHAT_RATE_LIMIT = 5;
+const CHAT_RATE_WINDOW_SECONDS = 60;
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -55,6 +59,30 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Security HIGH #2: per-user rate limit to bound LLM cost runaway. A
+  // stolen session or a misbehaving client can otherwise loop streamText
+  // and burn real Anthropic dollars in minutes. 5 turns/min is well above
+  // any honest typing cadence but well below sustained abuse.
+  const rl = await checkRateLimit({
+    userId: user.id,
+    scope: "chat_turn",
+    limit: CHAT_RATE_LIMIT,
+    windowSeconds: CHAT_RATE_WINDOW_SECONDS,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        retryAfter: rl.retryAfter,
+        message: `You're sending messages too fast. Try again in ${rl.retryAfter}s.`,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfter) },
+      }
+    );
   }
 
   const body = (await req.json().catch(() => null)) as ChatRequestBody | null;

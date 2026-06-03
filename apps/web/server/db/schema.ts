@@ -511,6 +511,24 @@ export const accountDeletions = pgTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// rate_limits — fixed-window per-user counters for cost-runaway endpoints.
+// Migration 0022. Server-only (RLS enabled, no policies = block by default).
+// ---------------------------------------------------------------------------
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    userId: uuid("user_id").notNull(),
+    scope: text("scope").notNull(),
+    count: integer("count").notNull().default(0),
+    windowStart: timestamp("window_start", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.scope] }),
+  })
+);
+
 // Re-export sql for callers that want raw expressions.
 export { sql };
 
