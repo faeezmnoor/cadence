@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs } from "@/server/db/schema";
@@ -117,14 +118,73 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
             )}
           </header>
 
-          {/* Brief body — server-rendered markdown. We render as <pre> for
-              fidelity to what the user saw in their messaging app; styled to
-              read like a brief, not code. */}
+          {/* Brief body — server-rendered markdown via react-markdown so
+              [Source](url) links are clickable instead of literal text
+              (QA P2 #1: defeats the "share it" CTA otherwise). All links
+              open in a new tab with rel="noopener noreferrer". Styles
+              applied via component overrides — no @tailwindcss/typography
+              dependency. */}
           <div
             data-testid="brief-body"
-            className="whitespace-pre-wrap break-words rounded-xl border border-border bg-card p-6 text-[14px] leading-relaxed"
+            className="break-words rounded-xl border border-border bg-card p-6 text-[14px] leading-relaxed"
           >
-            {row.composedMarkdown}
+            <ReactMarkdown
+              components={{
+                a: ({ children, href, ...props }) => (
+                  <a
+                    {...props}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline underline-offset-2 hover:opacity-80"
+                  >
+                    {children}
+                  </a>
+                ),
+                h1: ({ children }) => (
+                  <h2 className="mb-3 mt-6 text-xl font-semibold tracking-tight first:mt-0">
+                    {children}
+                  </h2>
+                ),
+                h2: ({ children }) => (
+                  <h3 className="mb-2 mt-5 text-lg font-semibold tracking-tight first:mt-0">
+                    {children}
+                  </h3>
+                ),
+                h3: ({ children }) => (
+                  <h4 className="mb-2 mt-4 text-base font-semibold tracking-tight first:mt-0">
+                    {children}
+                  </h4>
+                ),
+                p: ({ children }) => (
+                  <p className="my-3 first:mt-0 last:mb-0">{children}</p>
+                ),
+                ul: ({ children }) => (
+                  <ul className="my-3 list-disc space-y-1 pl-5">{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="my-3 list-decimal space-y-1 pl-5">{children}</ol>
+                ),
+                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                strong: ({ children }) => (
+                  <strong className="font-semibold">{children}</strong>
+                ),
+                em: ({ children }) => <em className="italic">{children}</em>,
+                hr: () => <hr className="my-6 border-border" />,
+                blockquote: ({ children }) => (
+                  <blockquote className="my-3 border-l-2 border-border pl-3 italic text-muted-foreground">
+                    {children}
+                  </blockquote>
+                ),
+                code: ({ children }) => (
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">
+                    {children}
+                  </code>
+                ),
+              }}
+            >
+              {row.composedMarkdown}
+            </ReactMarkdown>
           </div>
         </article>
 
