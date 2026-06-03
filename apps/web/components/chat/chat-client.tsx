@@ -31,10 +31,14 @@ export function ChatClient({
   threadId,
   initialMessages,
   initialDraft,
+  sessionEmail,
 }: {
   threadId: string;
   initialMessages: PersistedMessage[];
   initialDraft: DraftLike;
+  /** Email from the Supabase session, used to pre-fill the BM/中文 opt-in
+   *  form (QA P2 #2). Null if the auth provider didn't surface one. */
+  sessionEmail: string | null;
 }) {
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -161,6 +165,12 @@ export function ChatClient({
   // See feedback_cadence_positioning.
   const registerLangInterest = trpc.interest.registerLanguage.useMutation();
   const [langAck, setLangAck] = useState<null | "ms" | "zh">(null);
+  // QA P2 #2: explicit email opt-in. When the user taps a BM/中文 chip we
+  // now show an inline form pre-filled with the session email (editable);
+  // submitting the form is what records interest. Null = no prompt visible.
+  const [langPrompt, setLangPrompt] = useState<null | "ms" | "zh">(null);
+  const [langEmail, setLangEmail] = useState<string>(sessionEmail ?? "");
+  const [langEmailError, setLangEmailError] = useState<string | null>(null);
 
   function classifyLanguageChip(text: string): null | "ms" | "zh" {
     const t = text.toLowerCase();
@@ -175,17 +185,42 @@ export function ChatClient({
     if (isStreamingState || !text.trim()) return;
     const lang = classifyLanguageChip(text);
     if (lang) {
-      // Intercept — capture interest, do not send the chip to the agent.
-      registerLangInterest.mutate(
-        { languageCode: lang },
-        {
-          onSuccess: () => setLangAck(lang),
-          onError: () => setLangAck(lang), // still ack; the row insert is best-effort
-        }
-      );
+      // QA P2 #2: intercept and surface the explicit opt-in form. We do
+      // NOT mutate yet — the form submission is what records interest.
+      setLangAck(null);
+      setLangEmailError(null);
+      setLangEmail((cur) => cur || sessionEmail || "");
+      setLangPrompt(lang);
       return;
     }
     void append({ role: "user", content: text });
+  };
+
+  const submitLangInterest = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!langPrompt) return;
+    const trimmed = langEmail.trim();
+    // Light client-side check — server validates with z.string().email().
+    if (!/^\S+@\S+\.\S+$/.test(trimmed)) {
+      setLangEmailError("Enter a valid email address.");
+      return;
+    }
+    const langForAck = langPrompt;
+    registerLangInterest.mutate(
+      { languageCode: langForAck, email: trimmed },
+      {
+        onSuccess: () => {
+          setLangAck(langForAck);
+          setLangPrompt(null);
+        },
+        // Best-effort: ack even on error so the user isn't stuck; the
+        // row may still have written before the network blip.
+        onError: () => {
+          setLangAck(langForAck);
+          setLangPrompt(null);
+        },
+      }
+    );
   };
 
   // T-414 / CAD-74: extract suggest_quick_replies chips from the latest
@@ -366,14 +401,74 @@ export function ChatClient({
                 })}
               </div>
             )}
+            {langPrompt && (
+              <form
+                data-testid="language-interest-form"
+                onSubmit={submitLangInterest}
+                className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 px-3 py-3 text-xs text-foreground"
+                aria-label="Language launch email opt-in"
+              >
+                <p className="text-muted-foreground">
+                  We&rsquo;ll email you when{" "}
+                  {langPrompt === "ms" ? "Bahasa Malaysia" : "中文"} launches.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="sr-only" htmlFor="lang-interest-email">
+                    Email
+                  </label>
+                  <input
+                    id="lang-interest-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={langEmail}
+                    onChange={(e) => {
+                      setLangEmail(e.target.value);
+                      if (langEmailError) setLangEmailError(null);
+                    }}
+                    disabled={registerLangInterest.isPending}
+                    placeholder="you@example.com"
+                    className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={registerLangInterest.isPending}
+                      className="inline-flex h-7 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {registerLangInterest.isPending ? "Saving…" : "Notify me"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLangPrompt(null);
+                        setLangEmailError(null);
+                      }}
+                      disabled={registerLangInterest.isPending}
+                      className="inline-flex h-7 items-center rounded-md border border-border bg-background px-3 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                {langEmailError && (
+                  <p
+                    role="alert"
+                    className="text-[11px] text-red-500"
+                  >
+                    {langEmailError}
+                  </p>
+                )}
+              </form>
+            )}
             {langAck && (
               <div
                 data-testid="language-interest-ack"
                 role="status"
                 className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground"
               >
-                Got it — I&rsquo;ll email you the moment{" "}
-                {langAck === "ms" ? "Bahasa Malaysia" : "中文"} briefs ship
+                We&rsquo;ll email you when{" "}
+                {langAck === "ms" ? "Bahasa Malaysia" : "中文"} launches
                 (targeting July). For now, please continue in English.
               </div>
             )}

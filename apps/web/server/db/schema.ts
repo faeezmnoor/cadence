@@ -242,6 +242,13 @@ export const languageInterestEvents = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     /** 'ms' | 'zh' */
     languageCode: text("language_code").notNull(),
+    /**
+     * Explicit email opt-in for the launch-day notify list (QA P2 #2,
+     * migration 0021). Pre-0021 rows are null; for those we fall back to
+     * users.email at notify time. New rows capture an explicit, editable
+     * email from the chat opt-in form.
+     */
+    email: text("email"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

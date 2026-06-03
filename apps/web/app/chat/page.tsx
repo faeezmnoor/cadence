@@ -86,6 +86,7 @@ export default async function ChatPage() {
         threadId={thread.id}
         initialMessages={initialMessages}
         initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
+        sessionEmail={user.email ?? null}
       />
     </div>
   );
