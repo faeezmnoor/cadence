@@ -25,6 +25,8 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
+import { classifyTopic } from "@/lib/digest-spec/templates";
+import { buildSampleBanner } from "./sample-banner";
 
 /**
  * Auto-heal: any successful delivery clears users.state === "delivery_broken".
@@ -91,6 +93,17 @@ export interface RunDigestParams {
   dryRun?: boolean;
   /** Skip source-fetching errors (Brave key missing etc) and continue with what we have. */
   tolerateSourceFailures?: boolean;
+  /**
+   * UX P0 #2: which surface invoked the pipeline. Drives the
+   * sample-brief banner prepended to the markdown.
+   *  - "scheduled": cron path. No banner. Default.
+   *  - "sample":    auto-fired post-Telegram-link OR digest.sampleNow
+   *                 mutation OR Telegram /sample command. Banner added.
+   *
+   * Default is "scheduled" so the cron path stays unchanged if a caller
+   * forgets to set this — banner is the additive case, not the default.
+   */
+  trigger?: "scheduled" | "sample";
 }
 
 export type RunStatus =
@@ -148,7 +161,7 @@ export function appendProBadge(markdown: string): string {
 }
 
 export async function runDigestPipeline(params: RunDigestParams): Promise<RunDigestResult> {
-  const { userId, dryRun = false, tolerateSourceFailures = true, digestRunId } = params;
+  const { userId, dryRun = false, tolerateSourceFailures = true, digestRunId, trigger = "scheduled" } = params;
   const runDate = params.runDate ?? todayIsoUtc();
 
   // 1. Load user + current spec
@@ -445,6 +458,66 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       console.warn("[digest:eval] source-resolve unexpectedly threw:", err);
     }
 
+    // Ticket 2 (missing-capability telemetry): flag low-confidence briefs
+    // so /admin/missing-capabilities can surface "we delivered, but only
+    // barely" — the highest-signal demand for new data sources. Triggers:
+    //   - source-resolve rate < 0.8, OR
+    //   - fewer than 2 sources actually resolved, OR
+    //   - section_count < 2 (composer hit the loosened min(1) floor).
+    // Pure additive metadata; never blocks delivery.
+    try {
+      const brief = out.brief as BriefJson;
+      const sourceResolve = runMetadata.sourceResolve as
+        | { rate: number; results: SourceResolveResult[] }
+        | undefined;
+      const rate = sourceResolve?.rate ?? 1;
+      const resolvedCount = sourceResolve?.results
+        ? sourceResolve.results.filter((r) => r.resolved).length
+        : brief.sources.length;
+      const sectionCount = brief.sections.length;
+      const reasons: string[] = [];
+      if (rate < 0.8) reasons.push("source_resolve_rate_below_80pct");
+      if (resolvedCount < 2) reasons.push("fewer_than_2_resolved_sources");
+      if (sectionCount < 2) reasons.push("thin_signal_single_section");
+      if (reasons.length > 0) {
+        runMetadata.lowConfidence = {
+          reason: reasons.join(","),
+          source_resolve_rate: rate,
+          resolved_count: resolvedCount,
+          section_count: sectionCount,
+          flaggedAt: new Date().toISOString(),
+        };
+        console.warn(
+          `[digest:lowConfidence] user=${userId} reasons=${reasons.join("|")} ` +
+            `rate=${(rate * 100).toFixed(0)}% resolved=${resolvedCount} sections=${sectionCount}`
+        );
+      }
+    } catch (err) {
+      console.warn("[digest:lowConfidence] unexpectedly threw:", err);
+    }
+
+    // Ticket 3 (topic-match telemetry): classify the spec's topics against
+    // the curated template library so /admin/missing-capabilities can
+    // answer "what % of new specs match a template vs are off-template?".
+    // Pure keyword match — sync, no LLM call, zero added latency.
+    try {
+      const spec = specRow.spec as {
+        topics?: string[];
+        topicHint?: string;
+      };
+      const classification = classifyTopic({
+        topics: spec.topics,
+        topicHint: spec.topicHint,
+      });
+      runMetadata.specSubmittedTopic = {
+        templateId: classification.templateId,
+        matched: classification.matched,
+        rawTopics: (spec.topics ?? []).slice(0, 10),
+      };
+    } catch (err) {
+      console.warn("[digest:specSubmittedTopic] unexpectedly threw:", err);
+    }
+
     // T-404: mark raw learning_log rows as consumed *after* a successful
     // compose. If compose throws we keep them unconsumed so the next
     // attempt re-injects them. We don't gate on dryRun: a preview should
@@ -544,6 +617,23 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   const resolvedTier = (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved;
   if (resolvedTier === "pro") {
     markdown = appendProBadge(markdown);
+  }
+
+  // UX P0 #2: prepend sample-brief banner (sample trigger only). Cron path
+  // stays untouched. The banner sits at the very top of the message so the
+  // user reads it before scanning the brief body — the goal is anchoring
+  // "this is a one-off taste; your real briefs land on schedule" inside the
+  // first 5 seconds of their first Cadence delivery.
+  if (trigger === "sample") {
+    const spec = specRow.spec as {
+      cadence?: { frequency?: Cadence; delivery_time_local?: string };
+    };
+    const banner = buildSampleBanner({
+      frequency: spec.cadence?.frequency ?? "daily",
+      deliveryTimeLocal: spec.cadence?.delivery_time_local ?? null,
+      timezone: user.timezone ?? null,
+    });
+    markdown = banner + markdown;
   }
 
   // 4. Format for Telegram
