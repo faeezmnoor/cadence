@@ -47,9 +47,15 @@ describe("brief JSON schema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("rejects fewer than 3 sections", () => {
+  it("accepts a single-section brief (Ticket 2: min(1) — quality over quantity)", () => {
     const b = validBrief();
-    b.sections = b.sections.slice(0, 2);
+    b.sections = b.sections.slice(0, 1);
+    expect(briefJsonSchema.safeParse(b).success).toBe(true);
+  });
+
+  it("rejects zero sections", () => {
+    const b = validBrief();
+    b.sections = [];
     expect(briefJsonSchema.safeParse(b).success).toBe(false);
   });
 

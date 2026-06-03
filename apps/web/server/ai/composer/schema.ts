@@ -63,7 +63,15 @@ export const briefJsonSchema = z
     header: briefHeaderSchema,
     /** Optional TL;DR sentence; may carry citation markers in text. */
     tldr: z.string().min(1).max(500),
-    sections: z.array(briefSectionSchema).min(3).max(5),
+    /**
+     * Ticket 2 (UX audit follow-up): loosened from `.min(3)` to `.min(1)`.
+     * The composer must NOT pad-or-fail when signal is thin — a single
+     * high-signal section is a better brief than three half-empty ones.
+     * Low-signal briefs are still observable via `metadata.lowConfidence`
+     * (set in apps/web/server/digest/run.ts) and surfaced on
+     * /admin/missing-capabilities so we know what data sources to add.
+     */
+    sections: z.array(briefSectionSchema).min(1).max(5),
     /** "Why this matters to you" closer — REQUIRED; this is how we prove personalization. */
     why_it_matters: z.string().min(1).max(600),
     /** Plain-text feedback CTA line (NOT button labels — buttons live at dispatch layer). */
