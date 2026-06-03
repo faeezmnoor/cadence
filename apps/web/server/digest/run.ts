@@ -50,6 +50,7 @@ async function autoHealDeliveryBroken(userId: string): Promise<void> {
     .where(and(eq(users.id, userId), eq(users.state, "delivery_broken")));
 }
 import { getProviders, isProTierAlphaEnabled, type Tier } from "@/server/ai/providers";
+import { isProTierCostSane } from "@/server/billing/circuit-breaker";
 import type {
   ComposerInput,
   ComposerSourcesBundle,
@@ -332,6 +333,33 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         `[digest:downgrade] user=${userId} balance=${user.creditsBalance} ` +
           `requested=pro effective=default reason=${downgradeReason}`
       );
+    } else if (requestedTier === "pro") {
+      // CAD-102 (T4): cost-overrun circuit breaker. If today's Pro spend
+      // is above PRO_TIER_DAILY_USD_CAP, downgrade to default to stop the
+      // bleeding. Sentry-alerts once per UTC day so we get paged on the
+      // trip but not on every dispatch after.
+      const sanity = await isProTierCostSane();
+      if (!sanity.ok) {
+        effectiveTier = "default";
+        downgradeReason = "cost_cap";
+        console.warn(
+          `[digest:downgrade] user=${userId} reason=cost_cap usdToday=$${sanity.usdToday.toFixed(2)} cap=$${sanity.capUsd}`
+        );
+        try {
+          const Sentry = await import("@sentry/nextjs");
+          Sentry.captureMessage(
+            `Pro tier cost cap tripped: $${sanity.usdToday.toFixed(2)} / $${sanity.capUsd} today`,
+            {
+              level: "warning",
+              tags: { route: "digest.compose", reason: "cost_cap" },
+              extra: { usdToday: sanity.usdToday, capUsd: sanity.capUsd },
+              fingerprint: ["pro-tier-cost-cap", new Date().toISOString().slice(0, 10)],
+            }
+          );
+        } catch {
+          // Sentry-optional; don't fail the pipeline on telemetry hiccups.
+        }
+      }
     }
     let providers = getProviders(effectiveTier);
     let out: Awaited<ReturnType<typeof providers.composer.compose>>;
