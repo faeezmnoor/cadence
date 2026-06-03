@@ -27,6 +27,7 @@ function txLabel(type: string) {
   if (type === "message_send") return "Brief delivered";
   if (type === "topup") return "Top-up";
   if (type === "adjustment") return "Adjustment";
+  if (type === "refund") return "Refund credited";
   return type;
 }
 
