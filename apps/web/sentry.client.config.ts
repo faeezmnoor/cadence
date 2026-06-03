@@ -12,7 +12,7 @@ if (dsn) {
     environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development",
     // Security MEDIUM #3: strip user-content + email from outbound events.
     beforeSend(event) {
-      return scrubSentryEvent(event);
+      return scrubSentryEvent(event as unknown as Record<string, unknown>) as unknown as typeof event;
     },
   });
 }

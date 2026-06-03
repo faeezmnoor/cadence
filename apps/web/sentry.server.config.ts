@@ -10,7 +10,9 @@ if (dsn) {
     environment: process.env.VERCEL_ENV ?? "development",
     // Security MEDIUM #3: strip user-content + email from outbound events.
     beforeSend(event) {
-      return scrubSentryEvent(event);
+      // Cast: scrubSentryEvent operates on a structural subset; we mutate
+      // and return the same Sentry ErrorEvent shape.
+      return scrubSentryEvent(event as unknown as Record<string, unknown>) as unknown as typeof event;
     },
   });
 }
