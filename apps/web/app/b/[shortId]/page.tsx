@@ -93,26 +93,26 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Link href="/" aria-label="Cadence — home">
             <Wordmark asLink={false} className="text-sm" />
           </Link>
           <Link
             href="/"
-            className="inline-flex h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition hover:opacity-90"
+            className="inline-flex h-9 shrink-0 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 sm:px-4 sm:text-sm"
           >
             Get your own
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-12">
+      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-12">
         <article>
           <header className="mb-8">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
               Daily research brief
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
               {runDateStr}
             </h1>
             {topics.length > 0 && (
@@ -130,7 +130,7 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
               dependency. */}
           <div
             data-testid="brief-body"
-            className="break-words rounded-xl border border-border bg-card p-6 text-[14px] leading-relaxed"
+            className="break-words rounded-xl border border-border bg-card p-4 text-[14px] leading-relaxed sm:p-6"
           >
             <ReactMarkdown
               components={{

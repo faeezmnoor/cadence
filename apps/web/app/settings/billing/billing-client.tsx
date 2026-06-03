@@ -113,41 +113,77 @@ export function BillingClient() {
               No transactions yet.
             </p>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">When</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 text-right font-medium">Change</th>
-                  <th className="px-4 py-3 text-right font-medium">Balance</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Mobile: stacked card rows. The 4-col table overflows
+                  horizontally at 390px even with horizontal scroll, so on
+                  small screens we render each transaction as a 2-row card. */}
+              <ul className="divide-y divide-border sm:hidden">
                 {ledger.data.map((row) => (
-                  <tr key={row.id} className="border-t border-border">
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {formatDate(row.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">{txLabel(row.type)}</td>
-                    <td
-                      className={`px-4 py-3 text-right tabular-nums ${
-                        row.creditsDelta > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : row.creditsDelta < 0
-                            ? "text-foreground"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      {row.creditsDelta > 0 ? "+" : ""}
-                      {row.creditsDelta}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {row.balanceAfter}
-                    </td>
-                  </tr>
+                  <li key={row.id} className="px-4 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-sm font-medium">{txLabel(row.type)}</p>
+                      <span
+                        className={`text-sm tabular-nums ${
+                          row.creditsDelta > 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : row.creditsDelta < 0
+                              ? "text-foreground"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {row.creditsDelta > 0 ? "+" : ""}
+                        {row.creditsDelta}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+                      <span>{formatDate(row.createdAt)}</span>
+                      <span className="tabular-nums">
+                        Balance {row.balanceAfter}
+                      </span>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
+              </ul>
+
+              {/* Desktop/tablet: full table */}
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">When</th>
+                      <th className="px-4 py-3 font-medium">Type</th>
+                      <th className="px-4 py-3 text-right font-medium">Change</th>
+                      <th className="px-4 py-3 text-right font-medium">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.data.map((row) => (
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                          {formatDate(row.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">{txLabel(row.type)}</td>
+                        <td
+                          className={`px-4 py-3 text-right tabular-nums ${
+                            row.creditsDelta > 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : row.creditsDelta < 0
+                                ? "text-foreground"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {row.creditsDelta > 0 ? "+" : ""}
+                          {row.creditsDelta}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {row.balanceAfter}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>
