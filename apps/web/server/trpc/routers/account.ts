@@ -29,6 +29,7 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/server/db/client";
 import { accountDeletions, users } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
@@ -90,16 +91,31 @@ export const accountRouter = router({
         });
       }
 
-      // QA P0 #2: hard-assert the service-role key is configured before we
-      // soft-delete the application row. Without it we cannot kill the
-      // Supabase auth.users row in step 3, so the user could still sign back
-      // in to a now-broken application row and silently fail every request.
-      // Better to refuse the deletion loudly than to half-delete in silence.
+      // QA P0 #2 + P2 #4: hard-assert the service-role key is configured
+      // before we soft-delete the application row. Without it we cannot
+      // kill the Supabase auth.users row in step 3, so the user could still
+      // sign back in to a now-broken application row and silently fail
+      // every request. Better to refuse the deletion loudly (and page us
+      // via Sentry) than to half-delete in silence — PDPA violation if we
+      // ship a confirmation email for a half-completed deletion.
       if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        const missing = [
+          !process.env.SUPABASE_SERVICE_ROLE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+          !process.env.NEXT_PUBLIC_SUPABASE_URL && "NEXT_PUBLIC_SUPABASE_URL",
+        ].filter(Boolean);
+        Sentry.captureException(
+          new Error(
+            `account.deleteSelf misconfigured: missing ${missing.join(", ")}`
+          ),
+          {
+            level: "error",
+            tags: { route: "account.deleteSelf", reason: "missing_env" },
+            extra: { userId: ctx.user.id },
+          }
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message:
-            "Account deletion is misconfigured on the server. Email support@cadence.news and we'll process this manually.",
+          message: `Account deletion temporarily unavailable, contact ${SUPPORT_EMAIL}`,
         });
       }
 
