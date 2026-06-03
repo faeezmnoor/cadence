@@ -1,4 +1,23 @@
 /**
+ * # Provider retry/timeout contract (CAD-97)
+ *
+ * Providers (search + composer) MUST NOT implement their own retry loops.
+ * Retry, fallback, refund, and circuit-breaker decisions all live in the
+ * digest pipeline (`server/digest/run.ts`) and the Inngest function
+ * boundary above it. Providers should:
+ *
+ *   - Apply a single per-request timeout (AbortSignal.timeout) sized to
+ *     the slow tail of a *legitimate* call — see `PRO_COMPOSER_TIMEOUT_MS`
+ *     in `anthropic-pro.ts` and `REQUEST_TIMEOUT_MS` in `perplexity.ts`.
+ *   - Throw on timeout / non-2xx response. Do NOT catch-and-retry.
+ *   - Let the pipeline decide whether a failure means: retry-same-tier,
+ *     fall back to default tier (CAD-102), or refund the credit.
+ *
+ * Having retries in two places (provider + pipeline) is how brief cost
+ * silently doubles and how the cost-overrun circuit breaker gets gamed.
+ *
+ * ---
+ *
  * Provider abstraction (CAD-85 / T-520, Phase 5.1 Pro Tier foundation).
  *
  * Cadence has two tiers of brief-generation stack:

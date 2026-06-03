@@ -43,7 +43,20 @@ const MAX_REASONING_TOKENS = 6_000;
 const MAX_OUTPUT_TOKENS = 3_000;
 
 const DEFAULT_COUNT = 10;
-const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Per-request timeout for the Perplexity API (CAD-97).
+ *
+ * Sonar Reasoning Pro performs LLM-driven web research and can legitimately
+ * take 25–40s on broad queries before responding — the old 30s ceiling was
+ * tripping otherwise-successful searches. 45s gives the slow tail headroom
+ * without letting a hung connection hold the digest pipeline open
+ * indefinitely (the pipeline's own retry/timeout budget is the outer guard).
+ *
+ * NOTE: providers MUST NOT retry on timeout — the digest pipeline owns
+ * retry orchestration. See `types.ts` for the no-retry contract.
+ */
+export const REQUEST_TIMEOUT_MS = 45_000;
 
 // ---------------------------------------------------------------------------
 // Errors

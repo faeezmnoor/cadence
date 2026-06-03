@@ -40,6 +40,20 @@ export const PRO_COMPOSER_MODEL_ID = "claude-sonnet-4-5-20250929";
 
 const PRO_MAX_OUTPUT_TOKENS = 3_000;
 
+/**
+ * Per-request timeout for the Sonnet 4.6 Pro composer (CAD-97).
+ *
+ * Sonnet on a long sources bundle + the deeper Pro prompt routinely takes
+ * 30–45s — the AI SDK has no implicit timeout, so without this an upstream
+ * hang would block the Inngest worker until the function-level timeout
+ * fires. 60s = "long but legitimate" headroom; anything beyond that is
+ * almost certainly a stuck connection.
+ *
+ * NOTE: providers MUST NOT retry on timeout — the digest pipeline owns
+ * retry orchestration. See `types.ts` for the no-retry contract.
+ */
+export const PRO_COMPOSER_TIMEOUT_MS = 60_000;
+
 export async function composeDigestPro(
   input: ComposerInput
 ): Promise<ComposerOutput> {
@@ -52,6 +66,7 @@ export async function composeDigestPro(
       "Compose the brief now. Emit ONE JSON object matching the contract. No preamble, no fences, no commentary.",
     temperature: 0.25,
     maxTokens: PRO_MAX_OUTPUT_TOKENS,
+    abortSignal: AbortSignal.timeout(PRO_COMPOSER_TIMEOUT_MS),
   });
 
   const brief = parseAndValidateBrief(result.text);
