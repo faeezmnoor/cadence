@@ -13,15 +13,20 @@
 import { defaultComposerProvider, defaultSearchProvider } from "./default";
 import { proComposerProvider } from "./anthropic-pro";
 import { proSearchProvider } from "./perplexity";
+import { isProTierAlpha } from "@/lib/feature-flags";
 import type { ProviderBundle, Tier } from "./types";
 
 /**
  * Is the Pro tier alpha flag set? When false, `getProviders("pro")`
  * returns the default bundle. Keep this check cheap (env read) so it
  * can be called inside hot paths.
+ *
+ * CAD-101: delegates to the canonical `isProTierAlpha()` helper in
+ * `@/lib/feature-flags`. The legacy name is preserved so existing
+ * call sites (digest/run.ts, /spec page, tests) don't churn.
  */
 export function isProTierAlphaEnabled(): boolean {
-  return process.env.PRO_TIER_ALPHA === "1" || process.env.PRO_TIER_ALPHA === "true";
+  return isProTierAlpha();
 }
 
 export function getProviders(tier: Tier): ProviderBundle {

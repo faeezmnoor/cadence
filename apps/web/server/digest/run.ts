@@ -291,6 +291,22 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // tier on metadata so admins can see which stack actually ran.
     const requestedTier = (specRow.tier as Tier | undefined) ?? "default";
 
+    // CAD-101: alpha-flag safety net. If PRO_TIER_ALPHA is off but a spec
+    // still has tier="pro" persisted from a prior window when the flag
+    // was on, downgrade silently to default. Belt-and-braces: getProviders
+    // already does the same fallback, but doing it here means metadata
+    // records the reason and the credit-cost lookup below sees "default".
+    // Without this, flipping the flag back off could strand the alpha
+    // cohort on a Pro-priced credit cost serving a default brief.
+    let alphaSafetyDowngrade = false;
+    if (requestedTier === "pro" && !isProTierAlphaEnabled()) {
+      alphaSafetyDowngrade = true;
+      console.warn(
+        `[digest:tier] user=${userId} spec=${specRow.id} requested=pro ` +
+          `but PRO_TIER_ALPHA is off — downgrading to default`
+      );
+    }
+
     // CAD-89: pragmatic downgrade. If a Pro brief costs 3 credits but the
     // user only has 1 or 2 (positive balance, not broke), don't fail —
     // serve them via the default stack and debit 1. Skip-when-broke
@@ -302,7 +318,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // output regardless of the user's balance).
     let effectiveTier: Tier = requestedTier;
     let downgradeReason: string | null = null;
-    if (
+    if (alphaSafetyDowngrade) {
+      effectiveTier = "default";
+      downgradeReason = "alpha_flag_off";
+    } else if (
       !dryRun &&
       requestedTier === "pro" &&
       user.creditsBalance < creditCostForTier("pro")
