@@ -7,6 +7,7 @@ import { cronDispatch } from "@/server/inngest/functions/cron-dispatch";
 import { smokeSummary } from "@/server/inngest/functions/smoke-summary";
 import { weeklyDistill } from "@/server/inngest/functions/weekly-distill";
 import { feedbackEvalCron } from "@/server/inngest/functions/feedback-eval-cron";
+import { purgeSoftDeletedBriefs_fn } from "@/server/inngest/functions/purge-soft-deleted-briefs";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -18,5 +19,6 @@ export const { GET, POST, PUT } = serve({
     smokeSummary,
     weeklyDistill,
     feedbackEvalCron,
+    purgeSoftDeletedBriefs_fn,
   ],
 });

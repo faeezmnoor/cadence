@@ -422,6 +422,7 @@ export const adminRouter = router({
           specIsSmoke: digestSpecs.isSmoke,
           userId: users.id,
           userEmail: users.email,
+          userDeletedAt: users.deletedAt,
         })
         .from(digestRuns)
         .innerJoin(users, eq(users.id, digestRuns.userId))

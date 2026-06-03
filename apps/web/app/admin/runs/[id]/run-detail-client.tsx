@@ -149,6 +149,11 @@ export function RunDetailClient({
           <pre className="whitespace-pre-wrap font-sans text-sm text-neutral-800">
             {run.composedMarkdown}
           </pre>
+        ) : run.userDeletedAt ? (
+          <p className="text-sm italic text-amber-700">
+            Brief content removed per PDPA deletion (owner soft-deleted on{" "}
+            {new Date(run.userDeletedAt).toISOString().slice(0, 10)}).
+          </p>
         ) : (
           <p className="text-sm text-muted-foreground italic">
             No composed markdown on this row (may be a pre-compose failure).
