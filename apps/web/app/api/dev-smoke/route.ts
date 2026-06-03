@@ -2,12 +2,17 @@
  * Local-only smoke test endpoint for the digest pipeline.
  *
  * Hits it directly to drive end-to-end without UI / magic-link auth.
- * Gated by NEXT_PUBLIC_APP_URL containing "localhost" — refuses to run
- * anywhere else. NOT for production.
+ * Gated by NODE_ENV !== "production" — refuses to run in any prod build,
+ * regardless of NEXT_PUBLIC_APP_URL. Belt-and-braces: also requires the
+ * request host to be localhost / 127.0.0.1. NOT for production.
  *
  *   GET /api/dev-smoke?secret=<TELEGRAM_WEBHOOK_SECRET>
  *
  * (Reuses the webhook secret env var to avoid introducing a second one.)
+ *
+ * Security MEDIUM #1: previously gated by NEXT_PUBLIC_APP_URL.includes("localhost");
+ * a misconfigured preview env containing "localhost" anywhere in that var would
+ * have exposed a service-role-using user creator in prod. Hard NODE_ENV gate now.
  */
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -16,9 +21,20 @@ import { runDigestPipeline } from "@/server/digest/run";
 const TEST_EMAIL = "cadence-smoke@example.test";
 
 export async function GET(req: Request): Promise<Response> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  if (!appUrl.includes("localhost")) {
-    return NextResponse.json({ error: "dev-smoke disabled outside localhost" }, { status: 403 });
+  // Hard prod gate — must come first, before any env reads.
+  if (process.env.NODE_ENV === "production") {
+    return new NextResponse("Not found", { status: 404 });
+  }
+  // Belt-and-braces: also require the request host to be a localhost address.
+  const host = (req.headers.get("host") ?? "").toLowerCase();
+  const hostname = host.split(":")[0] ?? "";
+  const isLocalHost =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "0.0.0.0";
+  if (!isLocalHost) {
+    return new NextResponse("Not found", { status: 404 });
   }
   const url = new URL(req.url);
   const provided = url.searchParams.get("secret") ?? "";
