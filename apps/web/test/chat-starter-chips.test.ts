@@ -1,7 +1,9 @@
 /**
- * Designer #3 (design-audit-v1 §3): /chat turn 0 must show a welcome
- * bubble + starter chips. Once any message exists they must hide so the
- * T-414 contextual chips can take over.
+ * Designer #3 (design-audit-v1 §3) + Ticket 1: /chat turn 0 must show a
+ * welcome bubble + a strip of curated template chips. Chips are sourced
+ * from apps/web/lib/digest-spec/templates.ts so Faeez can edit one file
+ * and redeploy. Once any message exists the welcome state must hide so
+ * the T-414 contextual chips can take over.
  *
  * Source-pattern test — matches the existing post-confirm-redirect style
  * because vitest's include pattern is *.test.ts and the chips live inside
@@ -12,48 +14,52 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
+import { DIGEST_TEMPLATES, classifyTopic } from "@/lib/digest-spec/templates";
 
 const chatClientPath = fileURLToPath(
   new URL("../components/chat/chat-client.tsx", import.meta.url)
 );
 const source = readFileSync(chatClientPath, "utf8");
 
-describe("chat starter chips (Designer #3)", () => {
-  it("declares exactly three starter chips", () => {
-    const match = source.match(
-      /STARTER_CHIPS:\s*readonly string\[\]\s*=\s*\[([\s\S]*?)\]\s*as const/
+describe("chat starter chips (Designer #3 + Ticket 1)", () => {
+  it("sources chips from the DIGEST_TEMPLATES library (single editable file)", () => {
+    expect(source).toMatch(
+      /import\s*\{\s*DIGEST_TEMPLATES\s*\}\s*from\s*"@\/lib\/digest-spec\/templates"/
     );
-    expect(match, "STARTER_CHIPS array literal").not.toBeNull();
-    const body = match![1]!;
-    const chips = [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
-    expect(chips).toHaveLength(3);
-    // Positioning rule: chips MUST NOT lead with the delivery channel.
-    for (const c of chips) {
-      expect(c.toLowerCase()).not.toContain("telegram");
-      expect(c.toLowerCase()).not.toContain("whatsapp");
+    expect(source).toMatch(/const STARTER_CHIPS = DIGEST_TEMPLATES/);
+  });
+
+  it("ships at least 10 curated templates spanning multiple categories", () => {
+    expect(DIGEST_TEMPLATES.length).toBeGreaterThanOrEqual(10);
+    const categories = new Set(DIGEST_TEMPLATES.map((t) => t.category));
+    expect(categories.size).toBeGreaterThanOrEqual(8);
+  });
+
+  it("template labels and example queries respect the no-channel positioning rule", () => {
+    for (const tpl of DIGEST_TEMPLATES) {
+      const blob = `${tpl.label} ${tpl.exampleQuery}`.toLowerCase();
+      expect(blob, `template ${tpl.id}`).not.toContain("telegram");
+      expect(blob, `template ${tpl.id}`).not.toContain("whatsapp");
     }
   });
 
   it("welcome bubble + chips only render when there are zero messages", () => {
-    // hasMessages flag is derived from messages.length and used to gate
-    // both the welcome bubble and the chip strip.
     expect(source).toMatch(/const hasMessages = messages\.length > 0/);
     expect(source).toMatch(/\{!hasMessages && \(/);
   });
 
-  it("chip buttons fire handleSuggestion (auto-submit) and disable while streaming", () => {
-    // The handler dispatches a user message via append() — same path the
-    // ask_user.suggestions and T-414 chips use, so confirm_and_save and
-    // draft updates flow naturally.
+  it("chip click autofills the input via handleStarterChip (NOT auto-submit)", () => {
+    // Per Ticket 1: chips populate the input so the user can edit before
+    // sending. This is intentionally different from the T-414 contextual
+    // chips, which auto-submit via handleSuggestion -> append().
     expect(source).toMatch(/data-testid="chat-starter-chips"/);
     expect(source).toMatch(
-      /STARTER_CHIPS\.map\([\s\S]*?onClick=\{\(\)\s*=>\s*handleSuggestion\(c\)\}[\s\S]*?disabled=\{isStreaming\}/
+      /onClick=\{\(\)\s*=>\s*handleStarterChip\(tpl\.exampleQuery\)\}/
     );
+    expect(source).toMatch(/setInput\(exampleQuery\)/);
   });
 
   it("welcome bubble copy reflects channel-agnostic positioning", () => {
-    // No "Telegram" or "WhatsApp" in the welcome state — Cadence is
-    // messaging-channel-agnostic.
     const welcomeBlock = source.match(
       /data-testid="chat-welcome"[\s\S]*?<\/div>\s*<\/div>\s*\)\}/
     );
@@ -62,5 +68,18 @@ describe("chat starter chips (Designer #3)", () => {
     expect(text).not.toContain("telegram");
     expect(text).not.toContain("whatsapp");
     expect(text).toContain("cadence");
+  });
+
+  it("classifyTopic buckets known keywords and returns null for unknown topics", () => {
+    expect(classifyTopic({ topics: ["palm oil prices"] }).templateId).toBe(
+      "palm_oil_mpob"
+    );
+    expect(classifyTopic({ topics: ["Bitcoin recap"] }).templateId).toBe(
+      "bitcoin_crypto"
+    );
+    expect(
+      classifyTopic({ topics: ["durian harvest forecast"] }).templateId
+    ).toBeNull();
+    expect(classifyTopic({ topics: [] }).matched).toBe(false);
   });
 });

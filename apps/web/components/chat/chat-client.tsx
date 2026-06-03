@@ -14,6 +14,7 @@ import {
   detectMultiTopic,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
+import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
 
 /**
  * Streaming chat client for the config agent.
@@ -289,18 +290,26 @@ export function ChatClient({
 
   const hasMessages = messages.length > 0;
 
-  // Designer #3 (audit §3): seed turn 0 with a welcome bubble + 3 starter
-  // chips so the user sees concrete examples instead of a grey info card.
-  // Chips reflect Cadence's channel-agnostic, industry-customizable framing
-  // — NOT "telegram-y" copy. See feedback_cadence_positioning.
-  // Clicking a chip auto-submits as the user's first message; once any
-  // message exists the welcome state disappears (T-414 contextual chips
-  // take over from there).
-  const STARTER_CHIPS: readonly string[] = [
-    "Palm oil daily",
-    "S&P + my watchlist weekly",
-    "KL F&B trends",
-  ] as const;
+  // Designer #3 (audit §3) + Ticket 1: seed turn 0 with a welcome bubble +
+  // curated template chips so the user sees concrete examples across the
+  // categories Cadence supports (commodity, equity, social-commerce, crypto,
+  // sports, regulatory, OSS, real estate, government, travel). Chips reflect
+  // Cadence's channel-agnostic, industry-customizable framing — NOT
+  // "telegram-y" copy. See feedback_cadence_positioning.
+  //
+  // Click behaviour: autofill the input with the template's exampleQuery
+  // (user can edit before sending). This is intentionally different from the
+  // T-414 contextual chips below (which auto-submit) — first-time users
+  // benefit from seeing+tweaking the example before committing.
+  //
+  // Templates source of truth: apps/web/lib/digest-spec/templates.ts —
+  // Faeez edits that file and redeploys to add/remove starter examples.
+  const STARTER_CHIPS = DIGEST_TEMPLATES;
+
+  const handleStarterChip = (exampleQuery: string) => {
+    if (isStreamingState) return;
+    setInput(exampleQuery);
+  };
 
   return (
     <main className="flex min-h-0 flex-1 bg-background">
@@ -350,15 +359,19 @@ export function ChatClient({
                   className="flex flex-wrap gap-1.5"
                   aria-label="Starter examples"
                 >
-                  {STARTER_CHIPS.map((c) => (
+                  {STARTER_CHIPS.map((tpl) => (
                     <button
-                      key={c}
+                      key={tpl.id}
                       type="button"
-                      onClick={() => handleSuggestion(c)}
+                      data-template-id={tpl.id}
+                      data-template-category={tpl.category}
+                      onClick={() => handleStarterChip(tpl.exampleQuery)}
                       disabled={isStreaming}
-                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      title={tpl.exampleQuery}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {c}
+                      <span aria-hidden="true">{tpl.emoji}</span>
+                      <span>{tpl.label}</span>
                     </button>
                   ))}
                 </div>
