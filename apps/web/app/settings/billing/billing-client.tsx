@@ -4,6 +4,7 @@ import * as React from "react";
 import { trpc } from "@/lib/trpc/client";
 import { PACKS, PACK_LABELS, type PackId } from "@/server/billing/packs";
 import { SUPPORT_EMAIL } from "@/server/support/contact";
+import { TierExplainer } from "@/components/billing/tier-explainer";
 
 function formatUsd(minor: number) {
   return `$${(minor / 100).toFixed(minor % 100 === 0 ? 0 : 2)}`;
@@ -118,6 +119,24 @@ export function BillingClient() {
           </a>{" "}
           to request a manual credit grant.
         </p>
+
+        {/* CAD-95: tier explainer disclosure. Native <details> keeps this
+            keyboard-accessible without a Dialog primitive — opens inline,
+            doesn't trap focus, doesn't need an Escape handler. */}
+        <details className="mt-6 rounded-lg border border-border bg-card/40 p-4 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
+            <span>What&apos;s the difference between Default and Pro briefs?</span>
+            <span
+              aria-hidden
+              className="ml-3 text-xs text-muted-foreground transition group-open:rotate-180"
+            >
+              ▾
+            </span>
+          </summary>
+          <div className="mt-4">
+            <TierExplainer />
+          </div>
+        </details>
       </section>
 
       {/* Ledger */}

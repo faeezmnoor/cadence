@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
+import { TierExplainer } from "@/components/billing/tier-explainer";
 
 type Row = {
   id: string;
@@ -115,8 +116,21 @@ export function SpecClient({
           aria-label="Tier"
           className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900"
         >
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-neutral-500">
             Research tier
+            {/* CAD-96: native <details> tooltip. Click-to-open avoids the
+                hover-only a11y trap and works on touch. */}
+            <details className="group relative inline-block normal-case [&_summary::-webkit-details-marker]:hidden">
+              <summary
+                aria-label="What's the difference between Default and Pro?"
+                className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-neutral-300 text-[10px] font-normal text-neutral-500 hover:border-neutral-500 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-200"
+              >
+                ?
+              </summary>
+              <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-neutral-200 bg-white p-3 shadow-md dark:border-neutral-800 dark:bg-neutral-900">
+                <TierExplainer variant="compact" />
+              </div>
+            </details>
           </h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Default uses fast web search + a lightweight composer. Pro uses

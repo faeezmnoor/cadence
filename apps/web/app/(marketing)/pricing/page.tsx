@@ -6,6 +6,7 @@ import {
   TRIAL_CREDITS,
   type Pack,
 } from "@/server/billing/packs";
+import { TierExplainer } from "@/components/billing/tier-explainer";
 
 export const metadata: Metadata = {
   title: "Pricing — Cadence",
@@ -116,6 +117,23 @@ export default function PricingPage() {
           </p>
         </div>
       </div>
+
+      {/* CAD-95: tier breakdown. Lives below the pack tiles + trust strip
+          so the pricing ladder leads the page; Pro tier is positioning
+          context, not the headline. */}
+      <section className="mt-14 rounded-xl border border-border bg-card/40 p-6">
+        <h2 className="text-balance text-xl font-semibold tracking-tight">
+          Two tiers. Same brief shape. Different research depth.
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Every spec defaults to the Default tier. Toggle Pro per-spec when a
+          topic deserves deeper research — you only spend Pro credits where
+          you point them.
+        </p>
+        <div className="mt-6">
+          <TierExplainer />
+        </div>
+      </section>
 
       <div className="mt-12 text-center">
         <Link
