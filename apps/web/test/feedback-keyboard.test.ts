@@ -194,6 +194,7 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
 
     vi.doMock("@/server/ai/composer/compose", () => ({
       composeDigest: vi.fn(async () => ({ markdown: "# Brief", costUsd: 0 })),
+      COMPOSER_MODEL_ID: "test-model",
     }));
     vi.doMock("@/server/telegram/client", () => ({
       isTelegramConfigured: () => true,

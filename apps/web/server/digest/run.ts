@@ -49,7 +49,7 @@ async function autoHealDeliveryBroken(userId: string): Promise<void> {
     .set({ state: "active", updatedAt: new Date() })
     .where(and(eq(users.id, userId), eq(users.state, "delivery_broken")));
 }
-import { composeDigest } from "@/server/ai/composer/compose";
+import { getProviders, isProTierAlphaEnabled, type Tier } from "@/server/ai/providers";
 import type {
   ComposerInput,
   ComposerSourcesBundle,
@@ -273,9 +273,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       userId,
       digestRunId: null, // updated below once row exists
     };
-    const out = await composeDigest(composerInput);
+    // CAD-88: route to the spec's tier. The bundle's resolved `tier` may
+    // differ from the spec's `tier` when PRO_TIER_ALPHA is off — the
+    // provider layer falls back to default and we record the *resolved*
+    // tier on metadata so admins can see which stack actually ran.
+    const requestedTier = (specRow.tier as Tier | undefined) ?? "default";
+    const providers = getProviders(requestedTier);
+    const out = await providers.composer.compose(composerInput);
     markdown = out.markdown;
     composeCostUsd = out.costUsd ?? 0;
+    runMetadata.tier = {
+      requested: requestedTier,
+      resolved: providers.tier,
+      composerId: providers.composer.id,
+      composerModelId: providers.composer.modelId,
+    };
 
     // Evals Phase 0: ping every cited URL post-compose, persist results
     // into metadata.sourceResolve. Bounded by 5s/url + parallel — at 15
@@ -393,6 +405,15 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       appUrl,
     });
     if (footer) markdown = markdown + footer;
+  }
+
+  // CAD-88: 🔬 Pro tier badge. Only emitted when the alpha flag is on
+  // AND the brief was actually composed on the Pro stack (resolved
+  // tier === "pro"). Surfaced to the user so they can see which
+  // stack served them and tie it back to the 3-credit charge.
+  const resolvedTier = (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved;
+  if (isProTierAlphaEnabled() && resolvedTier === "pro") {
+    markdown = markdown + "\n\n— 🔬 Deep research (Pro)";
   }
 
   // 4. Format for Telegram

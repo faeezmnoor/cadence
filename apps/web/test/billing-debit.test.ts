@@ -53,7 +53,9 @@ describe("T-505a — run.ts wiring guarantees", () => {
     );
     const skipIdx = src.indexOf("shouldSkipForCredits");
     const braveIdx = src.indexOf("braveSearch(");
-    const composeIdx = src.indexOf("composeDigest(");
+    // CAD-88: compose call now routes through providers.composer.compose(...)
+    // via getProviders(spec.tier). Match the new call shape.
+    const composeIdx = src.indexOf("providers.composer.compose(");
     expect(skipIdx).toBeGreaterThan(-1);
     expect(braveIdx).toBeGreaterThan(skipIdx);
     expect(composeIdx).toBeGreaterThan(skipIdx);

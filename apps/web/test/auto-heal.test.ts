@@ -26,6 +26,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Compose: return a fixed markdown, zero cost.
 vi.mock("@/server/ai/composer/compose", () => ({
   composeDigest: vi.fn(async () => ({ markdown: "# Brief", costUsd: 0 })),
+  // CAD-85/88: the default provider adapter reads COMPOSER_MODEL_ID at
+  // module init via defaultComposerProvider.modelId.
+  COMPOSER_MODEL_ID: "claude-haiku-4-5-20251001",
 }));
 
 // Telegram: stub configured + bot.api.sendMessage success.

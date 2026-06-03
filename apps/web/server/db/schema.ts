@@ -101,6 +101,15 @@ export const digestSpecs = pgTable(
      * without losing delivery.
      */
     keyboardEnabled: boolean("keyboard_enabled").notNull().default(true),
+    /**
+     * CAD-88 (Phase 5.1 Pro Tier alpha): which provider bundle the
+     * digest pipeline picks for this spec. CHECK constraint at the DB
+     * level restricts to ('default', 'pro'); see migration 0023. The
+     * actual swap to Pro providers ALSO requires PRO_TIER_ALPHA=1 at
+     * runtime (CAD-85 / getProviders) — so a "pro" spec safely falls
+     * back to default until Faeez flips the env flag.
+     */
+    tier: text("tier").notNull().default("default"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

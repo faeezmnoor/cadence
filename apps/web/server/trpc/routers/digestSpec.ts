@@ -57,6 +57,11 @@ export const digestSpecRouter = router({
       z.object({
         spec: digestSpecSchema,
         createdVia: z.enum(["manual_edit", "chat_agent"]).default("manual_edit"),
+        // CAD-88: tier carries over to the new version. Default to
+        // "default" so callers that don't pass this field don't
+        // accidentally flip a Pro spec back to default; the spec-client
+        // always passes the current tier explicitly.
+        tier: z.enum(["default", "pro"]).default("default"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -91,6 +96,7 @@ export const digestSpecRouter = router({
               spec: input.spec,
               isCurrent: true,
               createdVia: input.createdVia,
+              tier: input.tier,
             })
             .returning();
 
@@ -104,5 +110,37 @@ export const digestSpecRouter = router({
           cause: err,
         });
       }
+    }),
+
+  /**
+   * CAD-88: flip the current spec's tier without bumping version.
+   * Tier is a delivery-stack preference, not a spec-content change —
+   * version bumps are reserved for prompt/content edits the composer
+   * needs to react to. Always operates on the user's is_current row.
+   *
+   * If PRO_TIER_ALPHA is off at runtime, this still persists the user's
+   * "pro" preference; the provider layer falls back to default at
+   * compose time. We treat tier as preference + capability gate.
+   */
+  setTier: protectedProcedure
+    .input(z.object({ tier: z.enum(["default", "pro"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const updated = await db
+        .update(digestSpecs)
+        .set({ tier: input.tier, updatedAt: new Date() })
+        .where(
+          and(
+            eq(digestSpecs.userId, ctx.user.id),
+            eq(digestSpecs.isCurrent, true)
+          )
+        )
+        .returning({ id: digestSpecs.id, tier: digestSpecs.tier });
+      if (updated.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No current spec to update.",
+        });
+      }
+      return updated[0]!;
     }),
 });

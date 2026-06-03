@@ -5,6 +5,7 @@ import { db } from "@/server/db/client";
 import { digestSpecs } from "@/server/db/schema";
 import { SpecClient } from "./spec-client";
 import { AppNav } from "@/components/nav/app-nav";
+import { isProTierAlphaEnabled } from "@/server/ai/providers";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,11 @@ export default async function SpecPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active="spec" />
-      <SpecClient initialCurrent={current} initialVersions={versions} />
+      <SpecClient
+        initialCurrent={current}
+        initialVersions={versions}
+        proTierAlphaEnabled={isProTierAlphaEnabled()}
+      />
     </div>
   );
 }
