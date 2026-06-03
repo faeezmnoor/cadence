@@ -11,7 +11,14 @@ import { db } from "@/server/db/client";
 import { costEvents } from "@/server/db/schema";
 
 export type CostKind = "llm_call" | "search_api" | "price_api";
-export type CostProvider = "anthropic" | "openai" | "brave" | "yfinance";
+export type CostProvider =
+  | "anthropic"
+  | "openai"
+  | "brave"
+  | "yfinance"
+  // Pro-tier providers (CAD-86, CAD-87). cost_events.provider column
+  // is `text`, not an enum, so adding values here is a type-only change.
+  | "perplexity";
 
 interface RecordCostArgs {
   userId?: string | null;
