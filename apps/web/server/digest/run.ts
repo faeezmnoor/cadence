@@ -62,6 +62,10 @@ import { buildFeedbackKeyboard } from "@/server/telegram/keyboard";
 import { isTelegramConfigured, getBot } from "@/server/telegram/client";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
+import { gatherSources } from "@/server/sources";
+import { scrapeMpobStocks } from "@/server/sources/scrape/scrapers/mpob-stocks";
+import { scrapeBursaCpo } from "@/server/sources/scrape/scrapers/bursa-cpo";
+import { scrapeYahooQuote } from "@/server/sources/scrape/scrapers/yahoo-finance-quote";
 import {
   debitForDelivery,
   recordSkipForCredits,
@@ -251,6 +255,48 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     console.warn("[digest:rss]", err);
   }
 
+  // CAD-113 #4: free-data toolbox (Patterns A + C). Adds curated RSS +
+  // Pattern A scrape items to the composer's source bundle. DEFAULT tier
+  // only — Pro tier (Perplexity Sonar) does its own grounded sourcing.
+  // The requested vs resolved tier doesn't matter here: we always gather
+  // because a Pro->default downgrade (CAD-89/101/102) still ends up
+  // serving via the default composer and benefits from the free items.
+  //
+  // Telemetry lands on runMetadata.gatheredSources so /admin/cost can
+  // answer "how many free items did we feed the default brief today?".
+  let gatheredTelemetry: unknown = null;
+  try {
+    const spec = specRow.spec as {
+      topics?: string[];
+      topicHint?: string | null;
+      entities?: { tickers?: string[] };
+    };
+    const result = await gatherSources(
+      {
+        topics: spec.topics,
+        topicHint: spec.topicHint ?? null,
+        entities: { tickers: spec.entities?.tickers ?? [], companies: [], commodities: [] },
+      },
+      { scrapeMpobStocks, scrapeBursaCpo, scrapeYahooQuote }
+    );
+    gatheredTelemetry = result.telemetry;
+    // Fold into composer's existing rss bundle (the prompt renders it as
+    // a flat "RSS items (last 48h)" block — scrape rows render fine there
+    // too because all we need is title + url + summary).
+    for (const it of result.items) {
+      sources.rss.push({
+        feedUrl: it.source_id,
+        title: it.title,
+        url: it.url,
+        publishedAt: it.published_at ?? null,
+        summary: it.body_excerpt ?? "",
+      });
+    }
+  } catch (err) {
+    // gatherSources promises not to throw, but defend the pipeline anyway.
+    console.warn("[digest:gather]", err);
+  }
+
   // 3. Compose
   //
   // T-404: hybrid feedback injection.
@@ -418,6 +464,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       composerId: providers.composer.id,
       composerModelId: providers.composer.modelId,
     };
+    // CAD-113 #4: stamp free-data telemetry so /admin/cost can show how
+    // many free items each default brief consumed. Null when gather threw.
+    if (gatheredTelemetry !== null) {
+      runMetadata.gatheredSources = gatheredTelemetry;
+    }
     if (downgradeReason) {
       // CAD-89: per spec, downgrade reason lands on digestRuns.metadata
       // so the admin run viewer can surface "downgraded from Pro" without
