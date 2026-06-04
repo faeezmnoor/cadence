@@ -1,3 +1,14 @@
+/**
+ * tRPC primitives: the typed `router`, `publicProcedure`, `protectedProcedure`,
+ * and `adminProcedure` builders that every router in `routers/` is constructed
+ * from. This file owns the application-level trust boundary in code form —
+ * `protectedProcedure` is where signed-out callers get 401'd, and
+ * `adminProcedure` is where non-admins get 403'd via `isAdminEmail`.
+ *
+ * Extend when you need a new auth tier (e.g. service-role-only for an
+ * internal cron-triggered mutation). Do NOT duplicate the auth check
+ * inside individual routers — keep the gate centralized here.
+ */
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { Context } from "./context";

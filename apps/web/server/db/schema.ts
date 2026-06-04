@@ -1,3 +1,15 @@
+/**
+ * Drizzle schema — the canonical TypeScript view of the Cadence Postgres DB.
+ *
+ * This file is the source of truth that every server-side query types
+ * against. The actual DDL ships via SQL migrations in `drizzle/`; keep
+ * this file in lockstep when you add a column (write the migration,
+ * then mirror the column here so Drizzle queries stay typed).
+ *
+ * RLS policies and partial indexes live in migration files, not here —
+ * Drizzle only models the table shape. Cross-reference `server/ARCHITECTURE.md`
+ * for the high-level table → owner module map.
+ */
 import { sql } from "drizzle-orm";
 import {
   bigint,

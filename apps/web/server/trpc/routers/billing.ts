@@ -1,3 +1,15 @@
+/**
+ * billing.* — read-only window onto the user's credit balance + ledger.
+ *
+ * Authoritative writes happen in `server/billing/{debit,refund,packs}.ts` and
+ * (eventually) the Stripe webhook — this router only surfaces the current
+ * balance for the dashboard and the last 50 transactions for the receipts
+ * view. Both procedures are user-scoped via `protectedProcedure`.
+ *
+ * Extend here for new read shapes (cost-to-us summary, monthly rollup);
+ * never put credit mutations in this file — debits/refunds must stay in
+ * the dedicated billing modules so the invariants live in one place.
+ */
 import { desc, eq } from "drizzle-orm";
 import { protectedProcedure, router } from "../trpc";
 import { db } from "@/server/db/client";
