@@ -68,7 +68,7 @@ export function BillingClient() {
           </span>
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          One credit covers one brief delivered to your messaging app.
+          One credit, one brief landed in your inbox. Credits never expire.
         </p>
       </section>
 
@@ -113,7 +113,7 @@ export function BillingClient() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Stripe MY KYC is in flight. Until top-ups are live, you can email{" "}
+          Top-ups land when Stripe MY clears KYC. Until then, email{" "}
           <a className="underline-offset-2 hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
             {SUPPORT_EMAIL}
           </a>{" "}
@@ -147,7 +147,7 @@ export function BillingClient() {
             <p className="p-6 text-sm text-muted-foreground">Loading…</p>
           ) : !ledger.data || ledger.data.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
-              No transactions yet.
+              Nothing spent yet. First brief lands tomorrow at 07:00 MYT.
             </p>
           ) : (
             <>

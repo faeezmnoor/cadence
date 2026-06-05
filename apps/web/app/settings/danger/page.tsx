@@ -36,7 +36,7 @@ export default async function DangerSettingsPage() {
             Danger zone
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Irreversible account actions. Read the consequences before you act.
+            One-way doors. Read what gets deleted, then decide.
           </p>
         </header>
 

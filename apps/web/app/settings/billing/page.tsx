@@ -23,7 +23,7 @@ export default async function BillingPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">Billing</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your credit balance and transaction history. One credit = one brief delivered.
+            One credit, one brief delivered. Pre-paid, no subscription, cancel by stopping.
           </p>
         </header>
         <BillingClient />

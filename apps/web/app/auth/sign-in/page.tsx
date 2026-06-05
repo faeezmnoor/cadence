@@ -60,8 +60,8 @@ export default function SignInPage() {
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
             {status === "sent"
-              ? `We sent a magic link to ${email}. Click it to continue.`
-              : "We'll email you a magic link. No password required."}
+              ? `Magic link sent to ${email}. Click it to continue.`
+              : "One-time link to your inbox. Skip the password ceremony."}
           </p>
         </div>
 

@@ -27,18 +27,18 @@ export default async function SettingsPage() {
     {
       href: "/settings/learning",
       title: "Learning",
-      blurb: "What Cadence has learned about your brief preferences.",
+      blurb: "What Cadence picked up from your thumbs and tunes.",
     },
     {
       href: "/settings/billing",
       title: "Billing",
-      blurb: "Credit balance, top-ups, and transaction history.",
+      blurb: "Credits, top-ups, and every brief you've spent on.",
     },
     {
       href: "/settings/danger",
       title: "Delete account",
       blurb:
-        "Right-to-erasure. Removes your spec, briefs, learning, and sign-in.",
+        "Permanently delete your account, briefs, and learning. No grace window.",
       tone: "danger",
     },
   ];
@@ -50,7 +50,7 @@ export default async function SettingsPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Manage your Cadence account.{" "}
+            Your account, your credits, your exit door.{" "}
             <Link
               href={"/chat" as never}
               className="underline-offset-4 hover:underline"

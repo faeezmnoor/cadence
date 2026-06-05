@@ -105,7 +105,7 @@ export function SpecClient({
             ))}
           </dl>
         ) : (
-          <p className="text-sm text-muted-foreground">No setup saved yet. Start a chat to configure one, or paste JSON below.</p>
+          <p className="text-sm text-muted-foreground">Nothing here yet. Tell Cadence what to watch from chat — or paste raw JSON below.</p>
         )}
       </section>
 
@@ -133,9 +133,8 @@ export function SpecClient({
             </details>
           </h2>
           <p className="text-sm text-muted-foreground">
-            Default uses fast web search + a lightweight composer. Pro uses
-            deep-research grounding and the Sonnet 4.6 composer — slower,
-            sharper, costs 3 credits per brief.
+            Default: fast web search, lean composer. Pro: deep-research
+            grounding, the sharper composer. Slower, sharper, 3 credits a brief.
           </p>
           <div className="mt-3 inline-flex rounded-md border border-border">
             <button

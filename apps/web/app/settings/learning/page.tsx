@@ -24,11 +24,11 @@ export default async function LearningPage() {
       <main className="mx-auto max-w-3xl px-6 py-10">
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">
-            What I&rsquo;ve learned about you
+            What Cadence learned about you
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Every time you tap a reaction or send a <code>/tune</code>, Cadence
-            tunes your brief. Here&rsquo;s what&rsquo;s sticking.
+            Every thumb and every <code>/tune</code> shifts tomorrow&rsquo;s brief.
+            Here&rsquo;s what stuck.
           </p>
         </header>
         <LearningClient />
