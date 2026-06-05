@@ -37,7 +37,11 @@ export default async function SpecPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="spec" />
+      {/* Multi-brief Phase A UI: /spec is no longer in the global nav.
+          It still resolves (legacy power-user JSON editor) but the active
+          tab now highlights "Briefs" so users don't see a dead "Spec"
+          tab when they land here from an old link. */}
+      <AppNav active="briefs" />
       <SpecClient
         initialCurrent={current}
         initialVersions={versions}

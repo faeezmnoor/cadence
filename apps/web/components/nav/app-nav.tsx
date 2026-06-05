@@ -4,6 +4,10 @@ import { Wordmark } from "@/components/marketing/wordmark";
 
 export type AppNavTab =
   | "chat"
+  | "briefs"
+  // Legacy `spec` value kept so existing /spec callers still type-check.
+  // The visible tab is now "Briefs" pointing at /briefs (multi-brief UX v1
+  // §3 — "spec" becomes engineer-leakage and gets retired from the nav).
   | "spec"
   | "link"
   | "learning"
@@ -26,7 +30,13 @@ type TabDef = {
  */
 const TABS: TabDef[] = [
   { key: "chat", label: "Chat", href: "/chat" },
-  { key: "spec", label: "Spec", href: "/spec" },
+  // Multi-brief UX v1 §3: "Spec" is dead as a nav noun. The user-facing
+  // word is "Briefs"; the surface lists all of a user's briefs (active +
+  // paused). /spec still exists as a power-user JSON editor reachable
+  // from the brief detail (CAD follow-up), but it is no longer a top-level
+  // tab. We pass tab key "briefs" from /briefs and keep "spec" so the
+  // legacy /spec page still renders an active tab when visited directly.
+  { key: "briefs", label: "Briefs", href: "/briefs" },
   { key: "link", label: "Delivery", href: "/app/link" },
   // Stream E #4 — "What I've learned about you" surface (PM audit G3).
   { key: "learning", label: "Learning", href: "/settings/learning" },
