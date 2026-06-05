@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/server/db/client";
-import { digestSpecs } from "@/server/db/schema";
+import { digestRuns, digestSpecs } from "@/server/db/schema";
 import { digestSpecSchema } from "@/lib/digest-spec/schema";
 import { protectedProcedure, router } from "../trpc";
 
@@ -46,6 +46,41 @@ export const digestSpecRouter = router({
       .where(eq(digestSpecs.userId, ctx.user.id))
       .orderBy(desc(digestSpecs.version));
   }),
+
+  /**
+   * UX audit v2 P1 #2 — cross-link spec versions to the briefs they
+   * generated. Returns up to 5 most-recent delivered briefs per spec id
+   * (with shortId for the public permalink). The /spec UI groups these
+   * under each version row so a user can jump from "v3 created via
+   * chat_agent" to the actual brief that came out of it.
+   */
+  listVersionBriefs: protectedProcedure
+    .input(z.object({ specIds: z.array(z.string().uuid()).max(20) }))
+    .query(async ({ ctx, input }) => {
+      if (input.specIds.length === 0) return [];
+      const rows = await db
+        .select({
+          id: digestRuns.id,
+          specId: digestRuns.specId,
+          shortId: digestRuns.shortId,
+          runDate: digestRuns.runDate,
+          createdAt: digestRuns.createdAt,
+          status: digestRuns.status,
+        })
+        .from(digestRuns)
+        .where(
+          and(
+            eq(digestRuns.userId, ctx.user.id),
+            inArray(digestRuns.specId, input.specIds),
+            isNotNull(digestRuns.shortId)
+          )
+        )
+        .orderBy(desc(digestRuns.createdAt))
+        .limit(100);
+      // Filter to delivered/sent in JS so the index on (userId, createdAt)
+      // is still hit cleanly. Cap at 5 per spec on the client side below.
+      return rows.filter((r) => r.status === "delivered" || r.status === "sent");
+    }),
 
   /**
    * Persist a new spec version. Used by:

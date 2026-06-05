@@ -203,21 +203,83 @@ export function SpecClient({
         </details>
       </section>
 
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Versions</h2>
-        <ul className="space-y-1 text-sm">
-          {versionsQuery.data?.map((v) => (
-            <li key={v.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-              <span>
-                v{v.version} {v.isCurrent && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">current</span>}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {v.createdVia} · {new Date(v.createdAt).toLocaleString()}
-              </span>
+      <VersionsSection versions={versionsQuery.data ?? []} />
+    </div>
+  );
+}
+
+/**
+ * UX audit v2 P1 #2: each version row now cross-links to the briefs that
+ * came out of it. The briefs are fetched lazily once we know the spec ids,
+ * grouped client-side (cap 5 per spec to keep the list scannable), and
+ * rendered as compact shortId links to the public permalink.
+ */
+function VersionsSection({
+  versions,
+}: {
+  versions: Pick<Row, "id" | "version" | "isCurrent" | "createdVia" | "createdAt">[];
+}) {
+  const specIds = useMemo(() => versions.map((v) => v.id), [versions]);
+  const briefsQuery = trpc.digestSpec.listVersionBriefs.useQuery(
+    { specIds },
+    { enabled: specIds.length > 0, staleTime: 60_000 }
+  );
+
+  const briefsBySpec = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; shortId: string | null; runDate: Date | string }[]
+    >();
+    for (const b of briefsQuery.data ?? []) {
+      const arr = map.get(b.specId) ?? [];
+      if (arr.length < 5) arr.push({ id: b.id, shortId: b.shortId, runDate: b.runDate });
+      map.set(b.specId, arr);
+    }
+    return map;
+  }, [briefsQuery.data]);
+
+  return (
+    <section>
+      <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Versions</h2>
+      <ul className="space-y-2 text-sm">
+        {versions.map((v) => {
+          const briefs = briefsBySpec.get(v.id) ?? [];
+          return (
+            <li key={v.id} className="rounded-md border border-border px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span>
+                  v{v.version} {v.isCurrent && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">current</span>}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {v.createdVia} · {new Date(v.createdAt).toLocaleString()}
+                </span>
+              </div>
+              {briefs.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>Briefs:</span>
+                  {briefs.map((b) =>
+                    b.shortId ? (
+                      <a
+                        key={b.id}
+                        href={`/b/${b.shortId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[11px] text-foreground hover:bg-muted"
+                        title={`Delivered ${new Date(b.runDate).toLocaleDateString()}`}
+                      >
+                        {b.shortId}
+                      </a>
+                    ) : null
+                  )}
+                </div>
+              )}
             </li>
-          ))}
-        </ul>
-      </section>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
     </div>
   );
 }
