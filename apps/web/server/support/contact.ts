@@ -14,3 +14,28 @@
 export const SUPPORT_EMAIL = "support@cadence.news";
 
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
+
+/**
+ * Canonical, user-facing brand URL. Read from NEXT_PUBLIC_APP_URL so the
+ * Vercel preview host can flip to `cadence.news` (or wherever GA lands)
+ * with zero code changes. The fallback is the current Vercel host — kept
+ * so dev / preview environments without env vars still render a working
+ * link, but everything user-facing should pull from this constant.
+ *
+ * Use BRAND_URL for absolute hrefs and BRAND_HOST for display ("cadence.news"
+ * without the scheme).
+ */
+const FALLBACK_BRAND_URL = "https://cadence-web-bice.vercel.app";
+
+/**
+ * Resolved at call time so test env mutations to NEXT_PUBLIC_APP_URL are
+ * respected. Trailing slashes are stripped so we never produce `//b/<id>`.
+ */
+export function getBrandUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? FALLBACK_BRAND_URL;
+  return raw.replace(/\/+$/, "");
+}
+
+export function getBrandHost(): string {
+  return getBrandUrl().replace(/^https?:\/\//, "");
+}

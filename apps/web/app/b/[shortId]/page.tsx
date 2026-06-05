@@ -5,6 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
 import { isValidShortId } from "@/server/digest/share";
+import { getBrandHost } from "@/server/support/contact";
 import { Wordmark } from "@/components/marketing/wordmark";
 
 /**
@@ -204,7 +205,7 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
             Get your own daily brief
           </Link>
           <p className="mt-6 text-xs text-muted-foreground">
-            Cadence &mdash; cadence-web-bice.vercel.app
+            Cadence &mdash; {getBrandHost()}
           </p>
         </footer>
       </main>

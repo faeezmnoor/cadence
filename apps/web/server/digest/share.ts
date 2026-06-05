@@ -36,13 +36,12 @@ export function isValidShortId(id: string): boolean {
 }
 
 /**
- * Absolute share URL for a brief. Reads NEXT_PUBLIC_APP_URL when present,
- * falls back to the prod URL. Trailing slashes are stripped so we never
- * produce `//b/<id>`.
+ * Absolute share URL for a brief. Sources the base from BRAND_URL (which in
+ * turn reads NEXT_PUBLIC_APP_URL with a Vercel fallback) so every share
+ * surface stays consistent and flips to cadence.news in one place.
  */
+import { getBrandUrl } from "@/server/support/contact";
+
 export function getBriefShareUrl(shortId: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "https://cadence-web-bice.vercel.app";
-  return `${base.replace(/\/+$/, "")}/b/${shortId}`;
+  return `${getBrandUrl()}/b/${shortId}`;
 }

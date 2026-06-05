@@ -18,6 +18,7 @@
  */
 
 import { PACK_LABELS, type PackId } from "@/server/billing/packs";
+import { getBrandHost, getBrandUrl } from "@/server/support/contact";
 
 export interface ReceiptInput {
   packId: PackId;
@@ -79,7 +80,7 @@ export function renderReceiptEmail(input: ReceiptInput): ReceiptOutput {
     ``,
     `— Cadence`,
     `${TAGLINE}`,
-    `cadence-web-bice.vercel.app`,
+    getBrandHost(),
   ].join("\n");
 
   const html = `<!doctype html>
@@ -134,7 +135,7 @@ export function renderReceiptEmail(input: ReceiptInput): ReceiptOutput {
           <tr>
             <td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e5e7eb;">
               <p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;"><strong style="color:#0a0a0a;">Cadence</strong> — ${escapeHtml(TAGLINE)}</p>
-              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="https://cadence-web-bice.vercel.app" style="color:#0a0a0a;text-decoration:none;">cadence-web-bice.vercel.app</a></p>
+              <p style="margin:6px 0 0;font-size:12px;color:#6b7280;"><a href="${getBrandUrl()}" style="color:#0a0a0a;text-decoration:none;">${getBrandHost()}</a></p>
             </td>
           </tr>
         </table>
