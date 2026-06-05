@@ -688,6 +688,38 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     markdown = banner + markdown;
   }
 
+  // Multi-brief Phase A UI ticket 3: brief-name footer.
+  //
+  // When the user has more than one active or paused brief, prepend a
+  // "From your <brief-name> brief." line BEFORE the share-link footer so
+  // every Telegram delivery identifies which brief it belongs to. Single-
+  // brief users keep the clean footer (no point shouting the name when
+  // there's only one channel of context).
+  //
+  // We count from digest_specs rather than caching on the user — a user
+  // could pause their second brief between scheduling and dispatch and we
+  // want the footer to reflect reality at send time. The count is a
+  // single small index hit on (user_id, status) so it's cheap.
+  let activeBriefCount = 0;
+  if (!dryRun && trigger !== "sample") {
+    const countRows = await db
+      .select({ id: digestSpecs.id })
+      .from(digestSpecs)
+      .where(
+        and(
+          eq(digestSpecs.userId, userId),
+          inArray(digestSpecs.status, ["active", "paused"])
+        )
+      );
+    activeBriefCount = countRows.length;
+  }
+  if (activeBriefCount > 1) {
+    const briefName = (specRow.name ?? "").trim();
+    if (briefName.length > 0) {
+      markdown = markdown + `\n\n🦞 From your *${briefName}* brief.`;
+    }
+  }
+
   // UX v2 P0 #5: share-link footer. Generate the per-brief shortId once,
   // append the public permalink to the markdown, persist the shortId on
   // the digest_runs row so /b/<shortId> resolves. Skip for dry-run (no

@@ -2,11 +2,14 @@
  * Designer #4 (design-audit-v1 §1): persistent top nav after auth.
  *
  * Pins:
- *   - tabs: Chat / Spec / Delivery / Billing (NOT "Telegram" — see
+ *   - tabs: Chat / Briefs / Delivery / Billing (NOT "Telegram" — see
  *     feedback_cadence_positioning; Cadence is channel-agnostic).
+ *   - "Briefs" replaced "Spec" in the multi-brief Phase A UI wave; the
+ *     /spec page still exists as a legacy power-user editor but is no
+ *     longer in the nav.
  *   - wordmark links to /chat
  *   - sign-out form posts to /auth/sign-out
- *   - mounted on chat / spec / admin routes
+ *   - mounted on chat / briefs / spec / admin routes
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -21,7 +24,7 @@ const navSource = read("../components/nav/app-nav.tsx");
 describe("AppNav (Designer #4)", () => {
   it("declares the four user-facing tabs with the correct hrefs", () => {
     expect(navSource).toMatch(/label:\s*"Chat",\s*href:\s*"\/chat"/);
-    expect(navSource).toMatch(/label:\s*"Spec",\s*href:\s*"\/spec"/);
+    expect(navSource).toMatch(/label:\s*"Briefs",\s*href:\s*"\/briefs"/);
     expect(navSource).toMatch(/label:\s*"Delivery",\s*href:\s*"\/app\/link"/);
     expect(navSource).toMatch(
       /label:\s*"Billing",\s*href:\s*"\/settings\/billing"/
@@ -61,9 +64,15 @@ describe("AppNav mount points", () => {
     expect(src).toMatch(/<AppNav active="chat" \/>/);
   });
 
-  it("is rendered on /spec", () => {
+  it("is rendered on /briefs", () => {
+    const src = read("../app/briefs/page.tsx");
+    expect(src).toMatch(/import \{ AppNav \} from/);
+    expect(src).toMatch(/<AppNav active="briefs" \/>/);
+  });
+
+  it("is rendered on /spec (legacy editor; tab highlights Briefs)", () => {
     const src = read("../app/spec/page.tsx");
-    expect(src).toMatch(/<AppNav active="spec" \/>/);
+    expect(src).toMatch(/<AppNav active="briefs" \/>/);
   });
 
   it("is rendered on /app/link", () => {
