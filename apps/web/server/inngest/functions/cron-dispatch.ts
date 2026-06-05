@@ -25,12 +25,16 @@
  *   - We cap to one concurrent dispatcher (concurrency.limit = 1) so a
  *     stuck pipeline can't pile up worker fan-out.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
-import { projectToZone, shouldFire, truncateToUtcMinute } from "@/server/cron/match";
-import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
+import { projectToZone, truncateToUtcMinute } from "@/server/cron/match";
+import {
+  shouldFire as shouldFireV2,
+  nextRunAt as computeNextRunAt,
+} from "@/lib/scheduling/evaluator";
+import { schedulingRuleV1, type SchedulingRuleV1 } from "@/lib/scheduling/rule";
 
 interface DispatcherSummary {
   scannedSpecs: number;
@@ -54,18 +58,28 @@ export const cronDispatch = inngest.createFunction(
       const minuteUtc = truncateToUtcMinute(nowUtc);
       const minuteIso = minuteUtc.toISOString();
 
-      // 1. Pull every active user + their current spec in one query.
+      // 1. Pull every active spec whose next_run_at is within the current
+      // window. The 5-minute back-look catches cron skew or one missed
+      // tick; shouldFireV2 below is the correctness gate that prevents
+      // double-firing within the same minute.
+      const windowFloor = new Date(nowUtc.getTime() - 5 * 60_000);
       const rows = await db
         .select({
           userId: users.id,
           timezone: users.timezone,
           specId: digestSpecs.id,
-          spec: digestSpecs.spec,
+          scheduling: digestSpecs.scheduling,
         })
         .from(users)
         .innerJoin(
           digestSpecs,
-          and(eq(digestSpecs.userId, users.id), eq(digestSpecs.isCurrent, true))
+          and(
+            eq(digestSpecs.userId, users.id),
+            eq(digestSpecs.status, "active"),
+            sql`${digestSpecs.nextRunAt} IS NOT NULL`,
+            lte(digestSpecs.nextRunAt, nowUtc),
+            gt(digestSpecs.nextRunAt, windowFloor),
+          )
         )
         .where(eq(users.state, "active"));
 
@@ -81,15 +95,20 @@ export const cronDispatch = inngest.createFunction(
       // 2 + 3 + 4. Match → claim → emit. Sequential to keep error reporting
       // legible; the per-row work is small (one INSERT + one event publish).
       for (const row of rows) {
-        const spec = row.spec as DigestSpecV1;
-        if (!spec?.cadence) continue;
+        // Parse the scheduling rule defensively — backfill should have
+        // populated this for every active spec but a Zod failure here
+        // means we'd silently fire on a corrupt rule.
+        const parsed = schedulingRuleV1.safeParse(row.scheduling);
+        if (!parsed.success) {
+          out.errors.push({ specId: row.specId, error: "invalid_scheduling_rule" });
+          continue;
+        }
+        const rule: SchedulingRuleV1 = parsed.data;
 
-        const fire = shouldFire({
-          nowUtc,
-          timezone: row.timezone,
-          cadence: spec.cadence,
-        });
-        if (!fire) continue;
+        // Correctness gate — re-evaluate at dispatch time. Catches: mid-flight
+        // skipDates edits, DST seam between now and the stale next_run_at,
+        // and the 5-minute window catching a tick that's actually skipped.
+        if (!shouldFireV2(rule, nowUtc)) continue;
         out.matchedSpecs++;
 
         // CAD-36 follow-up: the user's local calendar day at claim time, in
@@ -129,6 +148,24 @@ export const cronDispatch = inngest.createFunction(
           }
 
           out.claimed++;
+
+          // Recompute and persist next_run_at so the next minute's query
+          // doesn't re-pull this spec until the actual next occurrence.
+          // Failure here is non-fatal — worst case the row stays in the
+          // 5-minute window and the shouldFireV2 gate suppresses
+          // duplicate dispatch.
+          try {
+            const nextAt = computeNextRunAt(rule, new Date(nowUtc.getTime() + 60_000));
+            await db
+              .update(digestSpecs)
+              .set({ nextRunAt: nextAt, updatedAt: new Date() })
+              .where(eq(digestSpecs.id, row.specId));
+          } catch (err) {
+            // Log via the per-spec error path but don't break dispatch.
+            const error = err instanceof Error ? err.message : String(err);
+            out.errors.push({ specId: row.specId, error: `next_run_at_recompute_failed: ${error}` });
+          }
+
           await inngest.send({
             name: "digest/run.scheduled",
             data: {
