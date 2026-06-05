@@ -21,7 +21,7 @@ export default function HomePage() {
             A senior researcher for your industry — daily
           </span>
 
-          <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
+          <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
             Your industry has a researcher now. For the price of coffee.
           </h1>
 

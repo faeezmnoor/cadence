@@ -54,6 +54,23 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      /**
+       * UX audit v2 P1 #3: serif headline pairing on marketing surfaces.
+       * Pure system stack — no new web font, no engineering cost. Used
+       * only on the marketing H1s (landing, /pricing, /how-it-works) to
+       * push the "senior researcher / publication" signal. Body stays sans.
+       */
+      fontFamily: {
+        serif: [
+          '"Iowan Old Style"',
+          '"Charter"',
+          "Georgia",
+          "Cambria",
+          '"Times New Roman"',
+          "Times",
+          "serif",
+        ],
+      },
     },
   },
   plugins: [],

@@ -30,7 +30,7 @@ export default function HowItWorksPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-12 text-center">
-        <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl">
           Three steps. Then it&apos;s on autopilot.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">

@@ -47,7 +47,7 @@ export default function PricingPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-12 text-center">
-        <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl">
           {formatUsd(PACKS[0]!.priceMinorUsd)} to taste.{" "}
           {formatUsd(PACKS[PACKS.length - 1]!.priceMinorUsd)} if you love it.
         </h1>
