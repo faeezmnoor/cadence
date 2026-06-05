@@ -27,6 +27,7 @@ import { digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema"
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
 import { classifyTopic } from "@/lib/digest-spec/templates";
 import { buildSampleBanner } from "./sample-banner";
+import { generateBriefShortId, getBriefShareUrl } from "./share";
 
 /**
  * Auto-heal: any successful delivery clears users.state === "delivery_broken".
@@ -687,6 +688,19 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     markdown = banner + markdown;
   }
 
+  // UX v2 P0 #5: share-link footer. Generate the per-brief shortId once,
+  // append the public permalink to the markdown, persist the shortId on
+  // the digest_runs row so /b/<shortId> resolves. Skip for dry-run (no
+  // row persisted) and for sample briefs (the sample banner already owns
+  // the framing; we don't want the user sharing a one-off sample as their
+  // "real" brief).
+  const briefShortId =
+    !dryRun && trigger !== "sample" ? generateBriefShortId() : null;
+  if (briefShortId) {
+    markdown =
+      markdown + `\n\n📎 Share this brief: ${getBriefShareUrl(briefShortId)}`;
+  }
+
   // 4. Format for Telegram
   const parts = formatComposerOutput(markdown);
 
@@ -822,6 +836,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         telegramMessageId: telegramMessageId ?? undefined,
         costUsd: composeCostUsd.toString(),
         metadata: runMetadata,
+        ...(briefShortId ? { shortId: briefShortId } : {}),
         // T-303: bump attempt_count atomically. On a fresh row this goes
         // 0 -> 1; on a retry of a previously-failed claim this records the
         // attempt count at which we succeeded (visible in T-304 admin viewer).
@@ -876,6 +891,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       telegramMessageId: telegramMessageId ?? undefined,
       costUsd: composeCostUsd.toString(),
       metadata: runMetadata,
+      ...(briefShortId ? { shortId: briefShortId } : {}),
     })
     .returning({ id: digestRuns.id });
 
