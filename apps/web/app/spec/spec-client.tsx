@@ -87,25 +87,25 @@ export function SpecClient({
   return (
     <div className="mx-auto max-w-3xl space-y-8 p-6">
       <header>
-        <h1 className="text-2xl font-semibold">Your DigestSpec</h1>
-        <p className="text-sm text-neutral-500">
-          The configuration the composer uses to build your brief. Edit the raw JSON below, or update via chat.
+        <h1 className="text-2xl font-semibold tracking-tight">Your brief setup</h1>
+        <p className="text-sm text-muted-foreground">
+          What Cadence researches for you each morning. Tweak it from chat, or edit the raw JSON below.
         </p>
       </header>
 
-      <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">Summary</h2>
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Summary</h2>
         {current ? (
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             {summary.map(([k, v]) => (
               <div key={k}>
-                <dt className="text-neutral-500">{k}</dt>
-                <dd className="font-mono">{v}</dd>
+                <dt className="text-muted-foreground">{k}</dt>
+                <dd>{v}</dd>
               </div>
             ))}
           </dl>
         ) : (
-          <p className="text-sm text-neutral-500">No spec saved yet. Start a chat to configure one, or paste JSON below.</p>
+          <p className="text-sm text-muted-foreground">No setup saved yet. Start a chat to configure one, or paste JSON below.</p>
         )}
       </section>
 
@@ -114,38 +114,38 @@ export function SpecClient({
       {proTierAlphaEnabled && current && (
         <section
           aria-label="Tier"
-          className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900"
+          className="rounded-xl border border-border bg-card p-4 text-card-foreground"
         >
-          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-neutral-500">
+          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Research tier
             {/* CAD-96: native <details> tooltip. Click-to-open avoids the
                 hover-only a11y trap and works on touch. */}
             <details className="group relative inline-block normal-case [&_summary::-webkit-details-marker]:hidden">
               <summary
                 aria-label="What's the difference between Default and Pro?"
-                className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-neutral-300 text-[10px] font-normal text-neutral-500 hover:border-neutral-500 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-200"
+                className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-border text-[10px] font-normal text-muted-foreground hover:border-foreground hover:text-foreground"
               >
                 ?
               </summary>
-              <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-neutral-200 bg-white p-3 shadow-md dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-border bg-card p-3 text-card-foreground shadow-md">
                 <TierExplainer variant="compact" />
               </div>
             </details>
           </h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-sm text-muted-foreground">
             Default uses fast web search + a lightweight composer. Pro uses
             deep-research grounding and the Sonnet 4.6 composer — slower,
             sharper, costs 3 credits per brief.
           </p>
-          <div className="mt-3 inline-flex rounded-md border border-neutral-300 dark:border-neutral-700">
+          <div className="mt-3 inline-flex rounded-md border border-border">
             <button
               type="button"
               onClick={() => setTier.mutate({ tier: "default" })}
               disabled={setTier.isPending || tier === "default"}
               className={`px-3 py-1.5 text-sm ${
                 tier === "default"
-                  ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "bg-transparent text-neutral-700 dark:text-neutral-300"
+                  ? "bg-foreground text-background"
+                  : "bg-transparent text-foreground"
               }`}
               aria-pressed={tier === "default"}
             >
@@ -157,8 +157,8 @@ export function SpecClient({
               disabled={setTier.isPending || tier === "pro"}
               className={`px-3 py-1.5 text-sm ${
                 tier === "pro"
-                  ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "bg-transparent text-neutral-700 dark:text-neutral-300"
+                  ? "bg-foreground text-background"
+                  : "bg-transparent text-foreground"
               }`}
               aria-pressed={tier === "pro"}
             >
@@ -166,41 +166,53 @@ export function SpecClient({
             </button>
           </div>
           {setTier.isSuccess && (
-            <span className="ml-3 text-xs text-emerald-600">Saved.</span>
+            <span className="ml-3 text-xs text-muted-foreground">Saved.</span>
           )}
         </section>
       )}
 
+      {/* UX audit v2 P0 #4: raw JSON editor hidden behind a disclosure.
+          Business owners don't edit JSON. The form-style editor (one row
+          per field) is queued as a P1 follow-up — this commit ships the
+          token migration + the disclosure so the page no longer reads as
+          a developer console by default. */}
       <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">Raw JSON</h2>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          spellCheck={false}
-          className="h-96 w-full rounded-md border border-neutral-300 bg-white p-3 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-950"
-        />
-        {error && <pre className="mt-2 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-xs text-red-800 dark:bg-red-950 dark:text-red-200">{error}</pre>}
-        <div className="mt-2 flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={updateRaw.isPending}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-          >
-            {updateRaw.isPending ? "Saving…" : "Save new version"}
-          </button>
-          {updateRaw.isSuccess && <span className="text-xs text-emerald-600">Saved.</span>}
-        </div>
+        <details className="group">
+          <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <span className="transition-transform group-open:rotate-90">▸</span>
+            Show raw JSON
+          </summary>
+          <div className="mt-3">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              spellCheck={false}
+              className="h-96 w-full rounded-md border border-border bg-background p-3 font-mono text-xs text-foreground"
+            />
+            {error && <pre className="mt-2 whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</pre>}
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                disabled={updateRaw.isPending}
+                className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              >
+                {updateRaw.isPending ? "Saving…" : "Save new version"}
+              </button>
+              {updateRaw.isSuccess && <span className="text-xs text-muted-foreground">Saved.</span>}
+            </div>
+          </div>
+        </details>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">Versions</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Versions</h2>
         <ul className="space-y-1 text-sm">
           {versionsQuery.data?.map((v) => (
-            <li key={v.id} className="flex items-center justify-between rounded border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+            <li key={v.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
               <span>
-                v{v.version} {v.isCurrent && <span className="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100">current</span>}
+                v{v.version} {v.isCurrent && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">current</span>}
               </span>
-              <span className="text-xs text-neutral-500">
+              <span className="text-xs text-muted-foreground">
                 {v.createdVia} · {new Date(v.createdAt).toLocaleString()}
               </span>
             </li>
