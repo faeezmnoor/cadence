@@ -318,9 +318,11 @@ export function ChatClient({
           <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
             Configure your brief
           </h1>
-          <button
-            type="button"
-            onClick={handleReset}
+          <div className="flex shrink-0 items-center gap-2">
+            <CreditPill />
+            <button
+              type="button"
+              onClick={handleReset}
             disabled={isStreaming || resetting}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Reset conversation"
@@ -343,7 +345,8 @@ export function ChatClient({
               <path d="M3 21v-5h5" />
             </svg>
             {resetting ? "Resetting…" : "Reset"}
-          </button>
+            </button>
+          </div>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
@@ -551,5 +554,36 @@ export function ChatClient({
 
       <SpecSidebar draft={draft} variant="desktop" />
     </main>
+  );
+}
+
+/**
+ * UX audit v2 P1 #1 — credit-balance pill in the chat header.
+ *
+ * A quiet counter so a user mid-conversation knows their balance without
+ * leaving for /settings/billing. Pulled via tRPC; refetched on window
+ * focus so a fresh debit (from a delivered brief) reflects when the user
+ * returns to the tab. Suppressed during the initial load so the header
+ * doesn't flash a placeholder, and hidden entirely on error so an admin
+ * outage doesn't shout at the user.
+ */
+function CreditPill() {
+  const balance = trpc.billing.getBalance.useQuery(undefined, {
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+  if (balance.isLoading || balance.isError) return null;
+  const credits = balance.data?.creditsBalance ?? 0;
+  return (
+    <a
+      href="/settings/billing"
+      title="Credit balance — one credit per delivered brief"
+      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      aria-label={`${credits} credits remaining`}
+      data-testid="chat-credit-pill"
+    >
+      <span className="tabular-nums text-foreground">{credits}</span>
+      <span className="hidden sm:inline">{credits === 1 ? "credit" : "credits"}</span>
+    </a>
   );
 }
