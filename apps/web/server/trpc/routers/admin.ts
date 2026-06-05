@@ -487,4 +487,110 @@ export const adminRouter = router({
       }
       return { ok: true as const, rating };
     }),
+
+  /**
+   * CAD-* (paid GA prep): admin.listUsers — per-user cost & credit dashboard.
+   *
+   * Aggregates one row per user with lifetime cost-to-us (from transactions
+   * with type='charge'), credits-in (topup/admin_grant/trial_grant/promo),
+   * net debits (charge/refund), and digest-run delivery counts. Used by
+   * /admin/users to surface heavy spenders + balance outliers.
+   *
+   * Raw SQL because we GROUP-by-with-FILTER pivots over transactions.type and
+   * digest_runs.status — drizzle's query builder doesn't model FILTER cleanly
+   * and the read pattern is bespoke enough that a hand-written CTE wins.
+   *
+   * Sort whitelist guards against arbitrary-column injection — sortBy is a
+   * fixed enum that maps to a precomputed sql<>`` fragment.
+   */
+  listUsers: adminProcedure
+    .input(
+      z
+        .object({
+          includeDeleted: z.boolean().default(false),
+          sortBy: z
+            .enum(["cost", "balance", "created", "last_run"])
+            .default("cost"),
+          limit: z.number().int().min(1).max(500).default(100),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const includeDeleted = input?.includeDeleted ?? false;
+      const sortBy = input?.sortBy ?? "cost";
+      const limit = input?.limit ?? 100;
+
+      // Whitelist -> SQL ORDER BY fragment. Never interpolate raw input.
+      const orderBy =
+        sortBy === "balance"
+          ? sql`u.credits_balance DESC`
+          : sortBy === "created"
+            ? sql`u.created_at DESC`
+            : sortBy === "last_run"
+              ? sql`MAX(dr.created_at) DESC NULLS LAST`
+              : sql`(COALESCE(SUM(t.cost_to_us_micro_usd) FILTER (WHERE t.type = 'charge'), 0))::numeric DESC`;
+
+      const whereDeleted = includeDeleted
+        ? sql``
+        : sql`WHERE u.deleted_at IS NULL`;
+
+      const rows = await db.execute<{
+        id: string;
+        email: string;
+        credits_balance: number;
+        state: string;
+        created_at: string;
+        deleted_at: string | null;
+        net_debits: string;
+        total_credits_in: string;
+        cost_to_us_usd: string;
+        delivered_briefs: string;
+        failed_briefs: string;
+        last_run_at: string | null;
+      }>(sql`
+        SELECT
+          u.id,
+          u.email,
+          u.credits_balance,
+          u.state,
+          to_char(u.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+          CASE WHEN u.deleted_at IS NULL THEN NULL
+               ELSE to_char(u.deleted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+          END AS deleted_at,
+          COALESCE(SUM(t.credits_delta) FILTER (WHERE t.type IN ('charge','refund')), 0)::text AS net_debits,
+          COALESCE(SUM(t.credits_delta) FILTER (WHERE t.type IN ('topup','admin_grant','trial_grant','promo')), 0)::text AS total_credits_in,
+          (COALESCE(SUM(t.cost_to_us_micro_usd) FILTER (WHERE t.type = 'charge'), 0)::numeric / 1000000)::text AS cost_to_us_usd,
+          COUNT(DISTINCT dr.id) FILTER (WHERE dr.status = 'delivered')::text AS delivered_briefs,
+          COUNT(DISTINCT dr.id) FILTER (WHERE dr.status = 'failed')::text AS failed_briefs,
+          CASE WHEN MAX(dr.created_at) IS NULL THEN NULL
+               ELSE to_char(MAX(dr.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+          END AS last_run_at
+        FROM public.users u
+        LEFT JOIN public.transactions t ON t.user_id = u.id
+        LEFT JOIN public.digest_runs dr ON dr.user_id = u.id
+        ${whereDeleted}
+        GROUP BY u.id, u.email, u.credits_balance, u.state, u.created_at, u.deleted_at
+        ORDER BY ${orderBy}
+        LIMIT ${limit}
+      `);
+
+      return {
+        rows: rows.map((r) => ({
+          id: r.id,
+          email: r.email,
+          creditsBalance: r.credits_balance,
+          state: r.state,
+          createdAt: r.created_at,
+          deletedAt: r.deleted_at,
+          netDebits: Number(r.net_debits),
+          totalCreditsIn: Number(r.total_credits_in),
+          costToUsUsd: Number(r.cost_to_us_usd),
+          deliveredBriefs: Number(r.delivered_briefs),
+          failedBriefs: Number(r.failed_briefs),
+          lastRunAt: r.last_run_at,
+        })),
+        sortBy,
+        includeDeleted,
+      };
+    }),
 });
