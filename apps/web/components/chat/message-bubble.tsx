@@ -80,12 +80,12 @@ export function MessageBubble({
  */
 function ToolAskUser({
   invocation,
-  onSuggestionClick,
-  suggestionsDisabled,
 }: {
   invocation: NonNullable<Message["toolInvocations"]>[number] & {
     state: "result";
   };
+  // Props onSuggestionClick / suggestionsDisabled kept on caller for the
+  // shared MessageBubble surface but no longer consumed here (P0 #2 fix).
   onSuggestionClick?: (text: string) => void;
   suggestionsDisabled?: boolean;
 }) {
@@ -100,24 +100,16 @@ function ToolAskUser({
       {question && !invocation.toolName.includes("hidden") && (
         <p className="text-sm">{question}</p>
       )}
-      {suggestions.length > 0 && (
-        // T-410 / CAD-72: real <button>s, not spans. Tap-to-fill on mobile,
-        // a11y-correct (keyboard activation, role=button by default), and
-        // dispatches the suggestion as a user message via the parent handler.
-        <div className="flex flex-wrap gap-1.5">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              type="button"
-              disabled={suggestionsDisabled || !onSuggestionClick}
-              onClick={() => onSuggestionClick?.(s)}
-              className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+      {/*
+        UX audit v2 P0 #2: in-bubble suggestion chips removed.
+        The agent emitted both ask_user.suggestions AND suggest_quick_replies.chips
+        on the same turn, producing two near-identical pill strips with subtly
+        different behavior (the below-bubble strip owns language-interest
+        interception via classifyLanguageChip). Single source of truth is now
+        chat-client.tsx's `latestQuickReplies` strip. The onSuggestionClick /
+        suggestionsDisabled props stay so other call-sites (e.g. starter chips,
+        refusalChips) keep working.
+      */}
     </div>
   );
 }
