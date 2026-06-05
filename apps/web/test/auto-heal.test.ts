@@ -32,14 +32,22 @@ vi.mock("@/server/ai/composer/compose", () => ({
 }));
 
 // Telegram: stub configured + bot.api.sendMessage success.
-vi.mock("@/server/telegram/client", () => ({
-  isTelegramConfigured: () => true,
-  getBot: () => ({
-    api: {
-      sendMessage: vi.fn(async () => ({ message_id: 1 })),
-    },
-  }),
-}));
+// Pull the real safeSendTelegramMessage through so the parse-mode fallback
+// helper is still exercised; only swap the bot + config check.
+vi.mock("@/server/telegram/client", async () => {
+  const actual = await vi.importActual<typeof import("@/server/telegram/client")>(
+    "@/server/telegram/client"
+  );
+  return {
+    ...actual,
+    isTelegramConfigured: () => true,
+    getBot: () => ({
+      api: {
+        sendMessage: vi.fn(async () => ({ message_id: 1 })),
+      },
+    }),
+  };
+});
 
 vi.mock("@/server/telegram/format", () => ({
   formatComposerOutput: (md: string) => [{ text: md, parseMode: "MarkdownV2" }],

@@ -196,10 +196,18 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
       composeDigest: vi.fn(async () => ({ markdown: "# Brief", costUsd: 0 })),
       COMPOSER_MODEL_ID: "test-model",
     }));
-    vi.doMock("@/server/telegram/client", () => ({
-      isTelegramConfigured: () => true,
-      getBot: () => ({ api: { sendMessage } }),
-    }));
+    vi.doMock("@/server/telegram/client", async () => {
+      // Use the real safeSendTelegramMessage so the fallback path is also
+      // exercised here. The mock only swaps out the bot + config check.
+      const actual = await vi.importActual<typeof import("@/server/telegram/client")>(
+        "@/server/telegram/client"
+      );
+      return {
+        ...actual,
+        isTelegramConfigured: () => true,
+        getBot: () => ({ api: { sendMessage } }),
+      };
+    });
     vi.doMock("@/server/telegram/format", () => ({
       formatComposerOutput: () =>
         opts.parts.map((text) => ({ text, parseMode: "Markdown" })),

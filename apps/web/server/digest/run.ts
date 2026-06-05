@@ -59,7 +59,7 @@ import type {
 } from "@/server/ai/composer/types";
 import { formatComposerOutput } from "@/server/telegram/format";
 import { buildFeedbackKeyboard } from "@/server/telegram/keyboard";
-import { isTelegramConfigured, getBot } from "@/server/telegram/client";
+import { isTelegramConfigured, getBot, safeSendTelegramMessage } from "@/server/telegram/client";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
 import { gatherSources } from "@/server/sources";
@@ -710,10 +710,22 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         const isLast = i === parts.length - 1;
         const replyMarkup =
           keyboardOn && isLast ? buildFeedbackKeyboard(digestRunId!) : undefined;
-        const m = await bot.api.sendMessage(Number(user.telegramChatId), part.text, {
-          parse_mode: part.parseMode,
-          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        });
+        // Parse-mode fallback (CAD bug 2026-06-05): if the composer emits
+        // malformed Markdown (unbalanced `*`/`_`/`` ` ``/`[]()`), Telegram
+        // rejects with 400 "can't parse entities". safeSendTelegramMessage
+        // catches that ONE error and retries the same body as plain text so
+        // the user still gets the brief (unformatted) instead of nothing.
+        // Any other error re-throws into the outer catch below.
+        const m = await safeSendTelegramMessage(
+          (cid, txt, other) =>
+            bot.api.sendMessage(cid, txt, other as Parameters<typeof bot.api.sendMessage>[2]),
+          Number(user.telegramChatId),
+          part.text,
+          {
+            parse_mode: part.parseMode,
+            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+          }
+        );
         if (telegramMessageId == null) telegramMessageId = m.message_id;
         partsSent++;
       }
