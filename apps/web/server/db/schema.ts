@@ -98,7 +98,39 @@ export const digestSpecs = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     version: integer("version").notNull(),
     spec: jsonb("spec").notNull(),
-    isCurrent: boolean("is_current").notNull().default(true),
+    /**
+     * DEPRECATED in migration 0024 — kept nullable so legacy single-brief
+     * write paths (digestSpec.updateRaw, save-spec.ts, /spec page, cron
+     * fallback) keep working through Phase A. Migration 0025 will drop
+     * this column once every caller writes `status` instead.
+     */
+    isCurrent: boolean("is_current").default(true),
+    /**
+     * Multi-brief Phase A (migration 0024). Lifecycle:
+     *   active     -> scheduled, dispatcher will fire
+     *   paused     -> user-paused, no fire, recoverable
+     *   archived   -> soft-deleted (UI-hidden, recoverable from version history)
+     *   superseded -> reserved for legacy version-history rows
+     * DB-level CHECK constraint enforces the vocabulary (see migration 0024).
+     */
+    status: text("status").notNull().default("active"),
+    /** Multi-brief Phase A: user-facing label, e.g. "Palm oil weekly". */
+    name: text("name").notNull().default("Untitled brief"),
+    /**
+     * Multi-brief Phase A: canonical SchedulingRuleV1 jsonb. Validate via
+     * `lib/scheduling/rule.ts :: schedulingRuleV1` before insert/update.
+     */
+    scheduling: jsonb("scheduling").notNull().default(sql`'{}'::jsonb`),
+    /**
+     * Multi-brief Phase A: materialized hint for dispatcher early-filter.
+     * Recomputed via `nextRunAt(scheduling, now)` after each dispatch and
+     * on every scheduling edit. NULL for paused/archived rows.
+     */
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    /** Set when status flips to 'paused'. */
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    /** Set when status flips to 'archived'. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdVia: text("created_via").notNull(), // chat_agent | manual_edit | smoke_seed
     /**
      * T-306 (CAD-41): mark this spec as a self-dogfooded smoke spec. Smoke
@@ -126,7 +158,16 @@ export const digestSpecs = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    userCurrentIdx: index("idx_digest_specs_user_current").on(t.userId, t.isCurrent),
+    // Migration 0024: replaced (user_id, is_current) with (user_id, status)
+    // for the "show me my briefs" path (active+paused).
+    userStatusIdx: index("idx_digest_specs_user_status")
+      .on(t.userId, t.status)
+      .where(sql`${t.status} IN ('active', 'paused')`),
+    // Migration 0024: dispatcher early-filter on (next_run_at) restricted
+    // to active rows that actually have a next run.
+    nextRunIdx: index("idx_digest_specs_next_run")
+      .on(t.nextRunAt)
+      .where(sql`${t.status} = 'active' AND ${t.nextRunAt} IS NOT NULL`),
     smokeIdx: index("idx_digest_specs_is_smoke")
       .on(t.id)
       .where(sql`${t.isSmoke} = true`),
@@ -557,6 +598,7 @@ export { sql };
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type DigestSpec = typeof digestSpecs.$inferSelect;
+export type NewDigestSpec = typeof digestSpecs.$inferInsert;
 export type DigestRun = typeof digestRuns.$inferSelect;
 export type ChatThread = typeof chatThreads.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;

@@ -9,7 +9,8 @@ type Row = {
   id: string;
   userId: string;
   version: number;
-  isCurrent: boolean;
+  /** Migration 0024: nullable for legacy compat through Phase A. */
+  isCurrent: boolean | null;
   createdVia: string;
   // T-306 (CAD-41): keep in sync with digest_specs.is_smoke schema column.
   isSmoke: boolean;
@@ -17,6 +18,13 @@ type Row = {
   keyboardEnabled: boolean;
   // CAD-88: per-spec tier preference (default | pro). DB-constrained.
   tier: string;
+  // Migration 0024: multi-brief fields.
+  status: string;
+  name: string;
+  scheduling: unknown;
+  nextRunAt: Date | null;
+  pausedAt: Date | null;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   spec: unknown;
@@ -278,9 +286,6 @@ function VersionsSection({
         })}
       </ul>
     </section>
-  );
-}
-    </div>
   );
 }
 
