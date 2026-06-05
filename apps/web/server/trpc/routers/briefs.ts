@@ -26,8 +26,10 @@ import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs } from "@/server/db/schema";
 import { protectedProcedure, publicProcedure, router } from "../trpc";
 import { SHORT_ID_RE } from "@/server/digest/share";
-import { schedulingRuleV1 } from "@/lib/scheduling/rule";
+import { schedulingRuleV1, type SchedulingRuleV1 } from "@/lib/scheduling/rule";
 import { nextRunAt } from "@/lib/scheduling/evaluator";
+import { creditCostForTier, type Tier } from "@/server/billing/cost";
+import { users } from "@/server/db/schema";
 
 /**
  * Multi-brief soft cap. Active + paused briefs are billable surface area
@@ -53,6 +55,41 @@ export async function countActiveOrPaused(userId: string): Promise<number> {
       )
     );
   return rows.length;
+}
+
+/**
+ * Phase B T3 — Portfolio burn-rate math.
+ *
+ * Returns the expected briefs-per-day a single scheduling rule contributes.
+ * Pure; tested via `briefsPerDayForRule.test.ts`.
+ *
+ *   - daily        : (weekdays.length / 7)        [default weekdays = 1..7 → 1.0]
+ *   - weekly       : (weekdays.length / 7)
+ *   - monthly      : 1 / 30                       [approx; we don't care about
+ *                                                  the 28-vs-31 noise at this
+ *                                                  granularity]
+ *   - custom_cron  : 1 / 7                        [conservative; we don't parse
+ *                                                  cron here. Pro-tier only,
+ *                                                  rare.]
+ *
+ * `skipWhen.weekends` shaves weekend days off daily/weekly counts. `skipDates`
+ * is ignored at this granularity — it's spot exclusions, not a rate.
+ */
+export function briefsPerDayForRule(rule: SchedulingRuleV1): number {
+  const c = rule.cadence;
+  const skipWeekends = rule.skipWhen?.weekends === true;
+  if (c.kind === "daily" || c.kind === "weekly") {
+    const wd = c.kind === "daily"
+      ? (c.weekdays ?? [1, 2, 3, 4, 5, 6, 7])
+      : c.weekdays;
+    const filtered = skipWeekends ? wd.filter((d) => d <= 5) : wd;
+    return filtered.length / 7;
+  }
+  if (c.kind === "monthly") {
+    return 1 / 30;
+  }
+  // custom_cron — best-effort guess. Pro only.
+  return 1 / 7;
 }
 
 export const briefsRouter = router({
@@ -333,6 +370,73 @@ export const briefsRouter = router({
       allowed: count < MAX_BRIEFS_PER_USER,
       count,
       max: MAX_BRIEFS_PER_USER,
+    };
+  }),
+
+  /**
+   * Phase B T3 — Portfolio burn-rate summary for the /briefs header card.
+   *
+   * Aggregates briefs/day and credit cost/day across the user's ACTIVE
+   * briefs only (paused briefs don't burn). Combines with the user's
+   * current credit balance to render a runway figure in days.
+   *
+   * Returns:
+   *   - activeCount         : number of active briefs
+   *   - briefsPerDay        : expected briefs/day across the portfolio
+   *   - creditsPerDay       : expected credit cost/day (tier-weighted)
+   *   - creditsBalance      : current balance
+   *   - runwayDays          : balance / creditsPerDay (null if creditsPerDay==0)
+   *
+   * Defensive: a corrupt scheduling jsonb that fails Zod is silently
+   * skipped (counted in `skipped`) rather than 500'ing the whole card.
+   */
+  portfolioBurn: protectedProcedure.query(async ({ ctx }) => {
+    const [activeSpecs, userRow] = await Promise.all([
+      db
+        .select({
+          id: digestSpecs.id,
+          scheduling: digestSpecs.scheduling,
+          tier: digestSpecs.tier,
+        })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.userId, ctx.user.id),
+            eq(digestSpecs.status, "active")
+          )
+        ),
+      db
+        .select({ creditsBalance: users.creditsBalance })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1),
+    ]);
+
+    let briefsPerDay = 0;
+    let creditsPerDay = 0;
+    let skipped = 0;
+    for (const s of activeSpecs) {
+      const parsed = schedulingRuleV1.safeParse(s.scheduling);
+      if (!parsed.success) {
+        skipped++;
+        continue;
+      }
+      const rate = briefsPerDayForRule(parsed.data);
+      briefsPerDay += rate;
+      creditsPerDay += rate * creditCostForTier((s.tier ?? "default") as Tier);
+    }
+
+    const creditsBalance = userRow[0]?.creditsBalance ?? 0;
+    const runwayDays =
+      creditsPerDay > 0 ? creditsBalance / creditsPerDay : null;
+
+    return {
+      activeCount: activeSpecs.length,
+      skipped,
+      briefsPerDay,
+      creditsPerDay,
+      creditsBalance,
+      runwayDays,
     };
   }),
 });

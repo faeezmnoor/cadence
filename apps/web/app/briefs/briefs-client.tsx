@@ -133,6 +133,8 @@ export function BriefsClient({
         <NewBriefButton canCreate={canCreate} />
       </header>
 
+      {!isEmpty && <PortfolioBurnCard />}
+
       {isEmpty ? <EmptyState canCreate={canCreate} /> : null}
 
       {!isEmpty && (
@@ -365,6 +367,133 @@ function StatusBadge({ status }: { status: string }) {
       Active
     </span>
   );
+}
+
+/**
+ * Phase B T3 — portfolio burn-rate card.
+ *
+ * Header strip above the brief list, summarizing the user's aggregate
+ * delivery rate across active briefs and how many days of runway the
+ * current credit balance buys. Click-through to /settings/billing for
+ * top-up. Mobile-responsive: stacks under 640px, side-by-side at sm+.
+ *
+ * Rendering rules:
+ *   - hidden while loading (no skeleton flash; the list above carries
+ *     the visual weight),
+ *   - hidden on hard error (never block the list),
+ *   - dampened message when zero active briefs contribute (every brief
+ *     paused) instead of "Infinity days of runway",
+ *   - runway color is text-only — "low" copy when ≤7 days; we don't
+ *     color-only encode (a11y).
+ */
+function PortfolioBurnCard() {
+  const burn = trpc.briefs.portfolioBurn.useQuery(undefined, {
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+  if (burn.isLoading || burn.isError) return null;
+  const data = burn.data;
+  if (!data) return null;
+  const noBurn = data.creditsPerDay <= 0;
+  const runwayLabel = (() => {
+    if (noBurn) return "no active burn";
+    const d = data.runwayDays ?? 0;
+    if (d <= 0) return "0 days";
+    if (d < 1) return "<1 day";
+    if (d > 365) return ">1 year";
+    return `${Math.floor(d)} day${Math.floor(d) === 1 ? "" : "s"}`;
+  })();
+  const isLow = !noBurn && (data.runwayDays ?? 0) <= 7;
+
+  return (
+    <section
+      data-testid="portfolio-burn-card"
+      aria-label="Portfolio burn rate"
+      className="rounded-xl border border-border bg-card p-4 text-card-foreground"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-6">
+          <Stat
+            label="Briefs / day"
+            value={formatRate(data.briefsPerDay)}
+            sub={`${data.activeCount} active`}
+          />
+          <Stat
+            label="Credits / day"
+            value={formatRate(data.creditsPerDay)}
+            sub="1 cr default · 3 cr Pro"
+          />
+          <Stat
+            label="Balance"
+            value={`${data.creditsBalance}`}
+            sub="credits"
+          />
+          <Stat
+            label="Runway"
+            value={runwayLabel}
+            sub={isLow ? "low — top up" : undefined}
+            emphasize={isLow}
+          />
+        </div>
+        <a
+          href="/settings/billing"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Top up
+        </a>
+      </div>
+      {data.skipped > 0 && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {data.skipped} brief{data.skipped === 1 ? "" : "s"} skipped (invalid schedule).
+        </p>
+      )}
+    </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={
+          "text-base font-medium tabular-nums " +
+          (emphasize ? "text-foreground" : "text-foreground")
+        }
+      >
+        {value}
+      </span>
+      {sub ? (
+        <span
+          className={
+            "text-[11px] " +
+            (emphasize ? "text-foreground" : "text-muted-foreground")
+          }
+        >
+          {sub}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function formatRate(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  if (n >= 10) return n.toFixed(0);
+  if (n >= 1) return n.toFixed(1);
+  return n.toFixed(2);
 }
 
 /* ---------------------------- formatters ---------------------------- */
