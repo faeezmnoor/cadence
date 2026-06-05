@@ -140,16 +140,30 @@ export const chatRouter = router({
   /**
    * T-413 / CAD-73: Reset a chat conversation.
    *
-   * Soft-archives every visible message on the thread (sets archived_at=now)
-   * and clears chat_threads.draft_spec back to NULL so the next user turn
-   * sees a blank slate. Keeps the thread row + status to preserve the
-   * existing resume-on-reload contract.
+   * Bug-fix wave (multi-brief techdesign §7): the Vercel AI SDK's `useChat`
+   * hook keys its in-memory message store off the `id` prop (= threadId).
+   * Soft-archiving messages + nulling draftSpec on the SAME thread leaves
+   * the client-side hook holding the prior `messages` array, which gets
+   * forwarded back into `streamText` on the next user turn — contaminating
+   * the supposedly "fresh" capture session.
+   *
+   * Fix: archive the existing thread (terminal-but-readable), then INSERT a
+   * brand-new active thread for the same purpose and return its id. The
+   * client navigates to it (or /chat/page.tsx auto-picks the most recent
+   * active thread on refresh) and re-mounts `<ChatClient key={thread.id}>`,
+   * which keys a fresh useChat store with empty messages.
+   *
+   * Messages on the old thread are also archived so resume-on-reload of
+   * the old id (if anyone bookmarked it) doesn't replay them.
    */
   resetThread: protectedProcedure
     .input(z.object({ threadId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const owned = await db
-        .select({ id: chatThreads.id })
+        .select({
+          id: chatThreads.id,
+          purpose: chatThreads.purpose,
+        })
         .from(chatThreads)
         .where(
           and(
@@ -162,26 +176,49 @@ export const chatRouter = router({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      await db
-        .update(chatMessages)
-        .set({ archivedAt: sql`now()` })
-        .where(
-          and(
-            eq(chatMessages.threadId, input.threadId),
-            isNull(chatMessages.archivedAt)
-          )
-        );
+      return await db.transaction(async (tx) => {
+        // 1. Soft-archive every visible message on the prior thread.
+        await tx
+          .update(chatMessages)
+          .set({ archivedAt: sql`now()` })
+          .where(
+            and(
+              eq(chatMessages.threadId, input.threadId),
+              isNull(chatMessages.archivedAt)
+            )
+          );
 
-      await db
-        .update(chatThreads)
-        .set({
-          draftSpec: null,
-          status: "active",
-          updatedAt: new Date(),
-        })
-        .where(eq(chatThreads.id, input.threadId));
+        // 2. Mark the prior thread archived so /chat doesn't resume it and
+        //    the useChat store keyed off its id is never revisited.
+        await tx
+          .update(chatThreads)
+          .set({
+            status: "archived",
+            draftSpec: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(chatThreads.id, input.threadId));
 
-      return { ok: true as const };
+        // 3. Spin up a brand-new active thread for the same purpose. Its
+        //    fresh id is what unmounts/remounts useChat on the client.
+        const [created] = await tx
+          .insert(chatThreads)
+          .values({
+            userId: ctx.user.id,
+            purpose: owned[0]!.purpose,
+            status: "active",
+            // draftSpec defaults to NULL — guaranteed clean slate.
+          })
+          .returning();
+
+        if (!created) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create replacement thread on reset",
+          });
+        }
+        return { ok: true as const, newThreadId: created.id };
+      });
     }),
 
   /**

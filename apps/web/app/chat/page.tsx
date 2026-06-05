@@ -82,7 +82,18 @@ export default async function ChatPage() {
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
       <AppNav active="chat" />
+      {/*
+        key={thread.id} is load-bearing for the Reset flow (multi-brief
+        techdesign §7). chat.resetThread archives the current thread and
+        returns a brand-new thread id; the parent /chat/page.tsx then
+        re-runs and picks up the new thread. Without `key`, React would
+        diff the same ChatClient instance and the Vercel AI SDK's
+        `useChat` hook (keyed on threadId) would survive — carrying the
+        prior `messages` array into the next request and contaminating
+        the supposedly-fresh capture session.
+      */}
       <ChatClient
+        key={thread.id}
         threadId={thread.id}
         initialMessages={initialMessages}
         initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
