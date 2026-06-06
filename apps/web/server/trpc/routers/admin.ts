@@ -593,4 +593,95 @@ export const adminRouter = router({
         includeDeleted,
       };
     }),
+
+  /**
+   * Phase B T4 — cron dispatcher trace.
+   *
+   * The cron-dispatch Inngest function emits a DispatcherSummary per
+   * invocation but we don't persist it (no dispatcher_log table). For
+   * the admin triage view we derive an equivalent by reading
+   * digest_runs.created_at — every claimed minute landed a row in
+   * digest_runs, so grouping by minute gives us:
+   *   - minute               : truncated UTC minute
+   *   - claimed              : rows created that minute
+   *   - delivered / failed   : terminal status counts
+   *   - pending              : still in flight
+   *   - errors               : sample of last_error strings (failed only)
+   *
+   * "Collisions" and "scanned" aren't recoverable from digest_runs alone
+   * (the unique-index swallows them). We surface a hint instead: if you
+   * see two consecutive minutes with zero claimed but active briefs
+   * exist, look at Inngest logs.
+   *
+   * Bounded to last 240 minutes (4h) max so the query stays cheap.
+   */
+  dispatchTrace: adminProcedure
+    .input(
+      z
+        .object({
+          lastNMinutes: z.number().int().min(1).max(240).default(60),
+        })
+        .default({}),
+    )
+    .query(async ({ input }) => {
+      const sinceMs = Date.now() - input.lastNMinutes * 60_000;
+      const since = new Date(sinceMs);
+
+      type TraceRow = {
+        minute: string;
+        claimed: string;
+        delivered: string;
+        failed: string;
+        pending: string;
+        sample_error: string | null;
+      };
+      const rawRows = await db.execute(sql`
+        SELECT
+          to_char(date_trunc('minute', dr.created_at) AT TIME ZONE 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS minute,
+          COUNT(*)::text AS claimed,
+          COUNT(*) FILTER (WHERE dr.status IN ('delivered','sent'))::text AS delivered,
+          COUNT(*) FILTER (WHERE dr.status = 'failed')::text AS failed,
+          COUNT(*) FILTER (WHERE dr.status NOT IN ('delivered','sent','failed'))::text AS pending,
+          (
+            SELECT dr2.last_error
+            FROM public.digest_runs dr2
+            WHERE date_trunc('minute', dr2.created_at) = date_trunc('minute', dr.created_at)
+              AND dr2.last_error IS NOT NULL
+            LIMIT 1
+          ) AS sample_error
+        FROM public.digest_runs dr
+        WHERE dr.created_at >= ${since}
+        GROUP BY date_trunc('minute', dr.created_at)
+        ORDER BY date_trunc('minute', dr.created_at) DESC
+        LIMIT 240
+      `);
+
+      const rows = rawRows as unknown as TraceRow[];
+      const minutes = rows.map((r) => ({
+        minute: r.minute,
+        claimed: Number(r.claimed),
+        delivered: Number(r.delivered),
+        failed: Number(r.failed),
+        pending: Number(r.pending),
+        sampleError: r.sample_error,
+      }));
+
+      const totals = minutes.reduce(
+        (acc, m) => ({
+          claimed: acc.claimed + m.claimed,
+          delivered: acc.delivered + m.delivered,
+          failed: acc.failed + m.failed,
+          pending: acc.pending + m.pending,
+        }),
+        { claimed: 0, delivered: 0, failed: 0, pending: 0 },
+      );
+
+      return {
+        windowMinutes: input.lastNMinutes,
+        since: since.toISOString(),
+        minutes,
+        totals,
+      };
+    }),
 });
