@@ -44,6 +44,7 @@ import { inngest } from "../client";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
 import { getBot, isTelegramConfigured } from "@/server/telegram/client";
+import { splitForTelegram } from "@/server/telegram/format";
 
 const SUMMARY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -249,9 +250,15 @@ export const smokeSummary = inngest.createFunction(
     // out to all owners — there's only ever one.
     const target = output.perSpec.find((s) => s.telegramChatId != null);
     if (target && isTelegramConfigured()) {
+      // Wave 5 Bug 15: route smoke-summary through the same splitter the
+      // digest pipeline uses, so a long summary doesn't get rejected by
+      // Telegram's 4096-char cap. One sendMessage per part.
       await step.run("send-telegram", async () => {
         const bot = getBot();
-        await bot.api.sendMessage(Number(target.telegramChatId), text);
+        const parts = splitForTelegram(text);
+        for (const part of parts) {
+          await bot.api.sendMessage(Number(target.telegramChatId), part);
+        }
       });
       output.telegramSent = true;
     } else {

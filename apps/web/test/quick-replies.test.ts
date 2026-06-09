@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "ai";
 import { pickLatestQuickReplies } from "@/components/chat/quick-replies";
+import { stripQuickReplyLeak } from "@/lib/chat/sanitize";
 
 type ToolInvocation = NonNullable<Message["toolInvocations"]>[number];
 
@@ -109,3 +110,55 @@ describe("pickLatestQuickReplies", () => {
     expect(out).toEqual([]);
   });
 });
+
+/**
+ * Wave 5 Bug 12 (P0): chip JSON must not leak into the rendered bubble body.
+ * The sanitizer scrubs known leak shapes (trailing array of strings, trailing
+ * array of objects, JSON-object with "chips" key, stray suggest_quick_replies
+ * call) while leaving real prose untouched.
+ */
+describe("Wave 5 Bug 12 — stripQuickReplyLeak", () => {
+  it("preserves clean prose", () => {
+    const t = "How often would you like your brief?";
+    expect(stripQuickReplyLeak(t)).toBe(t);
+  });
+
+  it("strips a trailing JSON-array-of-chip-strings", () => {
+    const t =
+      'How often? ["Daily","Weekly","Monthly"]';
+    expect(stripQuickReplyLeak(t)).toBe("How often?");
+  });
+
+  it("strips a trailing JSON-object containing chips key", () => {
+    const t =
+      'Got it.\n{"chips":["Executive brief","Analyst deep-dive"]}';
+    expect(stripQuickReplyLeak(t)).toBe("Got it.");
+  });
+
+  it("strips a trailing JSON-array of chip objects", () => {
+    const t =
+      'Pick a tone.\n[{"label":"Executive","value":"executive_brief"},{"label":"Analyst","value":"analyst_deep_dive"}]';
+    expect(stripQuickReplyLeak(t)).toBe("Pick a tone.");
+  });
+
+  it("strips a stray suggest_quick_replies(...) call written as text", () => {
+    const t =
+      'Sure. suggest_quick_replies({"chips":["Daily","Weekly"]}). Anything else?';
+    const out = stripQuickReplyLeak(t);
+    expect(out).not.toMatch(/suggest_quick_replies/);
+    expect(out).toMatch(/Sure\./);
+    expect(out).toMatch(/Anything else\?/);
+  });
+
+  it("passes a topic name through (does not strip free-form short strings)", () => {
+    const t = "Tell me which industry — Palm oil? Tech?";
+    expect(stripQuickReplyLeak(t)).toBe(t);
+  });
+
+  it("handles empty/null defensively", () => {
+    expect(stripQuickReplyLeak("")).toBe("");
+    // @ts-expect-error — defensive runtime guard
+    expect(stripQuickReplyLeak(null)).toBe("");
+  });
+});
+

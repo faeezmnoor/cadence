@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
@@ -32,13 +32,17 @@ function deriveBriefName(spec: DigestSpecV1): string {
 export const digestSpecRouter = router({
   /** Returns the user's current spec, or null if none yet. */
   getCurrent: protectedProcedure.query(async ({ ctx }) => {
+    // Wave 5 Bug 10: never surface an archived spec as "current". The /spec
+    // and /briefs reads downstream rely on this returning null when the user
+    // has only archived rows, so they can re-route into the create flow.
     const rows = await db
       .select()
       .from(digestSpecs)
       .where(
         and(
           eq(digestSpecs.userId, ctx.user.id),
-          eq(digestSpecs.isCurrent, true)
+          eq(digestSpecs.isCurrent, true),
+          ne(digestSpecs.status, "archived")
         )
       )
       .limit(1);

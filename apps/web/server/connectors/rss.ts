@@ -11,7 +11,7 @@
  *    building the sources bundle.
  */
 import Parser from "rss-parser";
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestSpecs, rssItems } from "@/server/db/schema";
 import { digestSpecSchema } from "@/lib/digest-spec/schema";
@@ -82,10 +82,18 @@ function isSafeFeedUrl(rawUrl: string): boolean {
  * row per spec to keep the moat tight (each spec's history is independent).
  */
 export async function listDeclaredFeeds(): Promise<DeclaredFeed[]> {
+  // Wave 5 Bug 10: archived briefs must not pull RSS items. Otherwise the
+  // poller continues spending HTTP budget + writing rss_items rows for
+  // specs the user has tombstoned.
   const specs = await db
     .select({ id: digestSpecs.id, spec: digestSpecs.spec })
     .from(digestSpecs)
-    .where(eq(digestSpecs.isCurrent, true));
+    .where(
+      and(
+        eq(digestSpecs.isCurrent, true),
+        ne(digestSpecs.status, "archived")
+      )
+    );
 
   const out: DeclaredFeed[] = [];
   for (const row of specs) {

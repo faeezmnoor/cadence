@@ -5,6 +5,7 @@ import type { Message } from "ai";
 import { Markdown } from "./markdown";
 import { Timestamp } from "./timestamp";
 import { formatChatTimeAbsolute } from "@/lib/chat/format-time";
+import { stripQuickReplyLeak } from "@/lib/chat/sanitize";
 
 /**
  * One chat bubble. Surfaces:
@@ -140,7 +141,10 @@ export function MessageBubble({
          * ask_user question only when content is empty (tool-only turns).
          */}
         {message.content ? (
-          <Markdown>{message.content}</Markdown>
+          // Wave 5 Bug 12 (P0): scrub embedded quick-reply chip JSON at
+          // render time so already-persisted messages render clean
+          // alongside the route.ts onFinish server-side scrub.
+          <Markdown>{stripQuickReplyLeak(message.content)}</Markdown>
         ) : (
           askQuestion?.state === "result" && (
             <ToolAskUser invocation={askQuestion} />

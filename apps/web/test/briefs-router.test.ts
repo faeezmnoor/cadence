@@ -227,14 +227,17 @@ describe("briefs.pause / resume / archive", () => {
     });
   });
 
-  it("archive flips status, sets archivedAt, clears nextRunAt", async () => {
+  it("archive flips status, sets archivedAt, clears nextRunAt, flips isCurrent=false (Wave 5 Bug 10)", async () => {
     currentUpdateFilter = (r) =>
       r.id === "11111111-1111-1111-1111-111111111111" && r.userId === "u-self" && (r.status === "active" || r.status === "paused");
     const caller = appRouter.createCaller(makeCtx());
     const result = await caller.briefs.archive({ id: "11111111-1111-1111-1111-111111111111" });
     expect(result).toEqual({ ok: true, id: "11111111-1111-1111-1111-111111111111" });
+    // Wave 5 Bug 10: isCurrent MUST be flipped to false so the legacy
+    // single-brief delivery + RSS paths (which still gate on
+    // is_current=true) don't keep the archived spec in rotation.
     expect(updateCalls[0]!.setKeys.sort()).toEqual(
-      ["archivedAt", "nextRunAt", "status", "updatedAt"]
+      ["archivedAt", "isCurrent", "nextRunAt", "status", "updatedAt"]
     );
   });
 });

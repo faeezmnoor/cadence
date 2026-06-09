@@ -21,7 +21,7 @@
  *     scheduled idempotency slot for the same UTC date and doesn't
  *     leave ghost "composing" rows in history.
  */
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
@@ -175,10 +175,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   if (!user) {
     return { status: "failed", digestRunId: null, markdown: null, partsSent: 0, telegramMessageId: null, error: "user not found" };
   }
+  // Wave 5 Bug 10: archived briefs must not be sampled. `briefs.archive`
+  // (and historical drift) leave `is_current=true` on archived rows; the
+  // multi-brief migration introduced `status` as the source of truth.
+  // Belt-and-suspenders: require BOTH is_current AND status != archived
+  // so neither write path can resurrect an archived spec for delivery.
   const specRows = await db
     .select()
     .from(digestSpecs)
-    .where(and(eq(digestSpecs.userId, userId), eq(digestSpecs.isCurrent, true)))
+    .where(
+      and(
+        eq(digestSpecs.userId, userId),
+        eq(digestSpecs.isCurrent, true),
+        ne(digestSpecs.status, "archived")
+      )
+    )
     .limit(1);
   const specRow = specRows[0];
   if (!specRow) {

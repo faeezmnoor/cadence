@@ -56,13 +56,18 @@ export const digestRouter = router({
       const dryRun = input?.dryRun ?? false;
 
       if (input?.expectedSpecId) {
+        // Wave 5 Bug 10/11: also exclude archived specs. Otherwise an
+        // archived `is_current=true` row (legacy drift from briefs.archive
+        // not flipping the flag) would silently pass the expected-spec
+        // guard and let sampleNow compose against a tombstoned brief.
         const currentRows = await db
           .select({ id: digestSpecs.id })
           .from(digestSpecs)
           .where(
             and(
               eq(digestSpecs.userId, ctx.user.id),
-              eq(digestSpecs.isCurrent, true)
+              eq(digestSpecs.isCurrent, true),
+              ne(digestSpecs.status, "archived")
             )
           )
           .limit(1);

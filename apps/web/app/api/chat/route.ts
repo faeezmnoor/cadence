@@ -45,6 +45,7 @@ import {
   recordExtractionEvent,
 } from "@/server/chat/telemetry";
 import { extractSlots } from "@/server/ai/config-agent/extract";
+import { stripQuickReplyLeak } from "@/lib/chat/sanitize";
 import {
   mergeExtractedSlots,
   type AppliedSlots,
@@ -282,13 +283,18 @@ export async function POST(req: Request) {
       },
       onFinish: async ({ text, toolCalls, toolResults }) => {
         try {
+          // Wave 5 Bug 12 (P0): scrub quick-reply chip JSON that gpt-4o-mini
+          // sometimes embeds into its free-text turn. The chip strip below
+          // the bubble is the only legit render surface; raw JSON in the
+          // bubble body is the regression we're closing.
+          const cleanText = stripQuickReplyLeak(text ?? "");
           // Persist a structured assistant turn.
           await db.insert(chatMessages).values({
             threadId: thread.id,
             role: "assistant",
             content: {
               kind: "assistant_turn",
-              text: text ?? "",
+              text: cleanText,
               toolCalls: toolCalls ?? [],
               toolResults: toolResults ?? [],
               savedSpecId: session.savedSpecId,

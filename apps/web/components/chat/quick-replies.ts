@@ -18,36 +18,40 @@
  *    chips going missing whenever the LLM misbehaves.
  */
 import type { Message } from "ai";
+import {
+  formatFrequency,
+  formatLanguage,
+  formatLength,
+  formatTone,
+} from "@/lib/labels";
 
 const MAX_CHIPS = 4;
 
 /**
- * Wave 4 Bug 4 fix: when `suggest_quick_replies.chips` or
- * `ask_user.suggestions` carry raw spec enum values (e.g. the LLM emits
- * `["executive_brief","analyst_deep_dive"]` for tone_preset, or `"en"` for
- * language), users see engineer-shaped strings in the UI. Map every known
- * DigestSpec enum value to a human label here. Anything that doesn't match
- * is passed through untouched — free-form chips (topic suggestions,
- * day-of-week names, etc.) stay verbatim.
+ * Wave 4 Bug 4 + Wave 5 structural: chip enum labels now route through
+ * the single-source-of-truth `lib/labels.ts` formatters. The exported
+ * `CHIP_ENUM_LABELS` map is kept (as a derived view) for the existing
+ * `wave4-bundled-regressions.test.ts` regression checks; new code should
+ * import the `formatX` helpers directly.
  */
 export const CHIP_ENUM_LABELS: Record<string, string> = {
   // tone_preset
-  executive_brief: "Executive brief",
-  analyst_deep_dive: "Analyst deep-dive",
-  trader_quick_take: "Trader quick take",
-  casual_newsletter: "Casual newsletter",
+  executive_brief: formatTone("executive_brief"),
+  analyst_deep_dive: formatTone("analyst_deep_dive"),
+  trader_quick_take: formatTone("trader_quick_take"),
+  casual_newsletter: formatTone("casual_newsletter"),
   // length_target
-  short: "Short",
-  medium: "Medium",
-  long: "Long",
+  short: formatLength("short"),
+  medium: formatLength("medium"),
+  long: formatLength("long"),
   // language
-  en: "English",
-  ms: "Bahasa Malaysia",
-  zh: "中文",
+  en: formatLanguage("en"),
+  ms: formatLanguage("ms"),
+  zh: formatLanguage("zh"),
   // cadence.frequency
-  daily: "Daily",
-  weekly: "Weekly",
-  monthly: "Monthly",
+  daily: formatFrequency("daily"),
+  weekly: formatFrequency("weekly"),
+  monthly: formatFrequency("monthly"),
 };
 
 export function prettifyChip(raw: string): string {
