@@ -38,7 +38,23 @@ type SendState =
   | { kind: "no_credits"; message: string }
   | { kind: "error"; message: string };
 
-export function BriefActions({ ready }: { ready: boolean }) {
+export function BriefActions({
+  ready,
+  savedSpecId,
+}: {
+  ready: boolean;
+  /**
+   * Dogfood-bugs 2026-06-09: spec id of the most recent `confirm_and_save`
+   * tool result on this thread, or null when the agent hasn't saved yet.
+   * The buttons stay disabled until this is non-null because firing
+   * `sampleNow` against the user's stale `is_current` spec composed
+   * briefs on the wrong topic (e.g. a user configuring "Bitcoin" in
+   * chat got an "AI / LLM platforms" sample composed from the prior
+   * smoke-seed spec). When non-null, we send it as `expectedSpecId`
+   * so the server defends in depth.
+   */
+  savedSpecId: string | null;
+}) {
   const telegramStatus = trpc.telegram.status.useQuery(undefined, {
     enabled: ready,
     refetchOnWindowFocus: false,
@@ -48,13 +64,18 @@ export function BriefActions({ ready }: { ready: boolean }) {
   const [send, setSend] = useState<SendState>({ kind: "idle" });
 
   if (!ready) return null;
+  const saved = savedSpecId != null;
 
   const linked = telegramStatus.data?.linked ?? false;
 
   async function onPreview() {
+    if (!savedSpecId) return;
     setPreview({ kind: "loading" });
     try {
-      const res = await sampleMut.mutateAsync({ dryRun: true });
+      const res = await sampleMut.mutateAsync({
+        dryRun: true,
+        expectedSpecId: savedSpecId,
+      });
       if (res.markdown && res.markdown.length > 0) {
         setPreview({ kind: "ready", markdown: res.markdown });
       } else if (res.status === "skipped_no_credits") {
@@ -75,9 +96,13 @@ export function BriefActions({ ready }: { ready: boolean }) {
   }
 
   async function onSendNow() {
+    if (!savedSpecId) return;
     setSend({ kind: "sending" });
     try {
-      const res = await sampleMut.mutateAsync({ dryRun: false });
+      const res = await sampleMut.mutateAsync({
+        dryRun: false,
+        expectedSpecId: savedSpecId,
+      });
       if (res.status === "delivered") {
         setSend({ kind: "sent" });
       } else if (res.status === "skipped_no_credits") {
@@ -125,12 +150,21 @@ export function BriefActions({ ready }: { ready: boolean }) {
         </p>
       </div>
 
+      {!saved && (
+        <p
+          data-testid="brief-actions-needs-save"
+          className="text-xs text-muted-foreground"
+        >
+          Confirm your spec in chat first to preview or send a sample.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           data-testid="brief-actions-preview"
           onClick={onPreview}
-          disabled={preview.kind === "loading"}
+          disabled={!saved || preview.kind === "loading"}
           className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {preview.kind === "loading"
@@ -142,7 +176,7 @@ export function BriefActions({ ready }: { ready: boolean }) {
             type="button"
             data-testid="brief-actions-send-now"
             onClick={onSendNow}
-            disabled={send.kind === "sending"}
+            disabled={!saved || send.kind === "sending"}
             className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {send.kind === "sending" ? "Sending…" : "Send me one now"}

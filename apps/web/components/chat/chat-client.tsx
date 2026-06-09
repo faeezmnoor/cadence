@@ -267,6 +267,28 @@ export function ChatClient({
     }
   }, [messages, router]);
 
+  // Dogfood-bugs 2026-06-09: surface the spec id of the latest
+  // confirm_and_save tool result to BriefActions so its sample/preview
+  // buttons stay disabled until the agent has actually persisted the
+  // draft. Without this, clicking "Send me one now" before the agent
+  // calls confirm_and_save fires `digest.sampleNow` against the user's
+  // stale `is_current` spec (a prior smoke seed for users with one) and
+  // composes a brief on the WRONG topic.
+  const savedSpecId = useMemo<string | null>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m || m.role !== "assistant") continue;
+      const tool = m.toolInvocations?.find(
+        (t) => t.toolName === "confirm_and_save" && t.state === "result"
+      );
+      if (tool && tool.state === "result") {
+        const r = tool.result as { spec_id?: string } | undefined;
+        return typeof r?.spec_id === "string" ? r.spec_id : null;
+      }
+    }
+    return null;
+  }, [messages]);
+
   const handleReset = async () => {
     if (isStreamingState || resetting) return;
     const ok = window.confirm(
@@ -514,7 +536,10 @@ export function ChatClient({
             {/* MUST-SHIP #8 + #9: once the spec is ready, surface preview +
                 send-now actions inline so the user sees the payoff before
                 leaving the chat. */}
-            <BriefActions ready={draftIsReady(draft)} />
+            <BriefActions
+              ready={draftIsReady(draft)}
+              savedSpecId={savedSpecId}
+            />
             {error && (
               <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                 {error.message}

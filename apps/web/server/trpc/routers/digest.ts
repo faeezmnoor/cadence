@@ -12,7 +12,7 @@ import { z } from "zod";
 import { and, desc, eq, gte, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/server/db/client";
-import { digestRuns } from "@/server/db/schema";
+import { digestRuns, digestSpecs } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
 import { runDigestPipeline } from "@/server/digest/run";
 
@@ -33,9 +33,48 @@ const SAMPLE_NOW_COOLDOWN_MS = 5 * 60_000;
 export const digestRouter = router({
   /** Compose now. Sends to Telegram unless dryRun is true. */
   sampleNow: protectedProcedure
-    .input(z.object({ dryRun: z.boolean().default(false) }).optional())
+    .input(
+      z
+        .object({
+          dryRun: z.boolean().default(false),
+          /**
+           * Dogfood-bugs 2026-06-09 fix: spec-id the client believes is
+           * about to be composed against. When set, the server compares
+           * to the user's actual `is_current` digest_spec; a mismatch
+           * means the client is firing on a stale spec (e.g. user
+           * configured a new brief in chat but didn't confirm_and_save
+           * before clicking "Send me one now") and we refuse rather
+           * than send the wrong content. Optional so the Telegram /sample
+           * command + admin replay paths (which have no client-side spec
+           * id to assert against) keep working unchanged.
+           */
+          expectedSpecId: z.string().uuid().optional(),
+        })
+        .optional()
+    )
     .mutation(async ({ ctx, input }) => {
       const dryRun = input?.dryRun ?? false;
+
+      if (input?.expectedSpecId) {
+        const currentRows = await db
+          .select({ id: digestSpecs.id })
+          .from(digestSpecs)
+          .where(
+            and(
+              eq(digestSpecs.userId, ctx.user.id),
+              eq(digestSpecs.isCurrent, true)
+            )
+          )
+          .limit(1);
+        const currentId = currentRows[0]?.id ?? null;
+        if (currentId !== input.expectedSpecId) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Your spec hasn't been saved yet. Confirm it in chat first, then try again.",
+          });
+        }
+      }
 
       // Dedup guard (replaces the dropped user_run_date_uq, per T-303 bonus).
       // Skip the cool-down for dry-runs — previewing twice is cheap and
