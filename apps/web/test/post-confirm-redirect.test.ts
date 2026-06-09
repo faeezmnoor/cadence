@@ -1,15 +1,20 @@
 /**
- * Designer #2 fix (design-audit-v1 §5): after confirm_and_save, the chat
- * MUST redirect to /app/link (the Telegram connect step), not /spec.
+ * dead-surface fix 2026-06-09: superseded design-audit-v1 §5's auto-redirect
+ * to /app/link with an INLINE CTA inside BriefActions. The redirect killed
+ * the Preview / Send-me-one-now surface (BriefActions only enables once
+ * savedSpecId is non-null — exactly when the redirect fired). Replacement
+ * behavior:
  *
- * /spec is the raw JSON page — sending users there post-onboarding was the
- * single largest conversion leak in the product. This test pins the
- * redirect string so a future refactor can't silently revert it.
+ *   1. chat-client.tsx no longer calls router.push("/app/link") on
+ *      confirm_and_save. The user stays on /chat.
+ *   2. BriefActions renders an inline Link to /app/link when the spec is
+ *      saved AND Telegram isn't linked — the explicit next action, not a
+ *      mystery teleport.
  *
- * We assert on the source file rather than rendering the React component
- * because vitest's include pattern is *.test.ts (not .tsx) and the redirect
- * is a one-liner inside a useEffect — extracting it for a unit test would
- * be more indirection than value.
+ * We assert on source rather than rendering the components because
+ * vitest's include pattern is *.test.ts (not .tsx) and the relevant
+ * surface is a single component branch — pinning it as text is the
+ * cheapest regression guard.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -18,18 +23,34 @@ import { fileURLToPath, URL } from "node:url";
 const chatClientPath = fileURLToPath(
   new URL("../components/chat/chat-client.tsx", import.meta.url)
 );
-const source = readFileSync(chatClientPath, "utf8");
+const briefActionsPath = fileURLToPath(
+  new URL("../components/chat/brief-actions.tsx", import.meta.url)
+);
+const chatClientSource = readFileSync(chatClientPath, "utf8");
+const briefActionsSource = readFileSync(briefActionsPath, "utf8");
 
-describe("post-confirm redirect", () => {
-  it("routes to /app/link, not /spec, after confirm_and_save", () => {
-    // The exact line we care about: router.push("/app/link" ...).
-    expect(source).toMatch(/router\.push\(\s*["']\/app\/link["']/);
-    // And explicitly does NOT push to /spec.
-    expect(source).not.toMatch(/router\.push\(\s*["']\/spec["']/);
+describe("post-confirm inline CTA (no auto-redirect)", () => {
+  it("chat-client does NOT auto-redirect to /app/link on confirm_and_save", () => {
+    // The forbidden one-liner. Comments mentioning the historical redirect
+    // are fine; the actual call site must not exist.
+    expect(chatClientSource).not.toMatch(
+      /^\s*router\.push\(\s*["']\/app\/link["']/m
+    );
+    // And explicitly does NOT push to /spec either.
+    expect(chatClientSource).not.toMatch(
+      /^\s*router\.push\(\s*["']\/spec["']/m
+    );
   });
 
-  it("guards the redirect behind confirm_and_save tool-result detection", () => {
-    expect(source).toMatch(/toolName === ["']confirm_and_save["']/);
-    expect(source).toMatch(/state === ["']result["']/);
+  it("BriefActions renders an inline /app/link CTA for saved-but-not-linked users", () => {
+    // Real Link to /app/link, not a disabled <span> badge.
+    expect(briefActionsSource).toMatch(/href=["']\/app\/link["']/);
+    // The disabled badge must NOT come back as a dead surface.
+    expect(briefActionsSource).not.toMatch(
+      /brief-actions-send-disabled/
+    );
+    // Gated on the saved + !linked branch (the "next action when no Telegram
+    // link yet" surface).
+    expect(briefActionsSource).toMatch(/saved && !linked/);
   });
 });

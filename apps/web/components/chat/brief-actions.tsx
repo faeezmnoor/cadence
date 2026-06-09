@@ -21,6 +21,7 @@
  * minute?" feedback. Splitting them duplicates the loading/error
  * boilerplate without UX benefit.
  */
+import Link from "next/link";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 
@@ -159,6 +160,25 @@ export function BriefActions({
         </p>
       )}
 
+      {/* dead-surface fix 2026-06-09: replaced the chat-client auto-redirect
+          to /app/link with this inline CTA. Surfaces once the spec is saved
+          AND Telegram isn't linked — the single most important next action
+          for the user, made explicit instead of teleported-to. Once linked
+          this banner disappears and the BriefActions buttons become the
+          primary surface. */}
+      {saved && !linked && (
+        <Link
+          data-testid="brief-actions-link-telegram-cta"
+          href="/app/link"
+          className="inline-flex items-center justify-between gap-3 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <span>
+            Spec saved &mdash; link Telegram to start receiving your brief
+          </span>
+          <span aria-hidden>&rarr;</span>
+        </Link>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -182,13 +202,15 @@ export function BriefActions({
             {send.kind === "sending" ? "Sending…" : "Send me one now"}
           </button>
         ) : (
-          <span
-            data-testid="brief-actions-send-disabled"
-            className="inline-flex h-9 items-center rounded-md border border-dashed border-border px-3 text-xs text-muted-foreground"
-            title="Link Telegram to enable"
+          // dead-surface fix 2026-06-09: previously a disabled <span> badge.
+          // Converted to a real <Link> to /app/link so users can act on it.
+          <Link
+            data-testid="brief-actions-link-telegram"
+            href="/app/link"
+            className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            Link Telegram to send now
-          </span>
+            Link Telegram to send now &rarr;
+          </Link>
         )}
       </div>
 
