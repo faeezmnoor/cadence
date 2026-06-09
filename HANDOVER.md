@@ -2,8 +2,8 @@
 
 **Owner:** Faeez (faeezmnoor@gmail.com, Asia/Kuala_Lumpur, solo founder)
 **Co-founder agent:** `cadence-cofounder`
-**Last updated:** 2026-06-04
-**Status:** Pre-paid-GA. Phase 5.1 Pro tier ~76% complete (13/17). Phase 6a (free data sources) partially shipped today. Stripe MY KYC is the hard wall to GA.
+**Last updated:** 2026-06-09
+**Status:** **Paid-GA ready on the engineering side.** All Pro-tier alpha tickets shipped, eval gate live but blocked on `READY=false, reason=no_data` (0 Pro briefs ever rated). Phase 6a closed out — every implementation ticket (CAD-157..164) Done; the old duplicate epic CAD-113..121 swept to Canceled. Two user-side blockers remain: (a) Stripe MY KYC, (b) Faeez running ≥25 blinded Pro ratings to clear the eval gate.
 **Reading time for a cold pickup:** 25–30 min. If you only have 10, read sections 1, 5, 8, 11, 12.
 
 ---
@@ -18,8 +18,8 @@
 - Web app live at `cadence-web-bice.vercel.app` (custom domain pending — `cadence.news` is the front-runner).
 - Phase 1–4 (MVP) shipped: magic-link auth, chat-config wedge, Telegram linkage, scheduled cron delivery at 06:30 MYT, feedback loop with `/tune`, weekly distill into `distilled_prefs`.
 - Phase 5 (monetization) shipped the credit ledger, 4 pack tiers, billing UI, low-balance nudges, refund/admin grant tooling. **Stripe checkout is NOT live** — Faeez's Stripe MY KYC is the open blocker.
-- Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6) is 13/17 tickets done and gated behind `PRO_TIER_ALPHA` env flag. Eval gate (T-525) still pending live golden-set scoring.
-- Phase 6a (free-data-source plan — Playwright scrapers + curated RSS packs) is mid-flight; #4 (the brief composer wire-in) just landed.
+- Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6) is engineering-complete and gated behind `PRO_TIER_ALPHA`. Eval gate at `server/evals/pro-eval-gate.ts` is live and reports `READY=false, reason=no_data` — needs ≥25 Pro briefs + blinded ratings before public toggle.
+- Phase 6a (free-data-source plan — Playwright scrapers + curated RSS packs) is **fully shipped**. Tickets CAD-157..164: 7 Done, 1 Backlog (CAD-162 deferred — composer-time TOPIC_KEYWORDS router handles topic routing implicitly; user-facing pack suggester is scope creep).
 - No paying users yet. Two validated commodity-SME design partners on standby for first paid checkout.
 
 **Three things any new owner MUST know before touching code:**
@@ -200,22 +200,21 @@ Ticket-map says 72 of 84 tracked tickets `Done`. Highlights:
 ### Phase 5 (monetization base): **DONE**
 Pre-paid credit ledger live, dogfooded on Faeez's spec. Schema: `users.credits_balance + cost_to_us_micro_usd + country_code + trial_credits_granted_at`, `transactions` table, `pricing_snapshots` table. UI: `/settings/billing` with balance hero, packs grid (currently disabled — "coming soon"), ledger with mobile card-stack. Low-balance Telegram nudges shipping at <7/<3/0-credit thresholds. Admin grant tool works. **Stripe Checkout itself is NOT live — KYC blocked.**
 
-### Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6, 3-cr multiplier): **13/17 done**
-Per `project_cadence_pro_tier` memory. Epic = CAD-100. The 4 tickets still open (from memory; verify in Linear):
-- **T-525** — Eval golden set + blinded scoring (CRITICAL — gates public Pro toggle).
-- **T-526** — Public Pro toggle exposure (depends on T-525 pass).
-- **T-528** — Per-account "default to Pro" toggle in `/settings/billing` (post-3-Pro-brief gating).
-- **T-534** — Landing-page Pro section + Telegram `/pro` command tour.
+### Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6, 3-cr multiplier): **engineering-complete; user-side eval gate blocks public exposure**
+Per `project_cadence_pro_tier` memory. Epic = CAD-100. As of 2026-06-09 (post Linear reconciliation):
+- **CAD-90 / T-525** Eval gate code shipped at `server/evals/pro-eval-gate.ts`. Verdict today: `READY=false, reason=no_data` (0 Pro runs lifetime, 0 manual ratings ever).
+- **CAD-94..97, CAD-101, CAD-102** all moved Backlog → Done after code audit (Pro burn-rate dashboard, billing/spec/pricing tier explainers, provider timeouts, `PRO_TIER_ALPHA` flag + safety-net downgrade, cost-overrun circuit breaker, Pro→default refund-2-credit fallback).
+- **Still Backlog (truly open):** CAD-91 (T-526 public toggle exposure — gated on eval pass), CAD-93 (T-528 per-account default-to-Pro), CAD-99 (T-534 landing copy + `/pro` tour).
 
-Pro is currently behind `PRO_TIER_ALPHA=true` env flag and admin-grant-only.
+Pro is behind `PRO_TIER_ALPHA=true` env flag and admin-grant-only. **The gate is now Faeez's time to dogfood + rate Pro briefs, not engineering.**
 
 ### Phase 5.2 (BYO API Keys): **DEFERRED**
 PRD locked at `strategy/byo-keys-prd-v1.md`. Epic = CAD-103. 6 tickets queued, all `Backlog`. Defer trigger: 50 paying users on Phase 5.1.
 
-### Phase 6 (free data sources): **IN FLIGHT**
-- **Phase 6a (Patterns A+C — Playwright scrapers + RSS packs).** Epic CAD-113. 8 child tickets. **Status: partial, today.** Just shipped item #4 (composer wire-in to query packs + cached scraper data). Items 1–3 (Playwright/Chromium install, stealth, scraper framework) and 5–7 (curated RSS packs, ICP auto-detect, `source_cache` TTL helper) status: check Linear.
-- **Phase 6b (Pattern B SERP + extra connectors).** Epic CAD-114. 7 child tickets. All `Backlog`. Includes DuckDuckGo HTML scrape (Brave free-tier successor), CoinGecko Demo API, eBay Browse API, The Odds API, Kiwi Tequila affiliate, per-company Google News RSS, scraper health dashboard.
-- **Phase 6c (residential proxy + hard targets).** Epic CAD-115. 5 child tickets. All `Backlog`. Gated on >100 paid Pro users (~$3k MRR).
+### Phase 6 (free data sources): **6a DONE, 6b queued, 6c gated**
+- **Phase 6a (Patterns A+C — Playwright scrapers + RSS packs).** Implementation tickets CAD-157..164. **Status: closed out.** CAD-157/158/159/160/161/163/164 all Done in code: Playwright + `@sparticuz/chromium` + stealth installed, scraper framework + `NormalizedSourceItem` schema, MPOB / Bursa CPO / Yahoo Finance scrapers, RSS aggregator + 17 curated feeds across commodities/Malaysia/regulatory/tech/crypto, `source_cache` table + RLS lockdown, `gatherSources` composer wire-in (`apps/web/server/sources/index.ts`). **CAD-162 (ICP auto-detect → suggest pack)** deferred — composer-time TOPIC_KEYWORDS router already routes implicitly; user-facing pack suggester is scope creep beyond paid-GA. **The old duplicate epic CAD-113 + CAD-114..121 was Canceled on 2026-06-09** because CAD-157..164 are the real tickets.
+- **Phase 6b (Pattern B SERP + extra connectors).** Tickets CAD-165..171. All `Backlog`. Includes DuckDuckGo HTML scrape (Brave free-tier successor — highest-leverage), CoinGecko Demo API, eBay Browse API, The Odds API, Kiwi Tequila affiliate, per-company Google News RSS, scraper health dashboard.
+- **Phase 6c (residential proxy + hard targets).** Tickets CAD-172..176. All `Backlog`. Gated on >100 paid Pro users (~$3k MRR).
 
 ### Open work elsewhere (from `ticket-map.json`)
 Pre-Phase-5 leftovers still marked `Todo`/`Backlog` (probably superseded by newer work — verify before picking up):
@@ -454,15 +453,14 @@ The opinionated co-founder sequence — do these in this order:
 
 1. **Stripe MY KYC + checkout flow** (G4). Single biggest revenue blocker. Faeez completes KYC → wire Stripe Checkout webhook → run end-to-end test charge in prod → flip pack tiles from disabled to enabled → ship. Until this lands, every conversion is leaking through the "Email me to top up" banner.
 
-2. **Verify Sentry DSN in prod.** 30-minute check. If `SENTRY_DSN` isn't set in Vercel prod env, set it and confirm the next deploy emits a test error. Sentry is the only thing standing between Faeez and silent prod regressions when he's sleeping.
+2. **Pro tier eval gate dogfood** (user-side, Faeez). Code is done; data isn't. Eval gate at `server/evals/pro-eval-gate.ts` reports `READY=false, reason=no_data` — needs ≥25 Pro briefs paired with default-tier baselines + blinded rubric ratings before public Pro toggle (CAD-91/T-526) can ship. This is the single largest hold on going wide.
 
-3. **Remaining Phase 5.1 Pro tier tickets** — in this order:
-   - **T-525** Build & run the eval golden set. 25 hand-curated briefs across palm oil daily/weekly, multi-commodity, regulatory, long-tail. Score default + Pro blinded. Without this, Pro tier is shipping on vibes.
-   - **T-526** Public Pro toggle (depends on T-525 pass).
-   - **T-528** Per-account "default to Pro" toggle.
-   - **T-534** Landing Pro section + Telegram `/pro` tour.
+3. **Verify Sentry DSN in prod.** 30-minute check. If `SENTRY_DSN` isn't set in Vercel prod env, set it and confirm the next deploy emits a test error. Sentry is the only thing standing between Faeez and silent prod regressions when he's sleeping.
 
-4. **Phase 6a closeout.** #4 (composer wire-in) just shipped. Confirm 1–3 (Playwright/Chromium install, stealth, scraper framework), 5–7 (curated packs, ICP auto-detect, source_cache TTL), 8 (per-spec source budget) are all green. Curated RSS packs alone are the highest-leverage acquisition lift in the backlog.
+4. **Remaining truly-open Phase 5.1 Pro tier tickets** (after eval-gate data lands):
+   - **CAD-91 / T-526** Public Pro toggle (depends on eval pass).
+   - **CAD-93 / T-528** Per-account "default to Pro" toggle.
+   - **CAD-99 / T-534** Landing Pro section + Telegram `/pro` tour.
 
 5. **Phase 6b items in dependency order:**
    - DuckDuckGo HTML scrape (Pattern B) — the strategic Brave-free-tier successor.
