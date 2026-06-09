@@ -40,7 +40,17 @@ import {
 import { log } from "@/lib/log";
 import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
 import { checkRateLimit } from "@/server/rate-limit/check";
-import { recordChatTurn } from "@/server/chat/telemetry";
+import {
+  recordChatTurn,
+  recordExtractionEvent,
+} from "@/server/chat/telemetry";
+import { extractSlots } from "@/server/ai/config-agent/extract";
+import {
+  mergeExtractedSlots,
+  type AppliedSlots,
+} from "@/server/ai/config-agent/slot-merge";
+import { buildPriorContextBlock } from "@/server/ai/config-agent/prior-context";
+import { count } from "drizzle-orm";
 
 const CHAT_RATE_LIMIT = 5;
 const CHAT_RATE_WINDOW_SECONDS = 60;
@@ -185,17 +195,67 @@ export async function POST(req: Request) {
     }
   }
 
+  // Wave 3 / CAD-182: per-turn slot extraction. Runs in parallel with any
+  // other prep work; soft-timeout at 2s; empty slots on error so the rest
+  // of the pipeline degrades to the pre-Wave-3 flow.
+  let mergedDraft = hydratedDraft;
+  let proposedSlots: AppliedSlots = {};
+  let appliedSlots: AppliedSlots = {};
+  if (lastUserText) {
+    // Build the last-4 turns context for the extractor.
+    const recent = body.messages.slice(-5, -1).map((m) => ({
+      role: m.role,
+      text:
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    }));
+    const turnIdxRow = await db
+      .select({ n: count() })
+      .from(chatMessages)
+      .where(eq(chatMessages.threadId, thread.id));
+    const turnIdx = (turnIdxRow[0]?.n ?? 0) as number;
+
+    const extract = await extractSlots({
+      latestUserMessage: lastUserText,
+      draft: hydratedDraft,
+      recentTurns: recent,
+    });
+    const merge = mergeExtractedSlots(hydratedDraft, extract.slots);
+    mergedDraft = merge.draft;
+    appliedSlots = merge.applied;
+    proposedSlots = merge.proposed;
+
+    void recordExtractionEvent({
+      userId: user.id,
+      threadId: thread.id,
+      turnIdx,
+      rawExtracted: extract.slots,
+      appliedSlots: merge.applied,
+      proposedSlots: merge.proposed,
+      droppedSlots: merge.dropped,
+      latencyMs: extract.latencyMs,
+      status: extract.status,
+      error: extract.error,
+    });
+  }
+
   const session: ConfigAgentSession = {
     userId: user.id,
     threadId: thread.id,
-    draft: hydratedDraft,
+    draft: mergedDraft,
   };
   const agentCtx: ConfigAgentContext = {
     session,
     saveSpec: saveSpecForUser,
   };
 
-  const systemPrompt = loadConfigAgentSystemPrompt();
+  // PRIOR CONTEXT block: if anything was applied or proposed this turn,
+  // inject a short system addendum so the agent doesn't re-ask filled
+  // slots and frames a confirm-style follow-up on proposals. The base
+  // prompt stays canonical on disk — this is a per-turn overlay.
+  const priorCtxBlock = buildPriorContextBlock(mergedDraft, appliedSlots, proposedSlots);
+  const systemPrompt = priorCtxBlock
+    ? `${loadConfigAgentSystemPrompt()}\n\n${priorCtxBlock}`
+    : loadConfigAgentSystemPrompt();
 
   try {
     const result = streamText({
