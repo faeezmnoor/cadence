@@ -1,0 +1,220 @@
+[
+  {
+    "id": "g01-daily-crypto",
+    "message": "daily crypto news please",
+    "expected": {
+      "industry": "crypto",
+      "frequency": "daily"
+    }
+  },
+  {
+    "id": "g02-weekly-correction",
+    "message": "actually weekly not daily",
+    "expected": {
+      "frequency": "weekly"
+    }
+  },
+  {
+    "id": "g03-palm-oil-trader",
+    "message": "I'm a palm oil trader in Malaysia",
+    "expected": {
+      "industry": "palm oil"
+    }
+  },
+  {
+    "id": "g04-bahasa-7am-weekdays",
+    "message": "send it in Bahasa Malaysia at 7am every weekday",
+    "expected": {
+      "language": "ms",
+      "delivery_time_local": "07:00",
+      "days_of_week": [1, 2, 3, 4, 5],
+      "frequency": "daily"
+    }
+  },
+  {
+    "id": "g05-vague-news",
+    "message": "news please",
+    "expected": {}
+  },
+  {
+    "id": "g06-weekly-tax-my",
+    "message": "weekly Malaysia tax news for solo accountants",
+    "expected": {
+      "industry": "Malaysia tax",
+      "frequency": "weekly"
+    }
+  },
+  {
+    "id": "g07-monthly-deep-dive",
+    "message": "I want a long monthly deep dive on renewable energy startups",
+    "expected": {
+      "industry": "renewable energy",
+      "frequency": "monthly",
+      "length_target": "long",
+      "tone_preset": "analyst_deep_dive"
+    }
+  },
+  {
+    "id": "g08-trader-quick-take",
+    "message": "keep it short and punchy, trader vibe",
+    "expected": {
+      "length_target": "short",
+      "tone_preset": "trader_quick_take"
+    }
+  },
+  {
+    "id": "g09-mon-wed-fri",
+    "message": "Mon Wed Fri at 6:30am",
+    "expected": {
+      "days_of_week": [1, 3, 5],
+      "delivery_time_local": "06:30"
+    }
+  },
+  {
+    "id": "g10-chinese-evening",
+    "message": "中文 每天 晚上 8点",
+    "expected": {
+      "language": "zh",
+      "frequency": "daily",
+      "delivery_time_local": "20:00"
+    }
+  },
+  {
+    "id": "g11-switch-language",
+    "message": "switch to Bahasa",
+    "expected": {
+      "language": "ms"
+    }
+  },
+  {
+    "id": "g12-defaults-please",
+    "message": "just give me sensible defaults",
+    "expected": {}
+  },
+  {
+    "id": "g13-no-topics-no-cadence",
+    "message": "hi",
+    "expected": {}
+  },
+  {
+    "id": "g14-multi-slot",
+    "message": "I'm a B2B SaaS ops lead — weekly competitor watch on vertical SaaS pricing and launches, in English, Mondays at 8am.",
+    "expected": {
+      "industry": "B2B SaaS",
+      "frequency": "weekly",
+      "language": "en",
+      "delivery_time_local": "08:00",
+      "days_of_week": [1]
+    }
+  },
+  {
+    "id": "g15-edge-evening-vague",
+    "message": "send in the evening",
+    "expected": {}
+  },
+  {
+    "id": "g16-explicit-time-no-cadence",
+    "message": "deliver at 7pm",
+    "expected": {
+      "delivery_time_local": "19:00"
+    }
+  },
+  {
+    "id": "g17-correction-time",
+    "message": "actually make it 6am",
+    "expected": {
+      "delivery_time_local": "06:00"
+    }
+  },
+  {
+    "id": "g18-medical-advisor",
+    "message": "weekly medical research briefs for a solo doctor",
+    "expected": {
+      "industry": "medical research",
+      "frequency": "weekly"
+    }
+  },
+  {
+    "id": "g19-mid-flow-add-topic",
+    "message": "also add Indonesia palm oil export quotas",
+    "expected": {
+      "industry": "palm oil"
+    }
+  },
+  {
+    "id": "g20-weekend-only",
+    "message": "weekends only",
+    "expected": {
+      "days_of_week": [6, 7]
+    }
+  },
+  {
+    "id": "g21-tax-circulars",
+    "message": "I'm a solo accountant tracking LHDN tax circulars",
+    "expected": {
+      "industry": "Malaysian tax"
+    }
+  },
+  {
+    "id": "g22-flight-watcher",
+    "message": "watch flights KL to Tokyo under RM1800",
+    "expected": {
+      "industry": "flights"
+    }
+  },
+  {
+    "id": "g23-tender-watch",
+    "message": "daily MY tender notices from ePerolehan",
+    "expected": {
+      "industry": "MY tenders",
+      "frequency": "daily"
+    }
+  },
+  {
+    "id": "g24-everyday-language",
+    "message": "send it in English every day at 8am",
+    "expected": {
+      "language": "en",
+      "frequency": "daily",
+      "delivery_time_local": "08:00"
+    }
+  },
+  {
+    "id": "g25-just-yes",
+    "message": "yes",
+    "expected": {}
+  },
+  {
+    "id": "g26-just-no",
+    "message": "nope",
+    "expected": {}
+  },
+  {
+    "id": "g27-empty-spaces",
+    "message": "   ",
+    "expected": {}
+  },
+  {
+    "id": "g28-equity-watchlist",
+    "message": "Daily watchlist news on AAPL MSFT GOOG",
+    "expected": {
+      "topics": ["AAPL", "MSFT", "GOOG"],
+      "frequency": "daily"
+    }
+  },
+  {
+    "id": "g29-sneaker-drops",
+    "message": "weekly sneaker drops",
+    "expected": {
+      "industry": "sneakers",
+      "frequency": "weekly"
+    }
+  },
+  {
+    "id": "g30-tone-casual",
+    "message": "make it a friendly casual newsletter",
+    "expected": {
+      "tone_preset": "casual_newsletter"
+    }
+  }
+]
