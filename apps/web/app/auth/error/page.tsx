@@ -2,7 +2,7 @@ import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/server/support/contact";
 
 export default function AuthErrorPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6">
+    <main className="safe-pt safe-pb safe-px flex min-h-screen flex-col items-center justify-center px-6">
       <div className="mx-auto max-w-md text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Sign-in link invalid</h1>
         <p className="mt-3 text-sm text-muted-foreground">

@@ -59,8 +59,8 @@ const TABS: TabDef[] = [
  */
 export function AppNav({ active }: { active: AppNavTab }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+    <header className="safe-pt sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="safe-px mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href={"/chat" as never}
           className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -108,7 +108,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
       {/* Mobile tab row */}
       <nav
         aria-label="Primary (mobile)"
-        className="flex gap-1 overflow-x-auto border-t border-border px-4 py-2 sm:hidden"
+        className="safe-px flex gap-1 overflow-x-auto border-t border-border px-4 py-2 sm:hidden"
       >
         {TABS.map((t) => {
           const isActive = t.key === active;

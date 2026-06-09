@@ -49,7 +49,7 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6">
+    <main className="safe-pt safe-pb safe-px flex min-h-screen flex-col items-center justify-center px-6">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

@@ -287,7 +287,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
                 href={telegramAppLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90"
+                className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90"
               >
                 Open Telegram
               </a>
@@ -341,7 +341,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
             type="button"
             onClick={() => triggerSample({ auto: false })}
             disabled={sampleStatus.kind === "sending"}
-            className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sampleStatus.kind === "sending"
               ? "Sending…"

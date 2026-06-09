@@ -29,7 +29,7 @@ export default async function LinkPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active="link" />
-      <main className="mx-auto flex max-w-xl flex-col gap-6 px-6 py-12">
+      <main className="safe-pb mx-auto flex max-w-xl flex-col gap-6 px-6 py-12">
         <header className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-green-600/30 bg-green-50/50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-950/30 dark:text-green-300">
             <span aria-hidden="true">✓</span>

@@ -21,7 +21,7 @@ export default async function LearningPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active="learning" />
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="safe-pb mx-auto max-w-3xl px-6 py-10">
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">
             What Cadence learned about you

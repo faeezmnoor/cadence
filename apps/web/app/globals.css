@@ -53,3 +53,21 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/**
+ * iOS Safari safe-area utilities. Pair with viewportFit=cover in
+ * app/layout.tsx. Use on sticky headers and full-bleed main containers
+ * that would otherwise sit under the notch or home indicator on
+ * iPhone X+. Tailwind v3 doesn't ship these by default; defining them
+ * here keeps the surface area tiny vs adding a plugin.
+ */
+@layer utilities {
+  .safe-pt   { padding-top: env(safe-area-inset-top); }
+  .safe-pb   { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-pl   { padding-left: env(safe-area-inset-left); }
+  .safe-pr   { padding-right: env(safe-area-inset-right); }
+  .safe-px   {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
