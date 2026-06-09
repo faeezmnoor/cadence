@@ -2,11 +2,29 @@ packages:
   - "apps/*"
   - "services/*"
 
-# Allow these packages' postinstall scripts to run.
-# (pnpm 11 ignores all postinstalls by default unless explicitly allowed.)
+# pnpm 11 deprecated `onlyBuiltDependencies` (list) in favor of `allowBuilds`
+# (boolean map). On `pnpm install`, the legacy list auto-translates into
+# `allowBuilds` with the placeholder string "set this to true or false", which
+# is treated as unreviewed → ERR_PNPM_IGNORED_BUILDS exits non-zero. We pin
+# explicit booleans here so pnpm 11 honors them. Keep `onlyBuiltDependencies`
+# alongside as a fallback for older pnpm (Vercel build cache, contributors
+# still on pnpm 10).
+allowBuilds:
+  '@sentry/cli': true
+  esbuild: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+
 onlyBuiltDependencies:
   - '@sentry/cli'
   - esbuild
   - protobufjs
   - sharp
   - unrs-resolver
+
+# Any new package that arrives with a postinstall script should warn, not
+# crash CI. Surface via the warning, then promote to allowBuilds in a follow-up.
+# The .npmrc copy of this key is ignored by pnpm 11 (renamed); the workspace
+# yaml is the canonical location.
+strictDepBuilds: false
