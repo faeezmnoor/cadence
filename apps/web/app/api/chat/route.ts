@@ -40,6 +40,7 @@ import {
 import { log } from "@/lib/log";
 import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
 import { checkRateLimit } from "@/server/rate-limit/check";
+import { recordChatTurn } from "@/server/chat/telemetry";
 
 const CHAT_RATE_LIMIT = 5;
 const CHAT_RATE_WINDOW_SECONDS = 60;
@@ -126,6 +127,13 @@ export async function POST(req: Request) {
       threadId: thread.id,
       role: "user",
       content: { kind: "user_text", text },
+    });
+    // Wave 3 (CAD-181): funnel telemetry — best-effort.
+    void recordChatTurn({
+      userId: user.id,
+      threadId: thread.id,
+      role: "user",
+      charCount: text.length,
     });
   }
 
@@ -220,6 +228,15 @@ export async function POST(req: Request) {
               toolResults: toolResults ?? [],
               savedSpecId: session.savedSpecId,
             },
+          });
+          // Wave 3 (CAD-181): funnel telemetry — best-effort.
+          void recordChatTurn({
+            userId: user.id,
+            threadId: thread.id,
+            role: "assistant",
+            charCount: (text ?? "").length,
+            toolCallCount: toolCalls?.length ?? 0,
+            savedSpec: !!session.savedSpecId,
           });
 
           // T-408: persist the working draft so the next turn sees it.

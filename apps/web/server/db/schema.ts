@@ -618,3 +618,56 @@ export type AccountDeletion = typeof accountDeletions.$inferSelect;
 export type NewAccountDeletion = typeof accountDeletions.$inferInsert;
 export type LanguageInterestEvent = typeof languageInterestEvents.$inferSelect;
 export type NewLanguageInterestEvent = typeof languageInterestEvents.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// chat_turn_event — Wave 3 (CAD-181) funnel telemetry
+// ---------------------------------------------------------------------------
+export const chatTurnEvents = pgTable(
+  "chat_turn_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    threadId: uuid("thread_id").notNull(),
+    turnIdx: integer("turn_idx").notNull(),
+    role: text("role").notNull(), // user | assistant
+    charCount: integer("char_count").notNull().default(0),
+    toolCallCount: integer("tool_call_count").notNull().default(0),
+    savedSpec: boolean("saved_spec").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    threadIdx: index("idx_chat_turn_event_thread").on(t.threadId, t.turnIdx),
+    userCreatedIdx: index("idx_chat_turn_event_user_created").on(t.userId, t.createdAt),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// spec_extraction_event — Wave 3 (CAD-182) extractor telemetry / eval
+// ---------------------------------------------------------------------------
+export const specExtractionEvents = pgTable(
+  "spec_extraction_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    threadId: uuid("thread_id").notNull(),
+    turnIdx: integer("turn_idx").notNull(),
+    rawExtracted: jsonb("raw_extracted").notNull().default(sql`'{}'::jsonb`),
+    appliedSlots: jsonb("applied_slots").notNull().default(sql`'{}'::jsonb`),
+    proposedSlots: jsonb("proposed_slots").notNull().default(sql`'{}'::jsonb`),
+    droppedSlots: jsonb("dropped_slots").notNull().default(sql`'{}'::jsonb`),
+    latencyMs: integer("latency_ms"),
+    costMicroUsd: bigint("cost_micro_usd", { mode: "number" }),
+    status: text("status").notNull().default("ok"), // ok | timeout | error | disabled
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    threadIdx: index("idx_spec_extraction_event_thread").on(t.threadId, t.turnIdx),
+    userCreatedIdx: index("idx_spec_extraction_event_user_created").on(t.userId, t.createdAt),
+  })
+);
+
+export type ChatTurnEvent = typeof chatTurnEvents.$inferSelect;
+export type NewChatTurnEvent = typeof chatTurnEvents.$inferInsert;
+export type SpecExtractionEvent = typeof specExtractionEvents.$inferSelect;
+export type NewSpecExtractionEvent = typeof specExtractionEvents.$inferInsert;
