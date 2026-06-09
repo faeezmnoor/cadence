@@ -87,7 +87,7 @@ export function BriefActions({
       } else {
         setPreview({
           kind: "error",
-          message: res.error ?? "Couldn't compose a preview right now.",
+          message: res.error ?? "Couldn't write a preview right now.",
         });
       }
     } catch (e) {
@@ -114,7 +114,7 @@ export function BriefActions({
       } else if (res.status === "no_telegram_link") {
         setSend({
           kind: "error",
-          message: "Link Telegram first so the brief has somewhere to land.",
+          message: "Connect Telegram first — that's where your brief gets delivered.",
         });
       } else {
         setSend({
@@ -143,10 +143,10 @@ export function BriefActions({
     >
       <div className="flex flex-col gap-1">
         <h3 className="text-sm font-semibold tracking-tight">
-          Looks ready &mdash; want to see it?
+          Your brief is ready. Want to see it?
         </h3>
         <p className="text-xs text-muted-foreground">
-          Preview a sample brief from this spec, or send one to your Telegram
+          Preview a sample brief from this setup, or send one to your Telegram
           right now.
         </p>
       </div>
@@ -156,7 +156,7 @@ export function BriefActions({
           data-testid="brief-actions-needs-save"
           className="text-xs text-muted-foreground"
         >
-          Confirm your spec in chat first to preview or send a sample.
+          Finish setting up your brief in chat first.
         </p>
       )}
 
@@ -173,7 +173,7 @@ export function BriefActions({
           className="inline-flex items-center justify-between gap-3 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <span>
-            Spec saved &mdash; link Telegram to start receiving your brief
+            Your brief is saved. Connect Telegram so it has somewhere to land
           </span>
           <span aria-hidden>&rarr;</span>
         </Link>
@@ -188,8 +188,8 @@ export function BriefActions({
           className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {preview.kind === "loading"
-            ? "Composing preview…"
-            : "Preview tomorrow's brief"}
+            ? "Writing preview…"
+            : "Preview a sample"}
         </button>
         {linked ? (
           <button
@@ -199,7 +199,7 @@ export function BriefActions({
             disabled={!saved || send.kind === "sending"}
             className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {send.kind === "sending" ? "Sending…" : "Send me one now"}
+            {send.kind === "sending" ? "Sending…" : "Send to Telegram now"}
           </button>
         ) : (
           // dead-surface fix 2026-06-09: previously a disabled <span> badge.
@@ -209,7 +209,7 @@ export function BriefActions({
             href="/app/link"
             className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            Link Telegram to send now &rarr;
+            Connect Telegram first &rarr;
           </Link>
         )}
       </div>

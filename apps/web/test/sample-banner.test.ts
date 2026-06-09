@@ -17,11 +17,15 @@ describe("UX P0 #2 — sample brief banner", () => {
       deliveryTimeLocal: "07:00",
       timezone: "Asia/Kuala_Lumpur",
     });
-    expect(out).toContain("This is your SAMPLE brief");
+    // Wave 4 CMO copy diff §8: banner lighter, drops /tune slash-syntax.
+    expect(out).toContain("Thanks for trying Cadence");
+    expect(out).toContain("here's your first sample");
     expect(out).toContain("every day at 07:00 (Asia/Kuala_Lumpur)");
     expect(out).toContain("👍");
     expect(out).toContain("👎");
-    expect(out).toContain("/tune");
+    // /tune deliberately removed — power-user syntax stays in the bot,
+    // not in the cold-visitor surface.
+    expect(out).not.toContain("/tune");
     // Two trailing newlines so the brief body starts cleanly.
     expect(out.endsWith("\n\n")).toBe(true);
   });

@@ -269,8 +269,13 @@ export async function POST(req: Request) {
         // Surface the real cause — without this, the AI SDK swallows the
         // exception inside the stream and the client only sees the generic
         // "An error occurred." frame. (Incident 2026-06-01.)
-        console.error("[chat] streamText error:", error);
+        // Wave 4 Bug 5: also stamp a supportRef so end-users can reference
+        // the incident without us leaking the underlying stack. The client
+        // peels the [supportRef] tag off the message for display.
+        const supportRef = generateSupportRef();
+        console.error(`[chat] streamText error [ref=${supportRef}]:`, error);
         log.error("chat streamText error", {
+          supportRef,
           err: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
@@ -327,16 +332,78 @@ export async function POST(req: Request) {
     });
 
     return result.toDataStreamResponse({
-      getErrorMessage: (error) =>
-        error instanceof Error
-          ? `[chat] ${error.message}`
-          : `[chat] ${String(error)}`,
+      // Wave 4 Bug 5: friendly client-facing envelope. The raw error.message
+      // can be a JSON-stringified stack (provider 5xx, tool throws, etc.)
+      // which used to render as raw JSON in the chat bubble. Stamp a typed
+      // payload the client can switch on, plus a supportRef the user can
+      // quote. The full error is already logged server-side via onError.
+      getErrorMessage: (error) => {
+        const supportRef = generateSupportRef();
+        const code = classifyChatError(error);
+        log.error("chat error envelope", {
+          supportRef,
+          code,
+          err: error instanceof Error ? error.message : String(error),
+        });
+        const envelope = {
+          code,
+          userMessage:
+            code === "rate_limited"
+              ? "You're sending messages a little too fast. Give it a moment and try again."
+              : "Something went wrong on our end. Tap retry to give it another go.",
+          supportRef,
+        };
+        return JSON.stringify(envelope);
+      },
     });
   } catch (err) {
-    log.error("chat stream failed", { err: String(err) });
+    const supportRef = generateSupportRef();
+    log.error("chat stream failed", {
+      supportRef,
+      err: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "stream failed" },
+      {
+        code: "stream_failed",
+        userMessage:
+          "Something went wrong on our end. Tap retry to give it another go.",
+        supportRef,
+      },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Wave 4 Bug 5: typed error code so the client can decide whether to
+ * auto-retry. transient -> retry once silently; everything else -> show
+ * the friendly bubble + manual retry CTA.
+ */
+function classifyChatError(error: unknown): string {
+  const msg =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  if (/timeout|timed out|etimedout/.test(msg)) return "timeout";
+  if (/rate limit|429|too many requests/.test(msg)) return "rate_limited";
+  if (/\b5(0[023])\b|bad gateway|service unavailable|gateway timeout/.test(msg))
+    return "upstream_5xx";
+  if (/abort/.test(msg)) return "aborted";
+  return "unknown";
+}
+
+/**
+ * Wave 4 Bug 5: short, copy-pastable incident reference users can quote in
+ * support emails. Crockford-style alphanumeric, no ambiguous chars. Pure;
+ * uses crypto.getRandomValues in the edge/node runtime.
+ */
+function generateSupportRef(): string {
+  const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  const bytes = new Uint8Array(10);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let out = "";
+  for (const b of bytes) out += ALPHABET[b % ALPHABET.length];
+  return out;
 }

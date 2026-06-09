@@ -126,9 +126,7 @@ export default function PricingPage() {
           Two tiers. Same brief shape. Different research depth.
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every spec defaults to the Default tier. Toggle Pro per-spec when a
-          topic deserves deeper research — you only spend Pro credits where
-          you point them.
+          Every brief defaults to the Default tier. Switch to Pro on the briefs that deserve deeper research — you only spend Pro credits where you point them.
         </p>
         <div className="mt-6">
           <TierExplainer />

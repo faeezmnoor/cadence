@@ -57,8 +57,8 @@ const ACK_REPLY = (snippet: string) =>
 
 // Matches the established unlinked-user pattern from dispatch.ts MSG_START_NO_TOKEN.
 const UNLINKED_REPLY =
-  "This chat isn't linked to a Cadence account yet. Open Cadence in your " +
-  "browser and tap 'Link Telegram' first — then `/tune` will stick.";
+  "This chat isn't connected to Cadence yet. Head to cadence.news and tap " +
+  "\"Connect Telegram\" first — then `/tune` will stick.";
 
 export const TUNE_REPLIES = {
   usage: USAGE_HINT,

@@ -33,19 +33,20 @@ export default async function LinkPage() {
         <header className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-green-600/30 bg-green-50/50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-950/30 dark:text-green-300">
             <span aria-hidden="true">✓</span>
-            <span>Brief saved</span>
+            <span>Brief setup saved</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Now connect Telegram
+            One more step — connect Telegram so your brief can land
           </h1>
           <p className="text-sm text-muted-foreground">
-            Your brief is configured. One last step — link your Telegram so
-            Cadence can deliver it. Your first brief lands tomorrow at 07:00 MYT.
+            Your brief is set up. Connect Telegram and we&rsquo;ll send your
+            first sample in seconds — then your real brief lands tomorrow at
+            07:00 MYT.
           </p>
         </header>
         <LinkTelegramClient userId={user.id} isAdmin={isAdmin} />
         <p className="text-xs text-muted-foreground">
-          Want to tweak the spec? <Link href={"/spec" as never} className="underline underline-offset-2 hover:text-foreground">View your spec</Link> · <Link href={"/chat" as never} className="underline underline-offset-2 hover:text-foreground">Continue the chat</Link>
+          Want to tweak it first? <Link href={"/spec" as never} className="underline underline-offset-2 hover:text-foreground">View your brief setup</Link> · <Link href={"/chat" as never} className="underline underline-offset-2 hover:text-foreground">Continue the chat</Link>
         </p>
       </main>
     </div>

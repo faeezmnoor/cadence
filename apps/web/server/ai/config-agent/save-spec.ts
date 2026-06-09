@@ -8,8 +8,27 @@
  */
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestSpecs } from "@/server/db/schema";
+import { digestSpecs, users } from "@/server/db/schema";
 import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
+import { ruleFromLegacyCadence } from "@/lib/scheduling/rule";
+import { nextRunAt as computeNextRunAt } from "@/lib/scheduling/evaluator";
+
+const DEFAULT_TIMEZONE = "Asia/Kuala_Lumpur";
+
+/**
+ * Wave 4 Bug 7 fix: derive a user-facing brief name from the spec so the
+ * /briefs list no longer shows "Untitled brief" for chat-saved briefs.
+ * Prefers a topics[0] capitalized name; falls back to a generic label.
+ */
+function deriveBriefName(spec: DigestSpecV1): string {
+  const t0 = spec.topics?.[0];
+  if (typeof t0 === "string" && t0.trim().length > 0) {
+    const trimmed = t0.trim();
+    const head = trimmed[0]!.toUpperCase() + trimmed.slice(1);
+    return `${head} brief`;
+  }
+  return "Untitled brief";
+}
 
 export async function saveSpecForUser(args: {
   userId: string;
@@ -18,7 +37,7 @@ export async function saveSpecForUser(args: {
   return db.transaction(async (tx) => {
     await tx
       .update(digestSpecs)
-      .set({ isCurrent: false, updatedAt: new Date() })
+      .set({ isCurrent: false, status: "archived", updatedAt: new Date() })
       .where(
         and(
           eq(digestSpecs.userId, args.userId),
@@ -35,6 +54,26 @@ export async function saveSpecForUser(args: {
 
     const nextVersion = (latest[0]?.version ?? 0) + 1;
 
+    // Wave 4 Bug 7: derive scheduling + name + next_run_at so the /briefs
+    // card surfaces a real Schedule and Next delivery instead of fallback
+    // placeholders. Pre-Wave-4 these columns were left at their schema
+    // defaults ('{}' jsonb + "Untitled brief"), which broke the briefs
+    // page for every chat-saved spec.
+    const userRow = await tx
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, args.userId))
+      .limit(1);
+    const timezone = userRow[0]?.timezone ?? DEFAULT_TIMEZONE;
+    const startDate = new Date().toISOString().slice(0, 10);
+    const scheduling = ruleFromLegacyCadence({
+      cadence: args.spec.cadence,
+      timezone,
+      startDate,
+    });
+    const next = computeNextRunAt(scheduling, new Date());
+    const briefName = deriveBriefName(args.spec);
+
     const [inserted] = await tx
       .insert(digestSpecs)
       .values({
@@ -43,6 +82,11 @@ export async function saveSpecForUser(args: {
         spec: args.spec,
         isCurrent: true,
         createdVia: "chat_agent",
+        name: briefName,
+        scheduling,
+        status: "active",
+        tier: "default",
+        nextRunAt: next,
       })
       .returning({ id: digestSpecs.id, version: digestSpecs.version });
 

@@ -141,8 +141,8 @@ export function SpecClient({
             </details>
           </h2>
           <p className="text-sm text-muted-foreground">
-            Default: fast web search, lean composer. Pro: deep-research
-            grounding, the sharper composer. Slower, sharper, 3 credits a brief.
+            Default: fast web search, lean writer. Pro: deep-research
+            grounding with the sharper writer. Slower, sharper, 3 credits a brief.
           </p>
           <div className="mt-3 inline-flex rounded-md border border-border">
             <button

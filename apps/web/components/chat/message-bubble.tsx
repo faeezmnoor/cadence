@@ -128,10 +128,23 @@ export function MessageBubble({
       <div
         className={`max-w-[88%] border border-border bg-card px-4 py-3 text-sm sm:max-w-[85%] ${corners}`}
       >
-        {message.content && <Markdown>{message.content}</Markdown>}
-
-        {askQuestion?.state === "result" && (
-          <ToolAskUser invocation={askQuestion} />
+        {/*
+         * Wave 4 Bug 3 fix (regression from PR#4 02f2fd2): assistant turns
+         * can carry BOTH free-text in message.content AND an ask_user tool
+         * call whose `question` field often paraphrases that same text.
+         * Pre-Wave-3 the in-bubble ask_user render was the only source of
+         * truth; Wave 3 added the markdown content render but kept the
+         * legacy ToolAskUser fallthrough — so users see the same question
+         * rendered twice (one markdown, one ToolAskUser). Render exactly
+         * one source: prefer the free-text content, fall back to the
+         * ask_user question only when content is empty (tool-only turns).
+         */}
+        {message.content ? (
+          <Markdown>{message.content}</Markdown>
+        ) : (
+          askQuestion?.state === "result" && (
+            <ToolAskUser invocation={askQuestion} />
+          )
         )}
       </div>
 

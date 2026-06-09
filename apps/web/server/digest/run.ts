@@ -270,13 +270,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     const spec = specRow.spec as {
       topics?: string[];
       topicHint?: string | null;
-      entities?: { tickers?: string[] };
+      entities?: { tickers?: string[]; companies?: string[]; commodities?: string[] };
     };
     const result = await gatherSources(
       {
         topics: spec.topics,
         topicHint: spec.topicHint ?? null,
-        entities: { tickers: spec.entities?.tickers ?? [], companies: [], commodities: [] },
+        // Wave 4 Bug 9: forward ALL entity buckets, not just tickers. The
+        // bucket router uses them for topic detection (e.g. ePerolehan →
+        // malaysia + regulatory bucket) and downstream scrapers may key
+        // off companies/commodities too.
+        entities: {
+          tickers: spec.entities?.tickers ?? [],
+          companies: spec.entities?.companies ?? [],
+          commodities: spec.entities?.commodities ?? [],
+        },
       },
       { scrapeMpobStocks, scrapeBursaCpo, scrapeYahooQuote }
     );

@@ -2,9 +2,22 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs } from "@/server/db/schema";
-import { digestSpecSchema } from "@/lib/digest-spec/schema";
+import { digestRuns, digestSpecs, users } from "@/server/db/schema";
+import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 import { protectedProcedure, router } from "../trpc";
+import { ruleFromLegacyCadence } from "@/lib/scheduling/rule";
+import { nextRunAt as computeNextRunAt } from "@/lib/scheduling/evaluator";
+
+const DEFAULT_TZ = "Asia/Kuala_Lumpur";
+
+function deriveBriefName(spec: DigestSpecV1): string {
+  const t0 = spec.topics?.[0];
+  if (typeof t0 === "string" && t0.trim().length > 0) {
+    const trimmed = t0.trim();
+    return `${trimmed[0]!.toUpperCase()}${trimmed.slice(1)} brief`;
+  }
+  return "Untitled brief";
+}
 
 /**
  * digestSpec.* — read + write the user's current DigestSpec.
@@ -102,10 +115,12 @@ export const digestSpecRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         return await db.transaction(async (tx) => {
-          // Flip current pointer
+          // Flip current pointer + soft-archive the previous current row.
+          // Wave 4 Bug 7/8: without the status flip, /briefs accumulates
+          // every saved version as a duplicate "Untitled brief" card.
           await tx
             .update(digestSpecs)
-            .set({ isCurrent: false, updatedAt: new Date() })
+            .set({ isCurrent: false, status: "archived", updatedAt: new Date() })
             .where(
               and(
                 eq(digestSpecs.userId, ctx.user.id),
@@ -123,6 +138,24 @@ export const digestSpecRouter = router({
 
           const nextVersion = (latest[0]?.version ?? 0) + 1;
 
+          // Wave 4 Bug 7: derive name + scheduling + next_run_at so the
+          // /briefs card surfaces real Schedule / Next delivery instead of
+          // "Schedule not set" / "—".
+          const userRow = await tx
+            .select({ timezone: users.timezone })
+            .from(users)
+            .where(eq(users.id, ctx.user.id))
+            .limit(1);
+          const timezone = userRow[0]?.timezone ?? DEFAULT_TZ;
+          const startDate = new Date().toISOString().slice(0, 10);
+          const scheduling = ruleFromLegacyCadence({
+            cadence: input.spec.cadence,
+            timezone,
+            startDate,
+          });
+          const next = computeNextRunAt(scheduling, new Date());
+          const briefName = deriveBriefName(input.spec);
+
           const [inserted] = await tx
             .insert(digestSpecs)
             .values({
@@ -132,6 +165,10 @@ export const digestSpecRouter = router({
               isCurrent: true,
               createdVia: input.createdVia,
               tier: input.tier,
+              name: briefName,
+              scheduling,
+              status: "active",
+              nextRunAt: next,
             })
             .returning();
 

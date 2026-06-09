@@ -41,6 +41,23 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
   const botConfigured = statusQuery.data?.botConfigured ?? false;
 
   /**
+   * Wave 4 Bug 6: live onboarding status from the server. When all three
+   * milestones are done (Telegram linked, brief crafted, brief delivered),
+   * we collapse the progress checklist into a single "you're live" panel.
+   * The local sampleStatus state is only used for the in-page auto-fire
+   * progress signal, NOT for whether the user is past onboarding.
+   */
+  const onboardingQuery = trpc.briefs.onboardingStatus.useQuery(undefined, {
+    refetchOnWindowFocus: true,
+    refetchInterval: 5000,
+  });
+  const fullyOnboarded = Boolean(
+    onboardingQuery.data?.telegramLinked &&
+      onboardingQuery.data?.briefCrafted &&
+      onboardingQuery.data?.briefDelivered
+  );
+
+  /**
    * PM-audit #1 (activation cliff): the moment a user finishes linking we
    * fire one sample brief automatically so the very first thing they see
    * in their messaging app is a real Cadence delivery — not a placeholder
@@ -83,24 +100,26 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
         kind: "no_credits",
         scheduledNote:
           "Your trial credits are used. Top-up coming when Stripe lands — your next scheduled brief still arrives at 07:00 MYT.",
+        // intentionally unchanged copy — flips on Stripe go-live
       });
     } else if (res.status === "no_telegram_link") {
       // shouldn't happen at this branch but handle gracefully
       setSampleStatus({
         kind: "error",
-        message: "Couldn't deliver — Telegram not linked.",
+        message: "Couldn't deliver — Telegram isn't connected.",
       });
     } else if (res.status === "no_spec") {
       setSampleStatus({
         kind: "error",
-        message: "No active spec — finish the chat first.",
+        message:
+          "You haven't told Cadence what to watch yet — finish the chat first.",
       });
     } else if (res.status === "failed") {
       setSampleStatus({
         kind: "error",
         message: opts.auto
-          ? "Couldn't compose right now. Your next scheduled brief still lands at 07:00 MYT."
-          : "Couldn't compose right now. Try again in a few minutes.",
+          ? "Couldn't write your sample right now. Your next scheduled brief still lands at 07:00 MYT."
+          : "Couldn't write your sample right now. Try again in a few minutes.",
       });
     } else {
       setSampleStatus({ kind: "sent" });
@@ -195,7 +214,54 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
   }, [token]);
 
   if (statusQuery.isLoading) {
-    return <p className="text-sm text-muted-foreground">Checking link status…</p>;
+    return <p className="text-sm text-muted-foreground">Checking your Telegram connection…</p>;
+  }
+
+  // Wave 4 Bug 6: returning user, fully onboarded — show a quiet "you're
+  // live" card with the next-delivery hint instead of the stale checklist.
+  if (linked && fullyOnboarded) {
+    const next = formatNextDeliveryHint(onboardingQuery.data ?? null);
+    return (
+      <div className="space-y-4">
+        <div
+          data-testid="link-live-card"
+          className="rounded-lg border border-green-600/30 bg-green-50/50 p-5 dark:bg-green-950/20"
+        >
+          <p className="text-base font-semibold text-green-700 dark:text-green-300">
+            You&rsquo;re live
+            {statusQuery.data?.username ? ` · @${statusQuery.data.username}` : ""}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{next}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            React 👍 / 👎 to anything, or tell us what to change &mdash; Cadence
+            learns from every nudge.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={telegramAppLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90"
+            >
+              Open Telegram
+            </a>
+            <button
+              type="button"
+              onClick={() => triggerSample({ auto: false })}
+              disabled={sampleStatus.kind === "sending"}
+              className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {sampleStatus.kind === "sending" ? "Sending…" : "Send another sample"}
+            </button>
+          </div>
+        </div>
+        {sampleStatus.kind === "error" && (
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            Couldn&rsquo;t send a sample right now. Try again in a moment.
+          </p>
+        )}
+      </div>
+    );
   }
 
   if (linked) {
@@ -259,12 +325,12 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
           >
             <ProgressStep
               state={step1}
-              label="Telegram linked"
+              label="Telegram connected"
               testId="step-link"
             />
             <ProgressStep
               state={step2}
-              label="Crafting your first brief"
+              label="Writing your first brief"
               testId="step-compose"
             />
             <ProgressStep
@@ -321,8 +387,9 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
 
           {sampleStatus.kind === "idle" && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Your first scheduled brief lands tomorrow at 07:00 MYT. Reply to
-              any brief with feedback — Cadence learns from it.
+              Your first brief lands tomorrow at 07:00 MYT. React 👍 / 👎 to
+              anything, or tell us what to change — Cadence learns from every
+              nudge.
             </p>
           )}
         </div>
@@ -377,11 +444,11 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
           rel="noopener noreferrer"
           className="inline-flex h-12 w-full items-center justify-center rounded-md bg-foreground px-6 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
         >
-          Open Telegram to link
+          Open Telegram to connect
         </a>
       ) : (
         <p className="text-sm text-muted-foreground">
-          <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40 align-middle" aria-hidden="true" /> Preparing your link…
+          <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40 align-middle" aria-hidden="true" /> Preparing your connection…
         </p>
       )}
 
@@ -392,7 +459,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
             the bot manually.
           </p>
           <p>
-            Link expires in {expiresInMin} min. Tap{" "}
+            Connection expires in {expiresInMin} min. Tap{" "}
             <button
               type="button"
               className="underline"
@@ -401,14 +468,49 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
                 setIssuingError(null);
               }}
             >
-              issue a new one
+              get a fresh one
             </button>{" "}
-            if it stales.
+            if it expires.
           </p>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * Wave 4 Bug 6: format the next-delivery hint for the "you're live" card.
+ * Falls back to a generic line when the brief has no materialized
+ * next_run_at (paused or invalid schedule).
+ */
+function formatNextDeliveryHint(
+  data:
+    | {
+        nextRunAt: string | null;
+        timeLocal: string | null;
+        timezone: string | null;
+      }
+    | null
+    | undefined
+): string {
+  if (!data) return "Your next brief lands on schedule.";
+  if (data.nextRunAt) {
+    const dt = new Date(data.nextRunAt);
+    if (!Number.isNaN(dt.getTime())) {
+      const fmt = dt.toLocaleString(undefined, {
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const tz = data.timezone ? ` ${data.timezone}` : "";
+      return `Next brief: ${fmt}${tz}.`;
+    }
+  }
+  if (data.timeLocal) {
+    const tz = data.timezone ? ` ${data.timezone}` : "";
+    return `Next brief lands at ${data.timeLocal}${tz}.`;
+  }
+  return "Your next brief lands on schedule.";
 }
 
 /**

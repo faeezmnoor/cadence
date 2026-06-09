@@ -22,7 +22,7 @@ const steps = [
   {
     n: "3",
     title: "You give thumbs and tunes — it learns",
-    body: "Tap 👍 / 👎 or send a quick \"tune: less Indonesia, more Felda earnings.\" By week two the brief sounds like it was written for you, because it was — by an assistant that took your last 14 corrections seriously.",
+    body: "Tap 👍 / 👎, or just tell us what to change — \"less Indonesia, more Felda earnings.\" By week two the brief sounds like it was written for you, because it was — by an assistant that took your last 14 corrections seriously.",
   },
 ];
 

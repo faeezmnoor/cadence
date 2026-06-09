@@ -94,6 +94,72 @@ export function briefsPerDayForRule(rule: SchedulingRuleV1): number {
 
 export const briefsRouter = router({
   /**
+   * Wave 4 Bug 6: derive the /app/link onboarding checklist from live
+   * server state instead of in-memory component state. Without this, a
+   * returning user (Telegram already linked, briefs already delivered)
+   * who lands on /app/link sees a stale "step 2: Crafting your first
+   * brief… (pending)" forever because the page initializes from
+   * sampleStatus={kind: 'idle'}.
+   *
+   * Returns the three checklist booleans the page renders, plus the
+   * next-delivery hint when fully onboarded.
+   */
+  onboardingStatus: protectedProcedure.query(async ({ ctx }) => {
+    const [userRow, publishedRow, deliveredRow] = await Promise.all([
+      db
+        .select({
+          telegramChatId: users.telegramChatId,
+          timezone: users.timezone,
+        })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1),
+      db
+        .select({ id: digestSpecs.id, nextRunAt: digestSpecs.nextRunAt, scheduling: digestSpecs.scheduling })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.userId, ctx.user.id),
+            inArray(digestSpecs.status, ["active", "paused"])
+          )
+        )
+        .orderBy(desc(digestSpecs.updatedAt))
+        .limit(1),
+      db
+        .select({ id: digestRuns.id })
+        .from(digestRuns)
+        .where(
+          and(
+            eq(digestRuns.userId, ctx.user.id),
+            inArray(digestRuns.status, ["delivered", "sent"])
+          )
+        )
+        .limit(1),
+    ]);
+
+    const telegramLinked = Boolean(userRow[0]?.telegramChatId);
+    const briefCrafted = (publishedRow.length ?? 0) > 0;
+    const briefDelivered = (deliveredRow.length ?? 0) > 0;
+    const firstSpec = publishedRow[0] ?? null;
+    const sched =
+      firstSpec?.scheduling && typeof firstSpec.scheduling === "object"
+        ? (firstSpec.scheduling as { timeLocal?: string; timezone?: string })
+        : null;
+    return {
+      telegramLinked,
+      briefCrafted,
+      briefDelivered,
+      nextRunAt: firstSpec?.nextRunAt
+        ? firstSpec.nextRunAt instanceof Date
+          ? firstSpec.nextRunAt.toISOString()
+          : String(firstSpec.nextRunAt)
+        : null,
+      timeLocal: sched?.timeLocal ?? null,
+      timezone: sched?.timezone ?? userRow[0]?.timezone ?? null,
+    };
+  }),
+
+  /**
    * Fetch a brief by its public shortId. Returns just the renderable
    * payload — markdown, run date, spec metadata for headline rendering.
    *
@@ -416,6 +482,18 @@ export const briefsRouter = router({
     let creditsPerDay = 0;
     let skipped = 0;
     for (const s of activeSpecs) {
+      // Wave 4 Bug 7 fix: pre-multi-brief rows persisted with the schema
+      // default ('{}' jsonb scheduling) aren't actually broken — they
+      // predate Phase A. Skipping them silently keeps the burn-card
+      // truthful without surfacing a stale "1 brief skipped (invalid
+      // schedule)" warning to the user for every legacy row.
+      if (
+        !s.scheduling ||
+        (typeof s.scheduling === "object" &&
+          Object.keys(s.scheduling as Record<string, unknown>).length === 0)
+      ) {
+        continue;
+      }
       const parsed = schedulingRuleV1.safeParse(s.scheduling);
       if (!parsed.success) {
         skipped++;

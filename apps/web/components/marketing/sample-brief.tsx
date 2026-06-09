@@ -60,13 +60,13 @@ export function SampleBrief() {
             </p>
 
             <p className="pt-2 text-xs italic text-muted-foreground">
-              Reply 👍 / 👎 — or &quot;tune: &lt;what to change&gt;&quot;
+              Reply 👍 / 👎 — or just tell us what to change
             </p>
 
             <div className="mt-2 flex gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
               <span className="rounded-full border border-border px-2 py-0.5">👍</span>
               <span className="rounded-full border border-border px-2 py-0.5">👎</span>
-              <span className="rounded-full border border-border px-2 py-0.5">tune…</span>
+              <span className="rounded-full border border-border px-2 py-0.5">adjust…</span>
             </div>
           </div>
         </div>

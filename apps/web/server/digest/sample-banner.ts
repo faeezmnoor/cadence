@@ -47,10 +47,15 @@ export function buildSampleBanner(input: SampleBannerInput): string {
     : "";
   const tzFragment = input.timezone ? ` (${input.timezone})` : "";
 
+  // Wave 4 CMO copy diff §8: lighter, friendlier banner. "SAMPLE" in caps
+  // shouted "this isn't the real thing" before the user had read it; the
+  // new copy frames it as a try and drops the /tune slash-syntax from the
+  // cold-visitor surface. The fully topic-native intro lives in the
+  // composer prompt (follow-up — tracked in QUEUED-WORK).
   const lines = [
-    "✨ *This is your SAMPLE brief.*",
+    "✨ *Thanks for trying Cadence — here's your first sample.*",
     `Your real briefs land ${cadenceWord}${timeFragment}${tzFragment}.`,
-    "Tap 👍 / 👎 below to start tuning — or reply /tune to adjust.",
+    "React 👍 / 👎 to anything below — or just reply with what you'd change. Cadence learns from every nudge.",
   ];
 
   // Two trailing newlines so the actual brief markdown starts cleanly.
