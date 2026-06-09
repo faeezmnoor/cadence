@@ -8,6 +8,7 @@ import type { PersistedMessage } from "./types";
 import { MessageBubble } from "./message-bubble";
 import { SpecSidebar, type DraftLike } from "./spec-sidebar";
 import { isReady as draftIsReady } from "./spec-sidebar.helpers";
+import { pickLatestQuickReplies } from "./quick-replies";
 import { BriefActions } from "./brief-actions";
 import { trpc } from "@/lib/trpc/client";
 import {
@@ -224,25 +225,25 @@ export function ChatClient({
     );
   };
 
-  // T-414 / CAD-74: extract suggest_quick_replies chips from the latest
-  // assistant message. We render these as a separate, dedicated chip strip
-  // (in addition to any ask_user.suggestions the bubble may render).
-  const latestQuickReplies = useMemo<string[]>(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (!m) continue;
-      if (m.role === "user") return []; // already answered
-      if (m.role !== "assistant") continue;
-      const tool = m.toolInvocations?.find(
-        (t) => t.toolName === "suggest_quick_replies" && t.state === "result"
-      );
-      if (!tool || tool.state !== "result") return [];
-      const r = tool.result as { chips?: string[] } | undefined;
-      const chips = Array.isArray(r?.chips) ? r!.chips : [];
-      return chips.filter((c): c is string => typeof c === "string").slice(0, 4);
-    }
-    return [];
-  }, [messages]);
+  // T-414 / CAD-74: chip strip below the latest assistant message.
+  //
+  // Source priority on the latest assistant turn:
+  //   1. suggest_quick_replies.chips  (preferred — purpose-built tool)
+  //   2. ask_user.suggestions         (fallback — model often skips #1)
+  //
+  // Dogfood-bugs 2026-06-09: c059029 removed the in-bubble ask_user
+  // suggestion render in favor of a single below-bubble strip sourced
+  // from suggest_quick_replies. In practice the config-agent doesn't
+  // call suggest_quick_replies on every ask_user turn (LLM compliance
+  // is fuzzy despite the system-prompt rule), so the chip strip
+  // disappeared from brief-creation flows. Falling back to
+  // ask_user.suggestions when the dedicated tool is absent restores
+  // the chips without re-introducing the dual-strip bug (still exactly
+  // one strip, rendered here).
+  const latestQuickReplies = useMemo<string[]>(
+    () => pickLatestQuickReplies(messages),
+    [messages]
+  );
 
   // Auto-scroll on new messages.
   const scrollRef = useRef<HTMLDivElement>(null);
