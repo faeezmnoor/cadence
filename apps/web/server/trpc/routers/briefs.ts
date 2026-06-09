@@ -371,12 +371,19 @@ export const briefsRouter = router({
   archive: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      // Wave 5 Bug 10: also flip is_current=false on archive. The legacy
+      // single-brief code paths (digest cron in server/digest/run.ts, RSS
+      // poller in server/connectors/rss.ts) still gate on is_current=true.
+      // Without flipping it, archived rows stayed eligible for dispatch +
+      // continued pulling RSS items — root cause of the 2026-06-09 17:03
+      // stray sample brief.
       const updated = await db
         .update(digestSpecs)
         .set({
           status: "archived",
           archivedAt: sql`now()`,
           nextRunAt: null,
+          isCurrent: false,
           updatedAt: sql`now()`,
         })
         .where(

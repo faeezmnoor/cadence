@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc/client";
 import { PACKS, PACK_LABELS, type PackId } from "@/server/billing/packs";
 import { SUPPORT_EMAIL } from "@/server/support/contact";
 import { TierExplainer } from "@/components/billing/tier-explainer";
+import { formatLedgerKind } from "@/lib/labels";
 
 function formatUsd(minor: number) {
   return `$${(minor / 100).toFixed(minor % 100 === 0 ? 0 : 2)}`;
@@ -24,14 +25,11 @@ function formatDate(d: string | Date) {
   });
 }
 
+// Wave 5 Bug 14: route every ledger label through the single source of
+// truth so raw enum keys (admin_grant, promo, auto_topup, future kinds)
+// can never leak into the billing history again.
 function txLabel(type: string) {
-  if (type === "trial_grant") return "Trial credit grant";
-  if (type === "message_send") return "Brief delivered";
-  if (type === "charge") return "Brief delivered";
-  if (type === "topup") return "Top-up";
-  if (type === "adjustment") return "Adjustment";
-  if (type === "refund") return "Refund credited";
-  return type;
+  return formatLedgerKind(type);
 }
 
 /**
