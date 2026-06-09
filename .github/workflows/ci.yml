@@ -8,12 +8,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # pnpm 11 added a deps-status-check that runs before every `pnpm <script>`
+    # and re-invokes `pnpm install` under the hood. If install reports
+    # ERR_PNPM_IGNORED_BUILDS (allowlisted but unrun build scripts) it exits 1
+    # — even when the prior install step ran fine. verify-deps-before-run=false
+    # disables the recheck; strict-dep-builds=false makes any install that DOES
+    # run treat ignored builds as a warning, not a failure. Both are set via
+    # env so every step in this job picks them up uniformly.
+    env:
+      npm_config_verify_deps_before_run: "false"
+      npm_config_strict_dep_builds: "false"
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: 11.2.2
 
       - uses: actions/setup-node@v4
         with:
