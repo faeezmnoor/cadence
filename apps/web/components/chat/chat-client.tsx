@@ -251,21 +251,14 @@ export function ChatClient({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
-  // Designer #2 fix: if the last assistant turn includes a confirm_and_save
-  // tool result, route to /app/link (the Telegram connect step) instead of
-  // /spec. Largest conversion leak in the product per design-audit-v1 §5 —
-  // the user finishes the chat triumphant and needs the next action surfaced
-  // before they see raw JSON. /spec remains reachable via the AppNav.
-  useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (!last || last.role !== "assistant") return;
-    const saved = last.toolInvocations?.some(
-      (t) => t.toolName === "confirm_and_save" && t.state === "result"
-    );
-    if (saved) {
-      router.push("/app/link" as never);
-    }
-  }, [messages, router]);
+  // dead-surface fix 2026-06-09: this useEffect previously router.push'd to
+  // /app/link the instant confirm_and_save landed. It killed the BriefActions
+  // surface (Preview / Send-me-one-now), which only enables AFTER savedSpecId
+  // becomes non-null — i.e. exactly when the redirect fires. Net result:
+  // users never saw the inline payoff buttons. Replaced with an inline
+  // post-save CTA inside BriefActions itself: the user stays on /chat and
+  // sees three explicit next actions (Preview, Send-now, Link Telegram).
+  // /app/link is still reachable via the AppNav and via the inline CTA.
 
   // Dogfood-bugs 2026-06-09: surface the spec id of the latest
   // confirm_and_save tool result to BriefActions so its sample/preview
