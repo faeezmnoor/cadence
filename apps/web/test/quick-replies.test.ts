@@ -60,7 +60,9 @@ describe("pickLatestQuickReplies", () => {
     const out = pickLatestQuickReplies([
       assistantTurn([askUser("How often?", ["daily", "weekly", "monthly"])]),
     ]);
-    expect(out).toEqual(["daily", "weekly", "monthly"]);
+    // Wave 4 Bug 4: raw enum values get prettified before render so users
+    // see "Daily / Weekly / Monthly" instead of the engineer keys.
+    expect(out).toEqual(["Daily", "Weekly", "Monthly"]);
   });
 
   it("prefers suggest_quick_replies when both tools fire on the same turn (no dual-source)", () => {

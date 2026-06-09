@@ -27,7 +27,7 @@ export default async function SettingsPage() {
     {
       href: "/settings/learning",
       title: "Learning",
-      blurb: "What Cadence picked up from your thumbs and tunes.",
+      blurb: "What Cadence picked up from your thumbs and tweaks.",
     },
     {
       href: "/settings/billing",

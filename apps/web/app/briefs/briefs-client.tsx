@@ -127,7 +127,7 @@ export function BriefsClient({
             Your briefs
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Each brief is one ongoing research thread Cadence delivers to you on its own cadence.
+            Each brief is an ongoing research thread. You set the topic, language, and schedule — Cadence delivers it.
           </p>
         </div>
         <NewBriefButton canCreate={canCreate} />
@@ -140,7 +140,14 @@ export function BriefsClient({
       {!isEmpty && (
         <>
           <p className="text-xs text-muted-foreground">
-            {canCreate.count} of {canCreate.max} briefs · sorted by next delivery
+            {/*
+             * Wave 4 Bug 8 fix: render count from the actual sorted list,
+             * not from the separate canCreate query. The two used to drift
+             * apart whenever the queries hydrated at different times,
+             * surfacing as a "1 of 5" mismatch even though the page
+             * rendered multiple cards.
+             */}
+            {sorted.length} of {canCreate.max} briefs · sorted by next delivery
           </p>
           <ul className="space-y-3">
             {sorted.map((b) => (
@@ -217,7 +224,7 @@ function BriefCard({
   const isPaused = row.status === "paused";
 
   const topics = useMemo(() => extractTopics(row.spec), [row.spec]);
-  const cadenceLabel = useMemo(
+  const scheduleLabel = useMemo(
     () => humanizeSchedule(row.scheduling),
     [row.scheduling]
   );
@@ -259,8 +266,8 @@ function BriefCard({
 
       <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Cadence</dt>
-          <dd className="text-foreground">{cadenceLabel}</dd>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Schedule</dt>
+          <dd className="text-foreground">{scheduleLabel}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-muted-foreground">

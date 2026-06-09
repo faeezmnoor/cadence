@@ -68,7 +68,7 @@ export function TierExplainer({
         <p className="text-sm font-semibold">Default · 1 credit per brief</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Smart enough for most briefs. Generic web search plus a fast,
-          lightweight composer. The everyday cadence.
+          lightweight composer. The everyday default.
         </p>
       </div>
 

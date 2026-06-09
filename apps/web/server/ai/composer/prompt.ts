@@ -309,6 +309,54 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
     language: spec.language,
   });
 
+  /*
+   * Wave 4 Bug 9 (P0): entities used to leak as flavor — the YAML dump
+   * above embeds them but the model treats them as background colour and
+   * happily composes around equivalent-but-different sources (e.g. the
+   * user configured entities.companies=['ePerolehan'] for Malaysian gov
+   * e-procurement and the model returned a brief about US SAM.gov + OECD
+   * with no mention of ePerolehan or Malaysia). Anchor every non-empty
+   * entity bucket as a HARD coverage requirement so the model knows it
+   * MUST mention the configured names by exact label and treat them as
+   * the spine of the brief.
+   */
+  const entityAnchors: string[] = [];
+  const entCompanies = spec.entities?.companies ?? [];
+  const entTickers = spec.entities?.tickers ?? [];
+  const entCommodities = spec.entities?.commodities ?? [];
+  if (entCompanies.length > 0) {
+    entityAnchors.push(
+      `companies / organizations / platforms: ${entCompanies
+        .map((c) => `"${c}"`)
+        .join(", ")}`
+    );
+  }
+  if (entTickers.length > 0) {
+    entityAnchors.push(
+      `tickers: ${entTickers.map((t) => `\`${t}\``).join(", ")}`
+    );
+  }
+  if (entCommodities.length > 0) {
+    entityAnchors.push(
+      `commodities: ${entCommodities.map((c) => `\`${c}\``).join(", ")}`
+    );
+  }
+  const entityAnchorBlock =
+    entityAnchors.length > 0
+      ? [
+          "ENTITY ANCHORS (HARD REQUIREMENT)",
+          "Every entity below MUST be a direct subject of the brief — name it by",
+          "exact label, ground its mention in the SOURCES block, and place it in",
+          "the spine of the brief (tldr, at least one section, why_it_matters).",
+          "If the SOURCES block has no usable signal for a named entity, say so",
+          "in why_it_matters rather than swap in an unrelated lookalike (e.g.",
+          "NEVER substitute SAM.gov for ePerolehan, NEVER substitute Brent for",
+          "FCPO). User-named entities are the spine; everything else is context.",
+          ...entityAnchors.map((a) => `- ${a}`),
+          "",
+        ]
+      : [];
+
   return [
     "You are Cadence — a sharp trader-desk friend writing a 60-second morning note for a busy industry operator. Concrete, scannable, never corporate. You are NOT a chatbot; you are a senior market researcher delivering a daily report at a fraction of the cost of hiring one.",
     "",
@@ -375,6 +423,7 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
     "RECENT FEEDBACK (most recent first)",
     recent,
     "",
+    ...entityAnchorBlock,
     "DIGEST SPEC",
     specYaml,
     "",

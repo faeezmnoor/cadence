@@ -44,21 +44,22 @@ interface TelegramUpdate {
 }
 
 const MSG_LINKED = (firstName?: string) =>
-  `Hi${firstName ? ` ${firstName}` : ""}! Your Cadence account is linked. ` +
-  `You'll start receiving briefs on your configured cadence. Reply with feedback ` +
-  `anytime — Cadence learns from every nudge.`;
+  `Hey${firstName ? ` ${firstName}` : ""} — you're connected. ` +
+  `Your first brief lands tomorrow morning. ` +
+  `Reply to any brief with feedback — Cadence learns from every nudge.`;
 
 const MSG_TOKEN_INVALID =
-  "That link expired or was already used. Open Cadence in your browser, " +
-  "go to Settings -> Telegram, and tap 'Link Telegram' again.";
+  "That link expired (they only last 15 minutes). " +
+  "Head back to Cadence on the web and tap \"Connect Telegram\" again — " +
+  "we'll mint you a fresh one.";
 
 const MSG_START_NO_TOKEN =
-  "Welcome to Cadence. To link this chat to your account, open the Cadence " +
-  "web app and tap 'Link Telegram' — it'll send you back here with a one-tap link.";
+  "Hey 👋 you're in the right place. To finish connecting, head to cadence.news " +
+  "on the web and tap \"Connect Telegram\" — we'll bring you back here with one tap.";
 
 const MSG_UNKNOWN =
-  "I don't understand that yet. Cadence currently delivers your scheduled briefs " +
-  "and listens for feedback. Try /status soon.";
+  "I'm still learning — right now I deliver your briefs and listen for feedback. " +
+  "Try a thumbs up/down, or reply with what you'd change.";
 
 export async function dispatchTelegramUpdate(
   update: TelegramUpdate
@@ -143,7 +144,7 @@ async function dispatchCallbackQuery(cb: CallbackQuery): Promise<void> {
   const parsed = parseCallbackData(cb.data);
   if (!parsed) {
     // Unknown callback shape — still answer Telegram so the spinner stops.
-    await safeAnswerCallback(cb.id, "Unknown action — try /tune.");
+    await safeAnswerCallback(cb.id, "Hmm, didn't catch that — try replying with what you'd change.");
     return;
   }
 
@@ -164,7 +165,7 @@ async function dispatchCallbackQuery(cb: CallbackQuery): Promise<void> {
       toast = VOTE_TOAST[parsed.vote];
       break;
     case "unknown_user":
-      toast = "Link this chat to Cadence in the web app first.";
+      toast = "Connect this chat to Cadence on the web first.";
       break;
     case "unknown_run":
       toast = "That brief is too old to react to. Try the next one.";

@@ -165,6 +165,7 @@ describe("dispatchTelegramUpdate(/tune …)", () => {
 
     expect(insertCall).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledTimes(1);
-    expect(sendMessage.mock.calls[0]![1]).toMatch(/isn't linked/i);
+    // Wave 4 CMO copy diff §10: "isn't linked" → "isn't connected".
+    expect(sendMessage.mock.calls[0]![1]).toMatch(/isn't connected/i);
   });
 });

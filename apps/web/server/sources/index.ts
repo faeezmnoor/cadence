@@ -66,7 +66,22 @@ export const TOPIC_KEYWORDS: Record<string, readonly string[]> = {
   oil_gas: ["oil", "brent", "wti", "gas", "lng", "crude"],
   agri: ["agri", "farm", "feed", "livestock", "poultry", "chicken"],
   // Geography
-  malaysia: ["malaysia", "malay", "kuala lumpur", "klse", "bursa", "myr", "ringgit"],
+  malaysia: [
+    "malaysia",
+    "malay",
+    "kuala lumpur",
+    "klse",
+    "bursa",
+    "myr",
+    "ringgit",
+    // Wave 4 Bug 9: gov-procurement names route to malaysia + regulatory.
+    "eperolehan",
+    "myprocurement",
+    "jakim",
+    "lhdn",
+    "bnm",
+    "sc malaysia",
+  ],
   sea: ["southeast asia", "asean", "sea ", "indonesia", "singapore", "thailand", "vietnam"],
   // Verticals
   tech: ["tech", "software", "ai", "saas", "developer", "infra"],
@@ -89,12 +104,30 @@ export const TOPIC_KEYWORDS: Record<string, readonly string[]> = {
 export function bucketsForSpec(spec: {
   topics?: readonly string[];
   topicHint?: string | null;
+  entities?: {
+    companies?: readonly string[];
+    tickers?: readonly string[];
+    commodities?: readonly string[];
+  };
 }): string[] {
   const haystack: string[] = [];
   if (spec.topics) {
     for (const t of spec.topics) haystack.push(t.toLowerCase());
   }
   if (spec.topicHint) haystack.push(spec.topicHint.toLowerCase());
+  // Wave 4 Bug 9: entities are the user's HARD anchors — fold them into
+  // the bucket detection haystack so a Malaysia-specific entity like
+  // ePerolehan routes the brief to malaysia + regulatory feeds instead
+  // of generic equities/business.
+  if (spec.entities?.companies) {
+    for (const c of spec.entities.companies) haystack.push(c.toLowerCase());
+  }
+  if (spec.entities?.tickers) {
+    for (const t of spec.entities.tickers) haystack.push(t.toLowerCase());
+  }
+  if (spec.entities?.commodities) {
+    for (const c of spec.entities.commodities) haystack.push(c.toLowerCase());
+  }
   if (haystack.length === 0) return [];
   const joined = haystack.join("  ");
   const matched = new Set<string>();

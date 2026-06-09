@@ -96,7 +96,11 @@ export function ChatClient({
   // a single topic, which the agent then handles as the brief topic.
   const [refusalChips, setRefusalChips] = useState<string[]>([]);
 
-  const { messages, input, handleInputChange, handleSubmit, status, error, append, setMessages, setInput } =
+  // Wave 4 Bug 5: track whether we've already auto-retried this turn so
+  // a sustained outage doesn't loop. Reset on every successful onFinish.
+  const autoRetriedRef = useState({ value: false });
+
+  const { messages, input, handleInputChange, handleSubmit, status, error, append, setMessages, setInput, reload } =
     useChat({
       api: "/api/chat",
       id: threadId,
@@ -106,8 +110,64 @@ export function ChatClient({
         // Pull the fresh draft so the sidebar reacts to whatever
         // update_spec_field / propose_spec wrote during this turn.
         void utils.chat.getDraft.invalidate({ threadId });
+        // Successful round-trip — re-arm the auto-retry budget for the next
+        // potential transient blip.
+        autoRetriedRef[0].value = false;
       },
     });
+
+  /**
+   * Wave 4 Bug 5: parse the typed server envelope coming back through
+   * useChat's `error.message`. Server emits a JSON envelope of
+   * `{code,userMessage,supportRef}` from `getErrorMessage`. Anything that
+   * doesn't parse (older deploys, network noise) falls back to a generic
+   * friendly bubble.
+   */
+  const friendlyError = useMemo(() => {
+    if (!error) return null;
+    const raw = error.message ?? "";
+    // Strip the legacy "[chat] " prefix if present (older deploys).
+    const candidate = raw.replace(/^\[chat\]\s*/, "").trim();
+    try {
+      const parsed = JSON.parse(candidate) as {
+        code?: string;
+        userMessage?: string;
+        supportRef?: string;
+      };
+      if (parsed && typeof parsed === "object" && parsed.userMessage) {
+        return {
+          code: parsed.code ?? "unknown",
+          userMessage: parsed.userMessage,
+          supportRef: parsed.supportRef ?? null,
+        };
+      }
+    } catch {
+      /* fall through */
+    }
+    return {
+      code: "unknown",
+      userMessage:
+        "Something went wrong on our end. Tap retry to give it another go.",
+      supportRef: null,
+    };
+  }, [error]);
+
+  // Wave 4 Bug 5: auto-retry once on transient classes (timeout, 5xx,
+  // rate-limit). Keeps the user out of a dead-end on a one-off blip.
+  useEffect(() => {
+    if (!friendlyError) return;
+    if (autoRetriedRef[0].value) return;
+    const transient =
+      friendlyError.code === "timeout" ||
+      friendlyError.code === "upstream_5xx" ||
+      friendlyError.code === "rate_limited";
+    if (!transient) return;
+    autoRetriedRef[0].value = true;
+    const t = setTimeout(() => {
+      void reload();
+    }, friendlyError.code === "rate_limited" ? 4000 : 1200);
+    return () => clearTimeout(t);
+  }, [friendlyError, reload, autoRetriedRef]);
 
   /**
    * MUST-SHIP #5: intercept submit. If the typed message looks like a
@@ -591,9 +651,29 @@ export function ChatClient({
               ready={draftIsReady(draft)}
               savedSpecId={savedSpecId}
             />
-            {error && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
-                {error.message}
+            {friendlyError && (
+              <div
+                data-testid="chat-error-bubble"
+                role="status"
+                className="rounded-2xl rounded-bl-sm border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm text-foreground"
+              >
+                <p>{friendlyError.userMessage}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void reload()}
+                    disabled={isStreaming}
+                    className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                  {friendlyError.supportRef && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Support ref:{" "}
+                      <code className="font-mono">{friendlyError.supportRef}</code>
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
