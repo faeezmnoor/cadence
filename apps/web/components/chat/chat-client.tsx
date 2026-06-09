@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Message } from "ai";
 import type { PersistedMessage } from "./types";
@@ -10,6 +10,10 @@ import { SpecSidebar, type DraftLike } from "./spec-sidebar";
 import { isReady as draftIsReady } from "./spec-sidebar.helpers";
 import { pickLatestQuickReplies } from "./quick-replies";
 import { BriefActions } from "./brief-actions";
+import { DateSeparator } from "./date-separator";
+import { TypingDots } from "./typing-dots";
+import { usePinnedScroll } from "./use-pinned-scroll";
+import { groupMessages } from "@/lib/chat/group";
 import { trpc } from "@/lib/trpc/client";
 import {
   detectMultiTopic,
@@ -245,11 +249,54 @@ export function ChatClient({
     [messages]
   );
 
-  // Auto-scroll on new messages.
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // Wave 3 (CAD-181): timestamp map. Hydrate from persisted createdAt for
+  // every initial message; for new messages from useChat (which carry no
+  // timestamp), stamp the first time we see the id and reuse on every
+  // re-render. Stored as ISO so the dep array stays primitive-stable.
+  const [createdAtById, setCreatedAtById] = useState<Record<string, string>>(
+    () => {
+      const seed: Record<string, string> = {};
+      for (const m of initialMessages) {
+        seed[m.id] = m.createdAt;
+      }
+      return seed;
+    }
+  );
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+    const additions: Record<string, string> = {};
+    const nowIso = new Date().toISOString();
+    for (const m of messages) {
+      if (!createdAtById[m.id]) additions[m.id] = nowIso;
+    }
+    if (Object.keys(additions).length > 0) {
+      setCreatedAtById((prev) => ({ ...prev, ...additions }));
+    }
+  }, [messages, createdAtById]);
+
+  // Wave 3 (CAD-181): smart autoscroll — pauses when the user scrolls up
+  // to re-read instead of yanking them back down on every new chunk.
+  const { ref: scrollRef } = usePinnedScroll(messages.length);
+
+  // Grouped render items — consecutive same-sender messages within 2 min
+  // collapse into one visual group; per-day boundaries inject a separator.
+  const groupedItems = useMemo(() => {
+    const renderable = messages
+      .map((m) => {
+        const iso = createdAtById[m.id];
+        // Brand-new client message not yet stamped — render with `now` so
+        // it appears under "Today" until the effect above patches state.
+        const createdAt = iso ? new Date(iso) : new Date();
+        return {
+          id: m.id,
+          role: m.role as "user" | "assistant" | "tool",
+          createdAt,
+          raw: m,
+        };
+      })
+      // Hide tool-only rows from grouping; renderer below skips them too.
+      .filter((m) => m.role === "user" || m.role === "assistant");
+    return groupMessages(renderable);
+  }, [messages, createdAtById]);
 
   // dead-surface fix 2026-06-09: this useEffect previously router.push'd to
   // /app/link the instant confirm_and_save landed. It killed the BriefActions
@@ -365,7 +412,14 @@ export function ChatClient({
           </div>
         </header>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        <div
+          ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Conversation with Cadence"
+          className="flex-1 overflow-y-auto px-4 py-6 sm:px-6"
+        >
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
             {!hasMessages && (
               <div data-testid="chat-welcome" className="flex flex-col gap-3">
@@ -396,14 +450,20 @@ export function ChatClient({
                 </div>
               </div>
             )}
-            {messages.map((m) => (
-              <MessageBubble
-                key={m.id}
-                message={m}
-                onSuggestionClick={handleSuggestion}
-                suggestionsDisabled={isStreaming}
-              />
-            ))}
+            {groupedItems.map((item) => {
+              if (item.kind === "separator") {
+                return <DateSeparator key={item.id} at={item.at} />;
+              }
+              return (
+                <MessageBubble
+                  key={item.message.id}
+                  message={item.message.raw}
+                  createdAt={item.message.createdAt}
+                  isFirstInGroup={item.isFirstInGroup}
+                  isLastInGroup={item.isLastInGroup}
+                />
+              );
+            })}
             {!isStreaming && latestQuickReplies.length > 0 && (
               <div
                 className="flex flex-wrap gap-1.5"
@@ -523,9 +583,7 @@ export function ChatClient({
                 ))}
               </div>
             )}
-            {isStreaming && (
-              <div className="text-xs text-muted-foreground">Thinking…</div>
-            )}
+            {isStreaming && <TypingDots />}
             {/* MUST-SHIP #8 + #9: once the spec is ready, surface preview +
                 send-now actions inline so the user sees the payoff before
                 leaving the chat. */}

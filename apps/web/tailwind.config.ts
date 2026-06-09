@@ -71,6 +71,20 @@ const config: Config = {
           "serif",
         ],
       },
+      keyframes: {
+        "typing-dot": {
+          "0%, 80%, 100%": { opacity: "0.3", transform: "translateY(0)" },
+          "40%": { opacity: "1", transform: "translateY(-2px)" },
+        },
+        "chat-fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+      },
+      animation: {
+        "typing-dot": "typing-dot 1.4s ease-in-out infinite",
+        "chat-fade-in": "chat-fade-in 120ms ease-out",
+      },
     },
   },
   plugins: [],
