@@ -22,7 +22,7 @@ import {
   parseCallbackData,
   encodeCallbackData,
   FEEDBACK_VOTES,
-} from "@/server/telegram/keyboard";
+} from "@/server/channels/telegram/keyboard";
 
 // ===========================================================================
 // 1. keyboard.ts — encoding contract
@@ -127,7 +127,7 @@ vi.mock("@/server/db/client", async () => {
   };
 });
 
-import { recordFeedbackCallback } from "@/server/telegram/feedback-callback";
+import { recordFeedbackCallback } from "@/server/channels/telegram/inbound/feedback-callback";
 
 beforeEach(() => {
   insertedRows.length = 0;
@@ -196,11 +196,11 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
       composeDigest: vi.fn(async () => ({ markdown: "# Brief", costUsd: 0 })),
       COMPOSER_MODEL_ID: "test-model",
     }));
-    vi.doMock("@/server/telegram/client", async () => {
+    vi.doMock("@/server/channels/telegram/client", async () => {
       // Use the real safeSendTelegramMessage so the fallback path is also
       // exercised here. The mock only swaps out the bot + config check.
-      const actual = await vi.importActual<typeof import("@/server/telegram/client")>(
-        "@/server/telegram/client"
+      const actual = await vi.importActual<typeof import("@/server/channels/telegram/client")>(
+        "@/server/channels/telegram/client"
       );
       return {
         ...actual,
@@ -208,10 +208,18 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
         getBot: () => ({ api: { sendMessage } }),
       };
     });
-    vi.doMock("@/server/telegram/format", () => ({
-      formatComposerOutput: () =>
-        opts.parts.map((text) => ({ text, parseMode: "Markdown" })),
-    }));
+    vi.doMock("@/server/channels/telegram/format", async () => {
+      // Spread the actual module — the channel adapter (CAD-207) also
+      // imports the caps + splitter; only formatComposerOutput is swapped.
+      const actual = await vi.importActual<typeof import("@/server/channels/telegram/format")>(
+        "@/server/channels/telegram/format"
+      );
+      return {
+        ...actual,
+        formatComposerOutput: () =>
+          opts.parts.map((text) => ({ text, parseMode: "Markdown" })),
+      };
+    });
     vi.doMock("@/server/connectors/brave-search", () => ({
       isBraveConfigured: () => false,
       braveSearch: vi.fn(),

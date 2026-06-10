@@ -34,9 +34,9 @@ vi.mock("@/server/ai/composer/compose", () => ({
 // Telegram: stub configured + bot.api.sendMessage success.
 // Pull the real safeSendTelegramMessage through so the parse-mode fallback
 // helper is still exercised; only swap the bot + config check.
-vi.mock("@/server/telegram/client", async () => {
-  const actual = await vi.importActual<typeof import("@/server/telegram/client")>(
-    "@/server/telegram/client"
+vi.mock("@/server/channels/telegram/client", async () => {
+  const actual = await vi.importActual<typeof import("@/server/channels/telegram/client")>(
+    "@/server/channels/telegram/client"
   );
   return {
     ...actual,
@@ -49,9 +49,17 @@ vi.mock("@/server/telegram/client", async () => {
   };
 });
 
-vi.mock("@/server/telegram/format", () => ({
-  formatComposerOutput: (md: string) => [{ text: md, parseMode: "MarkdownV2" }],
-}));
+// Spread the actual module — the channel adapter (CAD-207) also imports the
+// caps + splitter from here; only formatComposerOutput is swapped.
+vi.mock("@/server/channels/telegram/format", async () => {
+  const actual = await vi.importActual<typeof import("@/server/channels/telegram/format")>(
+    "@/server/channels/telegram/format"
+  );
+  return {
+    ...actual,
+    formatComposerOutput: (md: string) => [{ text: md, parseMode: "MarkdownV2" }],
+  };
+});
 
 // Source connectors: empty.
 vi.mock("@/server/connectors/brave-search", () => ({

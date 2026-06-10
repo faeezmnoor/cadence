@@ -12,7 +12,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, feedbackEvents, users } from "@/server/db/schema";
-import type { FeedbackVote } from "./keyboard";
+import type { FeedbackVote } from "../keyboard";
 
 export interface RecordFeedbackCallbackInput {
   callbackId: string;

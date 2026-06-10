@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   isParseEntitiesError,
   safeSendTelegramMessage,
-} from "../server/telegram/client";
+} from "../server/channels/telegram/client";
 
 /** Build a grammy-shaped error so the detector exercises the real path. */
 function parseEntitiesError(offset = 3170): Error & {

@@ -43,8 +43,11 @@ import { and, desc, eq, gte, isNotNull } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
-import { getBot, isTelegramConfigured } from "@/server/telegram/client";
-import { splitForTelegram } from "@/server/telegram/format";
+import {
+  telegramAdapter,
+  formatPlainText,
+  isTelegramConfigured,
+} from "@/server/channels/telegram";
 
 const SUMMARY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -252,12 +255,14 @@ export const smokeSummary = inngest.createFunction(
     if (target && isTelegramConfigured()) {
       // Wave 5 Bug 15: route smoke-summary through the same splitter the
       // digest pipeline uses, so a long summary doesn't get rejected by
-      // Telegram's 4096-char cap. One sendMessage per part.
+      // Telegram's 4096-char cap. One send per part, via the channel
+      // adapter (CAD-207).
       await step.run("send-telegram", async () => {
-        const bot = getBot();
-        const parts = splitForTelegram(text);
-        for (const part of parts) {
-          await bot.api.sendMessage(Number(target.telegramChatId), part);
+        for (const part of formatPlainText(text)) {
+          await telegramAdapter.send(part, {
+            channel: "telegram",
+            chatId: Number(target.telegramChatId),
+          });
         }
       });
       output.telegramSent = true;
