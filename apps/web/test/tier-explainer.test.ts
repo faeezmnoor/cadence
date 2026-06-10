@@ -33,25 +33,35 @@ const billingClientSource = read("../app/settings/billing/billing-client.tsx");
 const briefDetailClientSource = read("../app/briefs/[id]/brief-detail-client.tsx");
 const pricingSource = read("../app/(marketing)/pricing/page.tsx");
 
-describe("TierExplainer canonical copy (CAD-95 + CAD-96)", () => {
-  it("names the Default tier price + value prop", () => {
-    expect(explainerSource).toMatch(/Default/);
+describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
+  it("names standard research price + value prop", () => {
+    expect(explainerSource).toMatch(/Standard research/);
     expect(explainerSource).toMatch(/1 credit/);
-    // "Smart enough for most briefs" is the canonical Default framing.
+    // "Smart enough for most briefs" is the canonical standard framing.
     expect(explainerSource).toMatch(/Smart enough for most briefs/);
   });
 
-  it("names the Pro tier price + value prop + provider stack", () => {
-    expect(explainerSource).toMatch(/🔬 Pro/);
+  it("names advanced research price + value prop + provider stack", () => {
+    expect(explainerSource).toMatch(/🔬 Advanced research/);
     expect(explainerSource).toMatch(/3 credits/);
-    // The two provider names are the positioning hook — Pro isn't "more
-    // expensive Default", it's a fundamentally different research stack.
+    // The two provider names are the positioning hook — advanced research isn't
+    // "more expensive standard", it's a fundamentally different research stack.
     expect(explainerSource).toMatch(/Perplexity Sonar Reasoning Pro/);
     expect(explainerSource).toMatch(/Claude Sonnet 4\.6/);
   });
 
-  it("calls out the Pro footer marker so users can self-verify which tier they got", () => {
+  it("calls out the advanced footer marker so users can self-verify which research mode they got", () => {
     expect(explainerSource).toMatch(/footer marker/i);
+  });
+
+  it("retires plan-tier nouns from user-facing copy (CAD-202 — no Pro plan, no Default tier)", () => {
+    // OPTION A: drop tier nouns entirely from user-facing copy. The
+    // internal digest_specs.tier="default"|"pro" mechanism stays, but the
+    // surface presents research-depth configuration, not plan tiers.
+    expect(explainerSource).not.toMatch(/Pro tier/);
+    expect(explainerSource).not.toMatch(/Default tier/);
+    expect(explainerSource).not.toMatch(/Pro plan/);
+    expect(explainerSource).not.toMatch(/which tier/);
   });
 
   it("exposes a compact variant for tight surfaces (e.g. /spec tooltip)", () => {

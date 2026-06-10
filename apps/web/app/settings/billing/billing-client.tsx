@@ -33,9 +33,11 @@ function txLabel(type: string) {
 }
 
 /**
- * CAD-89: render the 🔬 Pro tier badge next to charge / refund rows where
- * the underlying metadata.tier === "pro". Pulls from the snapshot we
- * stamped onto the transaction at debit / refund time.
+ * CAD-89 (CAD-202 copy refresh): render the 🔬 Advanced research badge
+ * next to charge / refund rows where the underlying metadata.tier === "pro".
+ * Pulls from the snapshot we stamped onto the transaction at debit /
+ * refund time. The internal enum stays "pro"; the user-facing badge
+ * reads as a research-depth marker, not a plan-tier badge.
  */
 function tierBadge(metadata: unknown): React.ReactNode {
   if (!metadata || typeof metadata !== "object") return null;
@@ -43,7 +45,7 @@ function tierBadge(metadata: unknown): React.ReactNode {
   if (tier !== "pro") return null;
   return (
     <span className="ml-2 inline-flex items-center rounded-full border border-brand/40 bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand">
-      🔬 Pro
+      🔬 Advanced
     </span>
   );
 }
@@ -118,12 +120,13 @@ export function BillingClient() {
           to request a manual credit grant.
         </p>
 
-        {/* CAD-95: tier explainer disclosure. Native <details> keeps this
-            keyboard-accessible without a Dialog primitive — opens inline,
-            doesn't trap focus, doesn't need an Escape handler. */}
+        {/* CAD-95 (CAD-202 copy refresh): research-depth explainer
+            disclosure. Native <details> keeps this keyboard-accessible
+            without a Dialog primitive — opens inline, doesn't trap focus,
+            doesn't need an Escape handler. */}
         <details className="mt-6 rounded-lg border border-border bg-card/40 p-4 [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
-            <span>What&apos;s the difference between Default and Pro briefs?</span>
+            <span>What&apos;s the difference between standard and advanced research?</span>
             <span
               aria-hidden
               className="ml-3 text-xs text-muted-foreground transition group-open:rotate-180"

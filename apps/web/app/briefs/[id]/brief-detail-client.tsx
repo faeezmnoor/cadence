@@ -277,19 +277,21 @@ function AdvancedTab({
 
   return (
     <div className="space-y-6">
-      {/* CAD-88 (ported from /spec): tier toggle gated on the alpha flag.
-          Tier is a delivery-stack preference, not spec content, so it
-          doesn't bump version — see briefs.setTier. */}
+      {/* CAD-88 (ported from /spec, CAD-202 copy refresh): research-depth
+          toggle gated on the alpha flag. Research depth is a delivery-stack
+          preference, not spec content, so it doesn't bump version — see
+          briefs.setTier. The internal tier="default"|"pro" enum stays;
+          only the user-facing wording changed. */}
       {proTierAlphaEnabled && brief && (
         <section
-          aria-label="Tier"
+          aria-label="Research depth"
           className="rounded-xl border border-border bg-card p-4 text-card-foreground"
         >
           <h2 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Research tier
+            Research depth
             <details className="group relative inline-block normal-case [&_summary::-webkit-details-marker]:hidden">
               <summary
-                aria-label="What's the difference between Default and Pro?"
+                aria-label="What's the difference between standard and advanced research?"
                 className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-border text-[10px] font-normal text-muted-foreground hover:border-foreground hover:text-foreground"
               >
                 ?
@@ -300,8 +302,9 @@ function AdvancedTab({
             </details>
           </h2>
           <p className="text-sm text-muted-foreground">
-            Default: fast web search, lean writer. Pro: deep-research
-            grounding with the sharper writer. Slower, sharper, 3 credits a brief.
+            Standard: fast web search, lean writer. Advanced research:
+            deep-research grounding with the sharper writer. Slower, sharper,
+            3 credits per brief.
           </p>
           <div className="mt-3 inline-flex rounded-md border border-border">
             <button
@@ -315,7 +318,7 @@ function AdvancedTab({
               }`}
               aria-pressed={tier === "default"}
             >
-              Default · 1 credit
+              Standard · 1 credit
             </button>
             <button
               type="button"
@@ -328,7 +331,7 @@ function AdvancedTab({
               }`}
               aria-pressed={tier === "pro"}
             >
-              🔬 Pro · 3 credits
+              🔬 Advanced · 3 credits
             </button>
           </div>
           {setTier.isSuccess && (
