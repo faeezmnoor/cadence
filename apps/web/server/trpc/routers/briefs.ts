@@ -21,15 +21,31 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs } from "@/server/db/schema";
 import { protectedProcedure, publicProcedure, router } from "../trpc";
 import { SHORT_ID_RE } from "@/server/digest/share";
-import { schedulingRuleV1, type SchedulingRuleV1 } from "@/lib/scheduling/rule";
+import {
+  ruleFromLegacyCadence,
+  schedulingRuleV1,
+  type SchedulingRuleV1,
+} from "@/lib/scheduling/rule";
 import { nextRunAt } from "@/lib/scheduling/evaluator";
 import { creditCostForTier, type Tier } from "@/server/billing/cost";
 import { users } from "@/server/db/schema";
+import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
+
+const DEFAULT_TZ = "Asia/Kuala_Lumpur";
+
+function deriveBriefName(spec: DigestSpecV1): string {
+  const t0 = spec.topics?.[0];
+  if (typeof t0 === "string" && t0.trim().length > 0) {
+    const trimmed = t0.trim();
+    return `${trimmed[0]!.toUpperCase()}${trimmed.slice(1)} brief`;
+  }
+  return "Untitled brief";
+}
 
 /**
  * Multi-brief soft cap. Active + paused briefs are billable surface area
@@ -524,4 +540,230 @@ export const briefsRouter = router({
       runwayDays,
     };
   }),
+
+  /**
+   * Wave 6 / Bug 13: read one brief by id for the /briefs/[id] detail
+   * page. Auth-scoped (userId) so a brief id from another user 404s.
+   * Returns the full row including spec, scheduling, tier, status —
+   * what the Overview + Advanced tabs render against.
+   */
+  getById: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const rows = await db
+        .select()
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.id, input.id),
+            eq(digestSpecs.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Brief not found." });
+      }
+      return row;
+    }),
+
+  /**
+   * Wave 6 / Bug 13: per-brief version history. Returns every digest_specs
+   * row for this user that shares the brief's lineage. We don't yet model
+   * lineage explicitly (no parent_id column), so today this returns the
+   * user's full history newest-first — same as /spec used to show. The
+   * input id is taken as a permission check; once a lineage column lands
+   * we filter here without changing the call site.
+   *
+   * Paginated to keep large histories scannable in the Advanced tab.
+   */
+  listVersions: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        limit: z.number().int().min(1).max(50).default(10),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const briefRows = await db
+        .select({ id: digestSpecs.id })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.id, input.id),
+            eq(digestSpecs.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (briefRows.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Brief not found." });
+      }
+      const all = await db
+        .select({
+          id: digestSpecs.id,
+          version: digestSpecs.version,
+          isCurrent: digestSpecs.isCurrent,
+          status: digestSpecs.status,
+          createdVia: digestSpecs.createdVia,
+          createdAt: digestSpecs.createdAt,
+        })
+        .from(digestSpecs)
+        .where(eq(digestSpecs.userId, ctx.user.id))
+        .orderBy(desc(digestSpecs.version));
+      const total = all.length;
+      const items = all.slice(input.offset, input.offset + input.limit);
+      return { items, total };
+    }),
+
+  /**
+   * Wave 6 / Bug 13: per-brief raw spec edit. Edits THIS brief's spec
+   * in place, bumps its version monotonically per user, re-derives name
+   * + scheduling + next_run_at from the new spec. Does NOT touch other
+   * briefs (legacy `digestSpec.updateRaw` archives every is_current=true
+   * row, which is wrong for multi-brief — this procedure is the
+   * brief-scoped replacement).
+   */
+  updateRaw: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        spec: digestSpecSchema,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await db.transaction(async (tx) => {
+          const owned = await tx
+            .select({ id: digestSpecs.id, status: digestSpecs.status })
+            .from(digestSpecs)
+            .where(
+              and(
+                eq(digestSpecs.id, input.id),
+                eq(digestSpecs.userId, ctx.user.id)
+              )
+            )
+            .limit(1);
+          if (owned.length === 0) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Brief not found.",
+            });
+          }
+          if (owned[0]!.status === "archived") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cannot edit an archived brief.",
+            });
+          }
+
+          const latest = await tx
+            .select({ version: digestSpecs.version })
+            .from(digestSpecs)
+            .where(eq(digestSpecs.userId, ctx.user.id))
+            .orderBy(desc(digestSpecs.version))
+            .limit(1);
+          const nextVersion = (latest[0]?.version ?? 0) + 1;
+
+          const userRow = await tx
+            .select({ timezone: users.timezone })
+            .from(users)
+            .where(eq(users.id, ctx.user.id))
+            .limit(1);
+          const timezone = userRow[0]?.timezone ?? DEFAULT_TZ;
+          const startDate = new Date().toISOString().slice(0, 10);
+          const scheduling = ruleFromLegacyCadence({
+            cadence: input.spec.cadence,
+            timezone,
+            startDate,
+          });
+          const next = nextRunAt(scheduling, new Date());
+          const briefName = deriveBriefName(input.spec);
+
+          const [updated] = await tx
+            .update(digestSpecs)
+            .set({
+              version: nextVersion,
+              spec: input.spec,
+              createdVia: "manual_edit",
+              name: briefName,
+              scheduling,
+              nextRunAt: next,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(digestSpecs.id, input.id),
+                eq(digestSpecs.userId, ctx.user.id)
+              )
+            )
+            .returning();
+          return updated!;
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err instanceof Error ? err.message : "Failed to persist spec",
+          cause: err,
+        });
+      }
+    }),
+
+  /**
+   * Wave 6 / Bug 13: per-brief tier toggle. Mirrors digestSpec.setTier
+   * but on a specific brief row (multi-brief). No version bump — tier is
+   * a delivery-stack preference, not spec content.
+   */
+  setTier: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), tier: z.enum(["default", "pro"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const updated = await db
+        .update(digestSpecs)
+        .set({ tier: input.tier, updatedAt: new Date() })
+        .where(
+          and(
+            eq(digestSpecs.id, input.id),
+            eq(digestSpecs.userId, ctx.user.id)
+          )
+        )
+        .returning({ id: digestSpecs.id, tier: digestSpecs.tier });
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Brief not found." });
+      }
+      return updated[0]!;
+    }),
+
+  /**
+   * Wave 6 / Bug 13: same shape as digestSpec.listVersionBriefs but
+   * scoped through a brief id. Used in the Advanced tab to cross-link
+   * each version row to the briefs that came out of it.
+   */
+  listVersionBriefs: protectedProcedure
+    .input(z.object({ specIds: z.array(z.string().uuid()).max(50) }))
+    .query(async ({ ctx, input }) => {
+      if (input.specIds.length === 0) return [];
+      const rows = await db
+        .select({
+          id: digestRuns.id,
+          specId: digestRuns.specId,
+          shortId: digestRuns.shortId,
+          runDate: digestRuns.runDate,
+          createdAt: digestRuns.createdAt,
+          status: digestRuns.status,
+        })
+        .from(digestRuns)
+        .where(
+          and(
+            eq(digestRuns.userId, ctx.user.id),
+            inArray(digestRuns.specId, input.specIds),
+            isNotNull(digestRuns.shortId)
+          )
+        )
+        .orderBy(desc(digestRuns.createdAt))
+        .limit(200);
+      return rows.filter(
+        (r) => r.status === "delivered" || r.status === "sent"
+      );
+    }),
 });

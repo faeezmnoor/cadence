@@ -167,7 +167,7 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <Link
-                      href={`/spec?spec=${r.specId}`}
+                      href={`/briefs/${r.specId}` as never}
                       className="text-blue-600 hover:underline"
                     >
                       v{r.specVersion}
