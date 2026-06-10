@@ -4,9 +4,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCProvider } from "@/lib/trpc/provider";
 
 export const metadata: Metadata = {
-  title: "Cadence — a daily market researcher for your industry",
+  title: "Cadence — wake up knowing what changed",
   description:
-    "Daily, sourced market briefs for your industry — delivered to the messaging app you already use. Senior-researcher quality for the price of coffee.",
+    "Tell Cadence what to watch — a commodity, a competitor, a new regulation. Every morning, a short, sourced brief lands in the messaging app you already use. Tell it what to change, and the next one comes back better.",
 };
 
 /**
