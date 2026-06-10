@@ -59,18 +59,18 @@ export function CostClient({
       <header>
         <h1 className="text-2xl font-semibold">Admin · Cost</h1>
         <p className="text-sm text-muted-foreground">
-          Pro tier burn rate · signed in as {adminEmail}
+          Advanced-research burn rate · signed in as {adminEmail}
         </p>
       </header>
 
       {/* Breaker status banner */}
       <section
-        aria-label="Pro tier circuit breaker status"
+        aria-label="Advanced-research circuit breaker status"
         className={`rounded-md border px-4 py-3 ${breakerCls}`}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <div className="font-medium">
-            Pro tier cost breaker · {breakerLabel}
+            Advanced-research cost breaker · {breakerLabel}
           </div>
           <div className="text-sm tabular-nums">
             {formatUsd(breaker.usdToday)} / {formatUsd(breaker.capUsd)} today (
@@ -98,7 +98,7 @@ export function CostClient({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Default tier
+              Standard research
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
               {formatUsd(today.defaultUsd)}
@@ -106,7 +106,7 @@ export function CostClient({
           </div>
           <div className="rounded-lg border border-brand/40 bg-brand/5 p-4">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              🔬 Pro tier
+              🔬 Advanced research
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
               {formatUsd(today.proUsd)}
