@@ -252,7 +252,7 @@ function BriefCard({
             <StatusBadge status={row.status} />
             {row.tier === "pro" ? (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Pro
+                🔬 Advanced
               </span>
             ) : null}
           </div>
@@ -403,7 +403,7 @@ function PortfolioBurnCard() {
   if (!data) return null;
   const noBurn = data.creditsPerDay <= 0;
   const runwayLabel = (() => {
-    if (noBurn) return "no active burn";
+    if (noBurn) return "no scheduled briefs";
     const d = data.runwayDays ?? 0;
     if (d <= 0) return "0 days";
     if (d < 1) return "<1 day";
@@ -415,7 +415,7 @@ function PortfolioBurnCard() {
   return (
     <section
       data-testid="portfolio-burn-card"
-      aria-label="Portfolio burn rate"
+      aria-label="Usage & balance"
       className="rounded-xl border border-border bg-card p-4 text-card-foreground"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -428,7 +428,7 @@ function PortfolioBurnCard() {
           <Stat
             label="Credits / day"
             value={formatRate(data.creditsPerDay)}
-            sub="1 cr default · 3 cr Pro"
+            sub="1 credit standard · 3 credits advanced"
           />
           <Stat
             label="Balance"
@@ -436,9 +436,9 @@ function PortfolioBurnCard() {
             sub="credits"
           />
           <Stat
-            label="Runway"
+            label="Lasts about"
             value={runwayLabel}
-            sub={isLow ? "low — top up" : undefined}
+            sub={isLow ? "running low — top up" : undefined}
             emphasize={isLow}
           />
         </div>

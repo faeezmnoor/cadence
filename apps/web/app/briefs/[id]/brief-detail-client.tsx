@@ -19,7 +19,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
-import { formatBriefStatus, formatTier } from "@/lib/labels";
+import {
+  formatBriefStatus,
+  formatCreatedVia,
+  formatFrequency,
+  formatLanguage,
+  formatLength,
+  formatTier,
+  formatTone,
+} from "@/lib/labels";
 import { TierExplainer } from "@/components/billing/tier-explainer";
 import {
   STACK_COSTS,
@@ -443,7 +451,7 @@ function VersionsSection({
                     )}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {v.createdVia} ·{" "}
+                    {formatCreatedVia(v.createdVia)} ·{" "}
                     {v.createdAt
                       ? new Date(v.createdAt).toLocaleString()
                       : "—"}
@@ -724,14 +732,15 @@ function extractSummary(spec: unknown): [string, string][] {
     rows.push(["Include", s.keywords_include.join(", ")]);
   if (s.keywords_exclude?.length)
     rows.push(["Exclude", s.keywords_exclude.join(", ")]);
-  if (s.cadence?.frequency) rows.push(["Frequency", s.cadence.frequency]);
+  if (s.cadence?.frequency)
+    rows.push(["Frequency", formatFrequency(s.cadence.frequency)]);
   if (s.cadence?.delivery_time_local)
     rows.push(["Delivery time", s.cadence.delivery_time_local]);
   if (s.cadence?.days_of_week?.length)
     rows.push(["Days", s.cadence.days_of_week.join(", ")]);
-  if (s.tone_preset) rows.push(["Tone", s.tone_preset]);
-  if (s.length_target) rows.push(["Length", s.length_target]);
-  if (s.language) rows.push(["Language", s.language]);
+  if (s.tone_preset) rows.push(["Tone", formatTone(s.tone_preset)]);
+  if (s.length_target) rows.push(["Length", formatLength(s.length_target)]);
+  if (s.language) rows.push(["Language", formatLanguage(s.language)]);
   return rows;
 }
 

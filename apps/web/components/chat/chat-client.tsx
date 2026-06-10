@@ -63,10 +63,11 @@ export function ChatClient({
         const askResult = m.content.toolResults?.find(
           (r) => r.toolName === "ask_user"
         )?.result as { question?: string } | undefined;
-        const text =
-          m.content.text?.trim() ||
-          askResult?.question ||
-          "(tool turn)";
+        const text = m.content.text?.trim() || askResult?.question;
+        // Tool-only turns (e.g. a silent spec update) carry no user-visible
+        // text — drop them from the hydrated transcript instead of
+        // rendering a placeholder bubble.
+        if (!text) return null;
         return {
           id: m.id,
           role: "assistant",

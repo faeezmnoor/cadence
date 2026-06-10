@@ -48,11 +48,11 @@ export function parseTuneCommand(text: string): string | null {
 
 const USAGE_HINT =
   "Try `/tune more on TikTok Shop EU` or `/tune less crypto`. " +
-  "Anything you type after `/tune` becomes a standing instruction " +
-  "I'll bias your next briefs toward.";
+  "Anything you type after `/tune` becomes a standing note " +
+  "I'll follow in every brief from now on.";
 
 const ACK_REPLY = (snippet: string) =>
-  `Got it — I'll bias your next briefs toward that. (Logged for the weekly distill.)\n\n` +
+  `Got it — your next briefs will lean that way.\n\n` +
   `Heard: "${snippet}"`;
 
 // Matches the established unlinked-user pattern from dispatch.ts MSG_START_NO_TOKEN.

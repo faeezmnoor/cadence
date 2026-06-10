@@ -20,7 +20,7 @@
  */
 
 /** Generic snake_case → Title Case fallback. */
-function prettify(raw: string): string {
+export function prettify(raw: string): string {
   if (!raw) return raw;
   return raw
     .replace(/[_-]+/g, " ")
@@ -138,12 +138,27 @@ export function formatUserState(raw: string): string {
 /**
  * Tier label — uses the marketing wording, NOT the raw enum. The "Pro pack"
  * vs "Pro tier" overload is a known naming hazard; this returns the user-
- * facing "Deep research" / "Standard" framing per the UX audit.
+ * facing "Standard research" / "Advanced research" framing (locked
+ * vocabulary — never "Pro"/"Default"/"deep research" as depth names).
  */
 const TIERS: Record<string, string> = {
-  default: "Standard",
-  pro: "Deep research",
+  default: "Standard research",
+  pro: "Advanced research",
 };
 export function formatTier(raw: string): string {
   return TIERS[raw] ?? prettify(raw);
+}
+
+/**
+ * digest_specs.created_via — how a spec version came to exist.
+ * Values written today: chat_agent (config-agent confirm_and_save),
+ * manual_edit (web /spec editor + briefs router), smoke_seed (dev seed).
+ */
+const CREATED_VIA: Record<string, string> = {
+  chat_agent: "Set up in chat",
+  manual_edit: "Edited on web",
+  smoke_seed: "Test seed",
+};
+export function formatCreatedVia(raw: string): string {
+  return CREATED_VIA[raw] ?? prettify(raw);
 }

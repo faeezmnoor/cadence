@@ -33,13 +33,13 @@ function blurbFor(packId: Pack["packId"], credits: number): string {
   // counts come from the canonical PACKS constant.
   switch (packId) {
     case "taste":
-      return `Try ${credits} briefs before you commit to a real cadence.`;
+      return `${credits} briefs — about a month of weekday mornings.`;
     case "standard":
-      return `About two months of daily briefs.`;
+      return `${credits} briefs — just over two months, daily.`;
     case "power":
-      return `Heavy daily use for the better part of a year.`;
+      return `${credits} briefs — half a year daily, or a few briefs at once.`;
     case "pro":
-      return `Multi-channel cover for a busy desk. ${credits} briefs.`;
+      return `${credits.toLocaleString("en-US")} briefs — for several briefs a day, or a small team.`;
   }
 }
 
@@ -48,16 +48,16 @@ export default function PricingPage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-12 text-center">
         <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl">
-          {formatUsd(PACKS[0]!.priceMinorUsd)} to taste.{" "}
-          {formatUsd(PACKS[PACKS.length - 1]!.priceMinorUsd)} if you love it.
+          {formatUsd(PACKS[0]!.priceMinorUsd)} to start. Pay only for briefs
+          you get.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
-          No subscription. Pre-pay for briefs, use them at your own pace.{" "}
-          {TRIAL_CREDITS} free briefs on signup so you can see the quality
-          before you spend a ringgit.
+          No subscription. Buy credits, spend 1 per brief, at your own pace.{" "}
+          {TRIAL_CREDITS} free briefs when you sign up — see the quality
+          before you pay anything.
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          Prices in USD. MYR rolling out for Malaysian customers shortly.
+          Prices in USD. MYR pricing for Malaysian customers is coming.
         </p>
       </div>
 
@@ -99,21 +99,21 @@ export default function PricingPage() {
         <div>
           <p className="text-sm font-medium">{TRIAL_CREDITS} free briefs to start</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Granted on signup. No card required. If you don&apos;t like the briefs, you
-            walk.
+            Yours at sign-up, no card. If they&apos;re not useful, you&apos;ve spent
+            nothing.
           </p>
         </div>
         <div>
           <p className="text-sm font-medium">Credits never expire</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Skip a week, skip a month. Your credits wait. One brief = one credit.
+            Skip a week or a month — your credits keep. 1 credit = 1 brief.
           </p>
         </div>
         <div>
-          <p className="text-sm font-medium">Cancel by stopping</p>
+          <p className="text-sm font-medium">Nothing to cancel</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            No subscription means nothing to cancel. Use what you bought, stop when
-            you&apos;re done.
+            There&apos;s no subscription. Use what you bought, stop whenever you
+            like.
           </p>
         </div>
       </div>
@@ -123,10 +123,10 @@ export default function PricingPage() {
           is a per-brief configuration toggle, not a plan tier. */}
       <section className="mt-14 rounded-xl border border-border bg-card/40 p-6">
         <h2 className="text-balance text-xl font-semibold tracking-tight">
-          Pick a research depth per brief. Same shape, different intensity.
+          Choose a research depth for each brief.
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every brief defaults to standard research. Switch to advanced research on the briefs that deserve deeper analysis — you only spend the extra credits where you point them.
+          Every brief uses standard research unless you say otherwise. Switch on advanced research where it&apos;s worth more — it digs deeper and uses 3 credits instead of 1.
         </p>
         <div className="mt-6">
           <TierExplainer />
@@ -138,9 +138,8 @@ export default function PricingPage() {
           href="/auth/sign-in"
           className="inline-flex h-11 items-center justify-center rounded-md bg-foreground px-6 text-sm font-medium text-background transition hover:bg-brand hover:text-brand-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          Claim your {TRIAL_CREDITS} free briefs
+          Start free — {TRIAL_CREDITS} briefs, no card
         </Link>
-        <p className="mt-2 text-xs text-muted-foreground">No card to start.</p>
       </div>
     </div>
   );

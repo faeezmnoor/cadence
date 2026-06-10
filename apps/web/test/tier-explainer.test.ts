@@ -6,7 +6,7 @@
  * three things:
  *
  *   1. The canonical copy ("1 credit per brief", "3 credits per brief",
- *      "Perplexity Sonar Reasoning Pro", "Claude Sonnet 4.6", footer
+ *      the "reads more sources … tighter analysis" value framing, footer
  *      marker note) actually appears in the shared component — so a
  *      drive-by edit can't quietly delete a positioning beat.
  *   2. All three consumers actually import and render the component, so
@@ -41,13 +41,13 @@ describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
     expect(explainerSource).toMatch(/Smart enough for most briefs/);
   });
 
-  it("names advanced research price + value prop + provider stack", () => {
+  it("names advanced research price + value prop", () => {
     expect(explainerSource).toMatch(/🔬 Advanced research/);
     expect(explainerSource).toMatch(/3 credits/);
-    // The two provider names are the positioning hook — advanced research isn't
-    // "more expensive standard", it's a fundamentally different research stack.
-    expect(explainerSource).toMatch(/Perplexity Sonar Reasoning Pro/);
-    expect(explainerSource).toMatch(/Claude Sonnet 4\.6/);
+    // Plain-English value framing is the positioning hook — no vendor names
+    // in user-facing copy.
+    expect(explainerSource).toMatch(/reads more sources/);
+    expect(explainerSource).toMatch(/tighter\s+analysis/);
   });
 
   it("calls out the advanced footer marker so users can self-verify which research mode they got", () => {

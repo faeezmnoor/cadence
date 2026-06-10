@@ -1,4 +1,4 @@
-import { Send, MessageCircle, Mail, Hash } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { TrustStrip } from "@/components/marketing/trust-strip";
@@ -25,7 +25,7 @@ export default function HomePage() {
           </span>
 
           <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
-            Wake up knowing what changed.
+            Wake up knowing what changed — and what didn&apos;t.
           </h1>
 
           <p className="mt-5 text-pretty text-base text-muted-foreground sm:text-lg">
@@ -44,7 +44,7 @@ export default function HomePage() {
               Start your first brief
             </a>
             <p className="text-xs text-muted-foreground">
-              3 free briefs. No card needed.
+              Start free — 3 briefs, no card.
             </p>
           </div>
 
@@ -56,12 +56,10 @@ export default function HomePage() {
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span className="text-[11px] font-medium">Live</span>
             </span>
-            <span className="flex items-center gap-3 opacity-35" aria-label="WhatsApp, email and Slack coming soon">
+            <span className="flex items-center gap-3 opacity-35" aria-label="WhatsApp coming next">
               <MessageCircle className="h-4 w-4" aria-hidden />
-              <Mail className="h-4 w-4" aria-hidden />
-              <Hash className="h-4 w-4" aria-hidden />
             </span>
-            <span className="text-[11px] text-muted-foreground/70">Soon</span>
+            <span className="text-[11px] text-muted-foreground/70">Next</span>
           </div>
         </div>
 
@@ -105,13 +103,10 @@ export default function HomePage() {
             href="/auth/sign-in"
             className="inline-flex h-11 items-center justify-center rounded-md bg-foreground px-6 text-sm font-medium text-background transition hover:bg-brand hover:text-brand-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            Try it on your business
+            Start your first brief
           </a>
           <p className="text-xs text-muted-foreground">
-            3 free briefs. No card needed.
-          </p>
-          <p className="text-xs text-muted-foreground/80">
-            No subscription. Buy credits, use them when you want.
+            Start free — 3 briefs, no card. Credits never expire.
           </p>
         </div>
       </section>

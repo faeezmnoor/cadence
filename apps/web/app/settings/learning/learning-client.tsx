@@ -1,6 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc/client";
+import { prettify } from "@/lib/labels";
 
 function formatDate(d: string | Date) {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -17,7 +18,7 @@ function sourceLabel(s: string) {
   if (s === "tune_command") return "/tune";
   if (s === "feedback_event") return "Reaction";
   if (s === "distilled") return "Distilled";
-  return s;
+  return prettify(s);
 }
 
 export function LearningClient() {
@@ -53,7 +54,7 @@ export function LearningClient() {
       {!empty && (
         <section>
           <h2 className="mb-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Locked in
+            What I&rsquo;ve learned
           </h2>
           {distilled.isLoading ? (
             <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
@@ -61,8 +62,8 @@ export function LearningClient() {
             </div>
           ) : bullets.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-              Nothing distilled yet. Distill runs weekly &mdash; your raw
-              inputs below get rolled up into stable preferences.
+              Nothing locked in yet. Once a week I go through your reactions
+              and corrections and keep what holds steady.
             </div>
           ) : (
             <ul
@@ -86,7 +87,7 @@ export function LearningClient() {
       {!empty && (
         <section>
           <h2 className="mb-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Recent inputs
+            Your recent corrections
           </h2>
           {tunes.isLoading ? (
             <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">

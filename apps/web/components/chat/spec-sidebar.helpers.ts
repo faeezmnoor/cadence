@@ -84,7 +84,7 @@ export function buildRows(draft: DraftLike): FieldRow[] {
   return [
     { label: "Topic", value: topicStr },
     { label: "Specificity", value: specificity },
-    { label: "Cadence", value: cadenceText },
+    { label: "Schedule", value: cadenceText },
     { label: "Delivery time", value: time },
     { label: "Channel", value: "Telegram" },
     { label: "Language", value: lang ? prettyLanguage(lang) : null },

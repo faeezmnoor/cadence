@@ -47,8 +47,8 @@ export function TierExplainer({
         </p>
         <p>
           <span className="font-medium text-foreground">🔬 Advanced research · 3 credits</span>{" "}
-          — Perplexity Sonar Reasoning Pro + Claude Sonnet 4.6. Deeper research,
-          sharper insights.
+          — it reads more sources, cross-checks them, and writes a tighter
+          analysis.
         </p>
       </div>
     );
@@ -74,10 +74,9 @@ export function TierExplainer({
           🔬 Advanced research · 3 credits per brief
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deeper research, sharper insights. Perplexity Sonar Reasoning Pro
-          performs LLM-driven web research; Claude Sonnet 4.6 composes a
-          tighter narrative with stronger second-order analysis. Best for
-          high-signal topics where a generic summary won&apos;t cut it.
+          It reads more sources, cross-checks them, and writes a tighter
+          analysis. Best for high-signal topics where a generic summary
+          won&apos;t cut it.
         </p>
       </div>
 

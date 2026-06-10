@@ -52,7 +52,7 @@ describe("Stream E #10 — renderReceiptEmail (per pack)", () => {
       txId: "txn_test",
     });
     expect(out.text).toContain("70");
-    expect(out.text).toContain("Standard");
+    expect(out.text).toContain("Everyday");
     expect(out.text).toContain("txn_test");
   });
 

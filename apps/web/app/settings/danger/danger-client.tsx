@@ -56,19 +56,19 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
         This will immediately:
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground/80">
-        <li>Disassociate <span className="font-mono text-xs">{userEmail}</span> from your Cadence account.</li>
+        <li>Remove <span className="font-mono text-xs">{userEmail}</span> from Cadence.</li>
         <li>Pause and remove your active brief spec and chat history.</li>
         <li>Remove your linked Telegram chat and stop all future briefs.</li>
         <li>Sign you out of every device and revoke your auth session.</li>
         <li>
-          Cascade-delete chat threads, feedback, learning log, and digest run
-          records tied to your user ID.
+          Permanently delete your chat history, your feedback, and everything
+          Cadence has learned about you.
         </li>
       </ul>
       <p className="mt-3 text-xs text-muted-foreground">
         Financial records (credit purchases, refunds) are retained per Malaysian
-        tax law but contain no profile data. There is no 24-hour grace window —
-        delete means delete.
+        tax law but contain no profile data. Deletion is immediate and
+        permanent. There is no undo.
       </p>
 
       <div className="mt-6 space-y-4">

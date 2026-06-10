@@ -40,3 +40,4 @@ venv/
 coverage/
 .cache/
 .turbo/
+.claude/

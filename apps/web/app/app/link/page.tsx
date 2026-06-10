@@ -40,8 +40,8 @@ export default async function LinkPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Your brief is set up. Connect Telegram and we&rsquo;ll send your
-            first sample in seconds — then your real brief lands tomorrow at
-            07:00 MYT.
+            first sample in seconds — then your real brief arrives tomorrow
+            morning.
           </p>
         </header>
         <LinkTelegramClient userId={user.id} isAdmin={isAdmin} />
