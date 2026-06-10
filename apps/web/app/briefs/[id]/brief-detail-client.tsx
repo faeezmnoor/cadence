@@ -15,12 +15,20 @@
  * /spec page: for each spec id we fetch up to a handful of delivered
  * briefs and render them as shortId chips that open the public permalink.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 import { formatBriefStatus, formatTier } from "@/lib/labels";
 import { TierExplainer } from "@/components/billing/tier-explainer";
+import {
+  STACK_COSTS,
+  STACK_DESCRIPTIONS,
+  monthlyCreditEstimate,
+  nextDeliveryCost,
+  stackLabel,
+  type ResearchStack,
+} from "@/lib/research-stack";
 
 export type BriefRow = {
   id: string;
@@ -277,67 +285,19 @@ function AdvancedTab({
 
   return (
     <div className="space-y-6">
-      {/* CAD-88 (ported from /spec, CAD-202 copy refresh): research-depth
-          toggle gated on the alpha flag. Research depth is a delivery-stack
-          preference, not spec content, so it doesn't bump version — see
-          briefs.setTier. The internal tier="default"|"pro" enum stays;
-          only the user-facing wording changed. */}
+      {/* CAD-203 — Configurable Stack Settings: research-depth toggle +
+          live credit cost preview + transparency table. Reuses the
+          briefs.setTier mutation (no schema change). The internal
+          tier="default"|"pro" enum stays; user-facing wording is
+          "Standard research" / "Advanced research" per CAD-202 and
+          project_cadence_no_tier_plans. NO plan-tier nouns. NO "upgrade".
+          Credit cost is the primary axis. */}
       {proTierAlphaEnabled && brief && (
-        <section
-          aria-label="Research depth"
-          className="rounded-xl border border-border bg-card p-4 text-card-foreground"
-        >
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Research depth
-            <details className="group relative inline-block normal-case [&_summary::-webkit-details-marker]:hidden">
-              <summary
-                aria-label="What's the difference between standard and advanced research?"
-                className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-border text-[10px] font-normal text-muted-foreground hover:border-foreground hover:text-foreground"
-              >
-                ?
-              </summary>
-              <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-border bg-card p-3 text-card-foreground shadow-md">
-                <TierExplainer variant="compact" />
-              </div>
-            </details>
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Standard: fast web search, lean writer. Advanced research:
-            deep-research grounding with the sharper writer. Slower, sharper,
-            3 credits per brief.
-          </p>
-          <div className="mt-3 inline-flex rounded-md border border-border">
-            <button
-              type="button"
-              onClick={() => setTier.mutate({ id: brief.id, tier: "default" })}
-              disabled={setTier.isPending || tier === "default"}
-              className={`px-3 py-1.5 text-sm ${
-                tier === "default"
-                  ? "bg-foreground text-background"
-                  : "bg-transparent text-foreground"
-              }`}
-              aria-pressed={tier === "default"}
-            >
-              Standard · 1 credit
-            </button>
-            <button
-              type="button"
-              onClick={() => setTier.mutate({ id: brief.id, tier: "pro" })}
-              disabled={setTier.isPending || tier === "pro"}
-              className={`px-3 py-1.5 text-sm ${
-                tier === "pro"
-                  ? "bg-foreground text-background"
-                  : "bg-transparent text-foreground"
-              }`}
-              aria-pressed={tier === "pro"}
-            >
-              🔬 Advanced · 3 credits
-            </button>
-          </div>
-          {setTier.isSuccess && (
-            <span className="ml-3 text-xs text-muted-foreground">Saved.</span>
-          )}
-        </section>
+        <ConfigurableStackSettings
+          brief={brief}
+          tier={tier}
+          setTier={setTier}
+        />
       )}
 
       <section>
@@ -527,6 +487,217 @@ function VersionsSection({
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * CAD-203 — Configurable Stack Settings card.
+ *
+ * Renders inside the Advanced tab. Surfaces:
+ *   1. Current-stack badge ("Standard research · 1 credit/brief")
+ *   2. Toggle between standard / advanced research (writes digest_specs.tier)
+ *   3. Live preview: next delivery credit cost + monthly run-rate estimate
+ *      based on the brief's scheduling rule (briefsPerDay × 30 × cost)
+ *   4. Transparency table — search provider, composer model, depth,
+ *      citation density, latency — sourced from lib/research-stack.ts
+ *
+ * Saved-state is the existing setTier mutation (idempotent, no version bump).
+ */
+function ConfigurableStackSettings({
+  brief,
+  tier,
+  setTier,
+}: {
+  brief: BriefRow;
+  tier: ResearchStack;
+  setTier: ReturnType<typeof trpc.briefs.setTier.useMutation>;
+}) {
+  const [draftStack, setDraftStack] = useState<ResearchStack>(tier);
+
+  // Keep local draft in sync if the server-truth tier flips (mutation success,
+  // another tab, refetch). We intentionally clobber pending draft only when
+  // the server-truth changes — not on every render.
+  useEffect(() => {
+    setDraftStack(tier);
+  }, [tier]);
+
+  const nextCost = nextDeliveryCost(draftStack);
+  const monthlyEstStandard = monthlyCreditEstimate(brief.scheduling, "default");
+  const monthlyEstAdvanced = monthlyCreditEstimate(brief.scheduling, "pro");
+  const monthlyEstDraft =
+    draftStack === "pro" ? monthlyEstAdvanced : monthlyEstStandard;
+  const dirty = draftStack !== tier;
+
+  const currentLabel = stackLabel(tier);
+  const currentCost = STACK_COSTS[tier];
+
+  return (
+    <section
+      aria-label="Research depth"
+      className="rounded-xl border border-border bg-card p-4 text-card-foreground"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Research depth
+          </h2>
+          <p
+            className="mt-1 text-sm font-semibold text-foreground"
+            data-testid="current-stack-badge"
+          >
+            {tier === "pro" ? "🔬 " : ""}
+            {currentLabel} · {currentCost} credit{currentCost === 1 ? "" : "s"}{" "}
+            per brief
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-2 text-sm text-muted-foreground">
+        Switch research depth per brief. Credits are the only billing — you
+        spend more credits when you point this brief at deeper research, and
+        nothing else changes about how you&apos;re billed.
+      </p>
+
+      {/* Toggle */}
+      <div
+        className="mt-4 inline-flex rounded-md border border-border"
+        role="radiogroup"
+        aria-label="Choose research depth"
+      >
+        <button
+          type="button"
+          role="radio"
+          aria-checked={draftStack === "default"}
+          onClick={() => setDraftStack("default")}
+          disabled={setTier.isPending}
+          className={`px-3 py-1.5 text-sm transition ${
+            draftStack === "default"
+              ? "bg-foreground text-background"
+              : "bg-transparent text-foreground hover:bg-muted"
+          }`}
+        >
+          Standard · 1 credit
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={draftStack === "pro"}
+          onClick={() => setDraftStack("pro")}
+          disabled={setTier.isPending}
+          className={`px-3 py-1.5 text-sm transition ${
+            draftStack === "pro"
+              ? "bg-foreground text-background"
+              : "bg-transparent text-foreground hover:bg-muted"
+          }`}
+        >
+          🔬 Advanced · 3 credits
+        </button>
+      </div>
+
+      {/* Live cost preview */}
+      <div
+        className="mt-4 rounded-md border border-border bg-background p-3 text-sm"
+        data-testid="stack-cost-preview"
+      >
+        <p className="text-foreground">
+          Next delivery will cost{" "}
+          <span className="font-semibold">
+            {nextCost} credit{nextCost === 1 ? "" : "s"}
+          </span>{" "}
+          at {stackLabel(draftStack).toLowerCase()}.
+        </p>
+        {monthlyEstDraft > 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Run-rate at this depth: ~{monthlyEstDraft} credit
+            {monthlyEstDraft === 1 ? "" : "s"} per month for this brief
+            {monthlyEstStandard > 0 && monthlyEstAdvanced > 0 ? (
+              <>
+                {" "}
+                (~{monthlyEstStandard} at standard, ~{monthlyEstAdvanced} at
+                advanced).
+              </>
+            ) : (
+              "."
+            )}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Run-rate preview unavailable — set this brief&apos;s schedule
+            first.
+          </p>
+        )}
+      </div>
+
+      {/* Save / status */}
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setTier.mutate({ id: brief.id, tier: draftStack })}
+          disabled={!dirty || setTier.isPending}
+          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50"
+          data-testid="save-stack-button"
+        >
+          {setTier.isPending
+            ? "Saving…"
+            : dirty
+              ? "Switch research depth"
+              : "Saved"}
+        </button>
+        {setTier.isSuccess && !dirty && (
+          <span className="text-xs text-muted-foreground">Saved.</span>
+        )}
+        {setTier.isError && (
+          <span className="text-xs text-destructive">
+            Couldn&apos;t save — try again.
+          </span>
+        )}
+      </div>
+
+      {/* Transparency table — what you actually get */}
+      <details className="mt-4 rounded-md border border-border bg-background p-3 [&_summary::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          What changes between standard and advanced
+        </summary>
+        <div className="mt-3">
+          <TierExplainer variant="compact" />
+        </div>
+        <table
+          className="mt-3 w-full text-left text-xs"
+          data-testid="stack-transparency-table"
+        >
+          <thead>
+            <tr className="text-muted-foreground">
+              <th className="pb-2 pr-2 font-medium"></th>
+              <th className="pb-2 pr-2 font-medium">Standard</th>
+              <th className="pb-2 font-medium">🔬 Advanced</th>
+            </tr>
+          </thead>
+          <tbody>
+            {STACK_DESCRIPTIONS.map((row) => (
+              <tr
+                key={row.label}
+                className="align-top border-t border-border/60"
+              >
+                <th
+                  scope="row"
+                  className="py-2 pr-2 font-medium text-foreground"
+                >
+                  {row.label}
+                </th>
+                <td className="py-2 pr-2 text-muted-foreground">
+                  {row.default}
+                </td>
+                <td className="py-2 text-muted-foreground">{row.pro}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Advanced briefs include a 🔬 footer marker on delivery so you always
+          know which research depth produced the brief.
+        </p>
+      </details>
     </section>
   );
 }
