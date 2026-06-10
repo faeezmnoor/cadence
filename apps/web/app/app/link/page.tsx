@@ -46,7 +46,7 @@ export default async function LinkPage() {
         </header>
         <LinkTelegramClient userId={user.id} isAdmin={isAdmin} />
         <p className="text-xs text-muted-foreground">
-          Want to tweak it first? <Link href={"/spec" as never} className="underline underline-offset-2 hover:text-foreground">View your brief setup</Link> · <Link href={"/chat" as never} className="underline underline-offset-2 hover:text-foreground">Continue the chat</Link>
+          Want to tweak it first? <Link href={"/chat" as never} className="underline underline-offset-2 hover:text-foreground">Continue the chat</Link>
         </p>
       </main>
     </div>

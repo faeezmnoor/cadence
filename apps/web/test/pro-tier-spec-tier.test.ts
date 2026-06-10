@@ -78,23 +78,22 @@ describe("CAD-88 — digest/run.ts wiring", () => {
   });
 });
 
-describe("CAD-88 — /spec page UI gating", () => {
-  const page = read("app/spec/page.tsx");
-  const client = read("app/spec/spec-client.tsx");
+describe("CAD-88 — /briefs/[id] page UI gating (ported from /spec, Wave 6 Bug 13)", () => {
+  const page = read("app/briefs/[id]/page.tsx");
+  const client = read("app/briefs/[id]/brief-detail-client.tsx");
 
   it("page passes proTierAlphaEnabled prop from server check", () => {
     expect(page).toMatch(/isProTierAlphaEnabled/);
     expect(page).toMatch(/proTierAlphaEnabled=\{isProTierAlphaEnabled\(\)\}/);
   });
 
-  it("spec-client only renders toggle when proTierAlphaEnabled is true", () => {
-    expect(client).toMatch(/proTierAlphaEnabled && current/);
+  it("brief-detail-client only renders toggle when proTierAlphaEnabled is true", () => {
+    expect(client).toMatch(/proTierAlphaEnabled && brief/);
     expect(client).toMatch(/Research tier/);
     expect(client).toMatch(/🔬 Pro · 3 credits/);
   });
 
-  it("setTier mutation wired and invalidates getCurrent on success", () => {
-    expect(client).toMatch(/setTier\s*=\s*trpc\.digestSpec\.setTier\.useMutation/);
-    expect(client).toMatch(/digestSpec\.getCurrent\.invalidate\(\)/);
+  it("setTier mutation wired through briefs router (per-brief tier)", () => {
+    expect(client).toMatch(/setTier\s*=\s*trpc\.briefs\.setTier\.useMutation/);
   });
 });

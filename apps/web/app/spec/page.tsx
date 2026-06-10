@@ -1,52 +1,19 @@
+/**
+ * /spec — legacy route. Permanent redirect to /briefs (the multi-brief list).
+ *
+ * Wave 6 / Bug 13: the version-history + raw-JSON editor moved into the
+ * per-brief detail page at /briefs/[id] under the Advanced tab. /spec no
+ * longer serves UI; we keep a 307 redirect so old bookmarks and /admin/runs
+ * historical links don't 404.
+ *
+ * NOTE: the spec-client + spec-client tests have been intentionally removed.
+ * If you find anything pointing at /spec from new code, link /briefs (or
+ * /briefs/[id]) instead.
+ */
 import { redirect } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
-import { createSupabaseServerClient } from "@/server/supabase/server";
-import { db } from "@/server/db/client";
-import { digestSpecs } from "@/server/db/schema";
-import { SpecClient } from "./spec-client";
-import { AppNav } from "@/components/nav/app-nav";
-import { isProTierAlphaEnabled } from "@/server/ai/providers";
 
 export const dynamic = "force-dynamic";
 
 export default async function SpecPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/sign-in");
-
-  const currentRows = await db
-    .select()
-    .from(digestSpecs)
-    .where(and(eq(digestSpecs.userId, user.id), eq(digestSpecs.isCurrent, true)))
-    .limit(1);
-  const current = currentRows[0] ?? null;
-
-  const versions = await db
-    .select({
-      id: digestSpecs.id,
-      version: digestSpecs.version,
-      isCurrent: digestSpecs.isCurrent,
-      createdVia: digestSpecs.createdVia,
-      createdAt: digestSpecs.createdAt,
-    })
-    .from(digestSpecs)
-    .where(eq(digestSpecs.userId, user.id))
-    .orderBy(desc(digestSpecs.version));
-
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Multi-brief Phase A UI: /spec is no longer in the global nav.
-          It still resolves (legacy power-user JSON editor) but the active
-          tab now highlights "Briefs" so users don't see a dead "Spec"
-          tab when they land here from an old link. */}
-      <AppNav active="briefs" />
-      <SpecClient
-        initialCurrent={current}
-        initialVersions={versions}
-        proTierAlphaEnabled={isProTierAlphaEnabled()}
-      />
-    </div>
-  );
+  redirect("/briefs" as never);
 }

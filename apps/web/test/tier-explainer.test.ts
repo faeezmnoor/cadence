@@ -28,7 +28,9 @@ function read(rel: string): string {
 
 const explainerSource = read("../components/billing/tier-explainer.tsx");
 const billingClientSource = read("../app/settings/billing/billing-client.tsx");
-const specClientSource = read("../app/spec/spec-client.tsx");
+// Wave 6 Bug 13: TierExplainer's per-spec mount moved from the legacy
+// /spec page into the new /briefs/[id] Advanced tab.
+const briefDetailClientSource = read("../app/briefs/[id]/brief-detail-client.tsx");
 const pricingSource = read("../app/(marketing)/pricing/page.tsx");
 
 describe("TierExplainer canonical copy (CAD-95 + CAD-96)", () => {
@@ -65,11 +67,11 @@ describe("TierExplainer is wired into all three surfaces", () => {
     expect(billingClientSource).toMatch(/<TierExplainer/);
   });
 
-  it("is imported + rendered on /spec (with compact variant for the tooltip)", () => {
-    expect(specClientSource).toMatch(
+  it("is imported + rendered on /briefs/[id] (with compact variant for the tooltip)", () => {
+    expect(briefDetailClientSource).toMatch(
       /from\s+["']@\/components\/billing\/tier-explainer["']/
     );
-    expect(specClientSource).toMatch(/<TierExplainer\s+variant="compact"/);
+    expect(briefDetailClientSource).toMatch(/<TierExplainer\s+variant="compact"/);
   });
 
   it("is imported + rendered on /pricing", () => {

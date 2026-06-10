@@ -70,9 +70,14 @@ describe("AppNav mount points", () => {
     expect(src).toMatch(/<AppNav active="briefs" \/>/);
   });
 
-  it("is rendered on /spec (legacy editor; tab highlights Briefs)", () => {
-    const src = read("../app/spec/page.tsx");
+  it("is rendered on /briefs/[id] (per-brief detail; tab highlights Briefs)", () => {
+    const src = read("../app/briefs/[id]/page.tsx");
     expect(src).toMatch(/<AppNav active="briefs" \/>/);
+  });
+
+  it("/spec page is a redirect to /briefs (legacy bookmark compat)", () => {
+    const src = read("../app/spec/page.tsx");
+    expect(src).toMatch(/redirect\(["']\/briefs["']/);
   });
 
   it("is rendered on /app/link", () => {
