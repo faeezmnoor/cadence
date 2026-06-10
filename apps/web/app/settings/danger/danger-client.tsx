@@ -62,7 +62,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
         <li>Sign you out of every device and revoke your auth session.</li>
         <li>
           Cascade-delete chat threads, feedback, learning log, and digest run
-          records tied to your user_id.
+          records tied to your user ID.
         </li>
       </ul>
       <p className="mt-3 text-xs text-muted-foreground">

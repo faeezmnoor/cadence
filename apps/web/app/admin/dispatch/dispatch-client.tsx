@@ -29,7 +29,7 @@ export function DispatchClient() {
           <h1 className="text-2xl font-semibold tracking-tight">Cron dispatch trace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Last {windowMin} minutes of cron dispatcher activity, derived from
-            digest_runs grouped by created minute. Updates every 30s.
+            digest-runs rows grouped by created minute. Updates every 30s.
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -141,7 +141,7 @@ export function DispatchClient() {
 
           <p className="text-[11px] text-muted-foreground">
             Note: collisions and scanned-but-not-matched specs aren&apos;t recoverable
-            from digest_runs alone (the unique index swallows them). If you see consecutive
+            from digest-runs rows alone (the unique index swallows them). If you see consecutive
             minutes with zero claimed but active briefs exist, check Inngest function logs.
           </p>
         </>
