@@ -1,16 +1,16 @@
-import { Lock, XCircle, Users, ShieldOff, BookOpen } from "lucide-react";
+import { Lock, MessageSquare, Wallet, BookOpen } from "lucide-react";
 
 const items = [
-  { icon: Lock, label: "Your data stays yours" },
-  { icon: XCircle, label: "Cancel any time" },
-  { icon: Users, label: "Made for SMEs" },
-  { icon: ShieldOff, label: "No spam, ever" },
   { icon: BookOpen, label: "Sources cited in every brief" },
+  { icon: MessageSquare, label: "One message a day, that's all" },
+  { icon: Wallet, label: "No subscription — pay as you go" },
+  { icon: Lock, label: "Your data stays yours" },
 ];
 
 /**
- * Trust strip. Five pill badges, single row on desktop, wraps on mobile.
- * Lives below the sample-brief preview on the landing page.
+ * Trust strip. Four pill badges, single row on desktop, wraps on mobile.
+ * Lives below the sample-brief preview on the landing page. ("Cancel any
+ * time" was cut in copy v3 — it contradicted the no-subscription model.)
  */
 export function TrustStrip() {
   return (
