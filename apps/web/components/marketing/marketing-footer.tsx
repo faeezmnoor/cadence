@@ -4,7 +4,7 @@ import { Wordmark } from "./wordmark";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/server/support/contact";
 
 /**
- * Public marketing footer. Pricing/how-it-works/privacy/terms links + "Built in KL" line.
+ * Public marketing footer. Pricing/how-it-works/privacy/terms links + tagline.
  */
 export function MarketingFooter() {
   return (
@@ -13,16 +13,7 @@ export function MarketingFooter() {
         <div className="flex flex-col gap-2">
           <Wordmark />
           <p className="text-xs text-muted-foreground">
-            Built in Kuala Lumpur by{" "}
-            <a
-              href="https://www.linkedin.com/in/faeezmnoor/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline-offset-2 hover:underline"
-            >
-              Faeez Noor
-            </a>
-            .
+            Your own researcher, every morning.
           </p>
         </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
@@ -40,14 +31,6 @@ export function MarketingFooter() {
           </Link>
           <a href={SUPPORT_MAILTO} className="hover:text-foreground">
             {SUPPORT_EMAIL}
-          </a>
-          <a
-            href="https://www.linkedin.com/in/faeezmnoor/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-foreground"
-          >
-            LinkedIn
           </a>
         </nav>
       </div>
