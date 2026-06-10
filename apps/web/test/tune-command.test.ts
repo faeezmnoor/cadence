@@ -14,7 +14,7 @@
  *      DB writes are mocked at @/server/db/client.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseTuneCommand } from "@/server/telegram/tune-command";
+import { parseTuneCommand } from "@/server/channels/telegram/inbound/tune-command";
 
 // ---------------------------------------------------------------------------
 // Pure parser
@@ -84,10 +84,10 @@ vi.mock("@/server/db/client", () => ({
 // don't need real values, but vitest will resolve them from the source.
 
 // link-token + feedback-callback aren't exercised by /tune but dispatch imports them.
-vi.mock("@/server/telegram/link-token", () => ({
+vi.mock("@/server/channels/telegram/inbound/link-token", () => ({
   resolveAndLinkToken: vi.fn(),
 }));
-vi.mock("@/server/telegram/feedback-callback", () => ({
+vi.mock("@/server/channels/telegram/inbound/feedback-callback", () => ({
   recordFeedbackCallback: vi.fn(),
 }));
 
@@ -97,10 +97,18 @@ const sendMessage = vi.fn<(...args: any[]) => Promise<{ message_id: number }>>(
 const answerCallbackQuery = vi.fn<(...args: any[]) => Promise<boolean>>(
   async () => true
 );
-vi.mock("@/server/telegram/client", () => ({
-  isTelegramConfigured: () => true,
-  getBot: () => ({ api: { sendMessage, answerCallbackQuery } }),
-}));
+// Spread the actual module so safeSendTelegramMessage (used by the channel
+// adapter, CAD-207) stays real; only the bot + config check are swapped.
+vi.mock("@/server/channels/telegram/client", async () => {
+  const actual = await vi.importActual<typeof import("@/server/channels/telegram/client")>(
+    "@/server/channels/telegram/client"
+  );
+  return {
+    ...actual,
+    isTelegramConfigured: () => true,
+    getBot: () => ({ api: { sendMessage, answerCallbackQuery } }),
+  };
+});
 
 beforeEach(() => {
   selectChain.rows = [];
@@ -127,7 +135,7 @@ function tuneUpdate(chatId: number, text: string) {
 describe("dispatchTelegramUpdate(/tune …)", () => {
   it("writes to learning_log + sends ack when user is linked", async () => {
     selectChain.rows = [{ id: "user-uuid-1" }];
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate(tuneUpdate(12345, "/tune more on TikTok"));
 
@@ -148,7 +156,7 @@ describe("dispatchTelegramUpdate(/tune …)", () => {
 
   it("sends usage hint and does NOT write when /tune has no body", async () => {
     selectChain.rows = [{ id: "user-uuid-1" }];
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate(tuneUpdate(12345, "/tune"));
 
@@ -159,7 +167,7 @@ describe("dispatchTelegramUpdate(/tune …)", () => {
 
   it("sends unlinked reply and does NOT write when chat isn't linked", async () => {
     selectChain.rows = []; // no user row → unknown_user
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate(tuneUpdate(99999, "/tune more palm oil"));
 

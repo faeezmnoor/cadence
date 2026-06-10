@@ -1,49 +1,18 @@
 /**
- * Telegram formatter + splitter (T-209, CAD-32).
+ * Channel-agnostic markdown splitter (extracted from the Telegram formatter
+ * in CAD-207 so stub adapters share one implementation).
  *
- * Pure module — no I/O. Given composer markdown, returns N <= 4096-char
- * parts that Telegram's sendMessage accepts. Split boundaries (preference
- * order):
+ * Pure module — no I/O. Given markdown and a per-part character cap,
+ * returns N <= cap-char parts. Split boundaries (preference order):
  *   1. `## ` section headings
  *   2. blank lines (paragraph boundary)
  *   3. single newlines
- *   4. hard cut at HARD_CAP
+ *   4. hard cut at the cap
  *
- * Cadence target cap is 3800 (slightly under Telegram's 4096) so the
- * composer aims for one part. When the composer overruns we split safely.
+ * Never splits mid-link `[..](..)` or inside backtick code spans.
  */
 
-export const TELEGRAM_HARD_CAP = 4096;
-export const CADENCE_PART_CAP = 3800;
-
-export type TelegramParseMode = "MarkdownV2" | "Markdown" | "HTML" | undefined;
-
-export interface FormattedMessage {
-  text: string;
-  parseMode: TelegramParseMode;
-}
-
-/**
- * Format composer output for Telegram. Currently we ship as plain
- * `Markdown` (legacy) because composer output is structured but loose
- * (links + headings + lists) and MarkdownV2 would require escaping
- * every dash/period/parens. Legacy Markdown is forgiving and renders
- * the prose well enough.
- *
- * We append the inline-keyboard later in T-401, not here.
- */
-export function formatComposerOutput(markdown: string): FormattedMessage[] {
-  const parts = splitForTelegram(markdown, CADENCE_PART_CAP);
-  return parts.map((text) => ({ text, parseMode: "Markdown" as const }));
-}
-
-/**
- * Split a long markdown string into <= cap-char chunks, preferring
- * section/paragraph/line boundaries.
- *
- * Exported separately for direct unit testing.
- */
-export function splitForTelegram(input: string, cap = CADENCE_PART_CAP): string[] {
+export function splitMarkdown(input: string, cap: number): string[] {
   const text = input.trimEnd();
   if (text.length === 0) return [];
   if (text.length <= cap) return [text];
@@ -75,8 +44,6 @@ export function splitForTelegram(input: string, cap = CADENCE_PART_CAP): string[
  *   2. Last "\n\n" — paragraph boundary.
  *   3. Last "\n" — line boundary.
  *   4. Hard cut at window length.
- *
- * Never split mid-link `[..](..)` or inside backtick code spans.
  */
 function pickCut(window: string): number {
   // Try section heading boundary (not at index 0 — that would yield empty chunk).

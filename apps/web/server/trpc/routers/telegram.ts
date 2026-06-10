@@ -8,8 +8,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { users } from "@/server/db/schema";
-import { buildStartDeepLink, isTelegramConfigured } from "@/server/telegram/client";
-import { issueLinkToken } from "@/server/telegram/link-token";
+import { buildStartDeepLink, isTelegramConfigured } from "@/server/channels/telegram/client";
+import { issueLinkToken } from "@/server/channels/telegram/inbound/link-token";
 import { protectedProcedure, router } from "../trpc";
 
 export const telegramRouter = router({

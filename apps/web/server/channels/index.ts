@@ -6,14 +6,28 @@
  * passes the contract.
  */
 import { telegramAdapter } from "./telegram";
+import { whatsappAdapter } from "./whatsapp";
+import { emailAdapter } from "./email";
+import { slackAdapter } from "./slack";
 import type { ChannelAdapter, ChannelTarget } from "./types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// `any` is deliberate: the registry erases each adapter's part/receipt types
+// so the invariant suite can iterate them uniformly.
 type AnyAdapter = ChannelAdapter<any, ChannelTarget, any>;
 
-export const registeredAdapters: ReadonlyArray<AnyAdapter> = [telegramAdapter];
+/**
+ * Telegram is live; WhatsApp/Email/Slack are scaffolding (CAD-207):
+ * `format()` is real and invariant-tested, `send()` throws until the
+ * vendor integration lands.
+ */
+export const registeredAdapters: ReadonlyArray<AnyAdapter> = [
+  telegramAdapter,
+  whatsappAdapter,
+  emailAdapter,
+  slackAdapter,
+];
 
-export { telegramAdapter };
+export { telegramAdapter, whatsappAdapter, emailAdapter, slackAdapter };
 export type {
   ChannelAdapter,
   ChannelTarget,

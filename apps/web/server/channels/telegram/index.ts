@@ -1,27 +1,26 @@
 /**
- * Telegram channel adapter (CAD-205).
+ * Telegram channel adapter (CAD-205, collapsed in CAD-207).
  *
- * Thin wrapper over the existing `server/telegram/format.ts` (splitter) and
- * `server/telegram/client.ts` (safe-send + parse-mode fallback). This file
- * exists so business logic can depend on the channel-agnostic
+ * Wraps `./format.ts` (splitter) and `./client.ts` (safe-send + parse-mode
+ * fallback) so business logic can depend on the channel-agnostic
  * `ChannelAdapter` interface instead of importing grammY symbols directly.
  *
- * The legacy `server/telegram/*` modules remain in place and continue to
- * back this adapter — no callsite churn in PR #12. Future PRs (#12b...) will
- * migrate the remaining direct callers to depend on this module only and
- * collapse the legacy directory.
+ * This directory is the ONLY sanctioned home for `bot.api.sendMessage` —
+ * an ESLint `no-restricted-syntax` guard rejects raw sends elsewhere.
+ * Inbound webhook machinery (dispatch, link-token, tune-command,
+ * feedback-callback) lives under `./inbound/`.
  */
 import {
   CADENCE_PART_CAP,
   TELEGRAM_HARD_CAP,
   formatComposerOutput,
   splitForTelegram,
-} from "@/server/telegram/format";
+} from "./format";
 import {
   getBot,
   isTelegramConfigured,
   safeSendTelegramMessage,
-} from "@/server/telegram/client";
+} from "./client";
 import type {
   ChannelAdapter,
   ChannelInvariants,
@@ -67,6 +66,16 @@ function format(brief: ComposedBrief, _opts: FormatOptions = {}): TelegramPart[]
     text: m.text,
     parseMode: m.parseMode === undefined ? undefined : m.parseMode,
   }));
+}
+
+/**
+ * Plain-text formatter for non-brief notifications (inbound command acks,
+ * smoke summaries). Splits at the same cap but attaches no parse mode, so
+ * the text renders exactly as authored — composer markdown goes through
+ * `format()`, everything else through here.
+ */
+export function formatPlainText(text: string): TelegramPart[] {
+  return splitForTelegram(text).map((t) => ({ text: t }));
 }
 
 /**
@@ -122,7 +131,9 @@ export const telegramAdapter: ChannelAdapter<
 };
 
 /**
- * Re-export the legacy split helper so callers depending on the adapter
- * package can avoid reaching into `server/telegram/format.ts` directly.
+ * Re-exports so adapter consumers never reach into the internal modules:
+ * the splitter for tests, and the config check business logic gates on
+ * before attempting a send.
  */
 export { splitForTelegram };
+export { isTelegramConfigured };

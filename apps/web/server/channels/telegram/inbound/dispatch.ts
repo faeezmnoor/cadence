@@ -14,10 +14,10 @@
  *  - `/status`, `/pause`, `/resume`, free-text feedback
  */
 import { resolveAndLinkToken } from "./link-token";
-import { getBot } from "./client";
-import { splitForTelegram } from "./format";
+import { getBot } from "../client";
+import { telegramAdapter, formatPlainText } from "../index";
 import { recordFeedbackCallback } from "./feedback-callback";
-import { parseCallbackData, VOTE_TOAST } from "./keyboard";
+import { parseCallbackData, VOTE_TOAST } from "../keyboard";
 import {
   parseTuneCommand,
   handleTuneCommand,
@@ -186,13 +186,11 @@ async function safeAnswerCallback(callbackId: string, text: string): Promise<voi
 
 async function safeSend(chatId: number, text: string): Promise<void> {
   try {
-    const bot = getBot();
-    // Wave 5 Bug 15: route through the canonical splitter so a long
-    // callback-flow message (e.g. a multi-paragraph onboarding nudge,
-    // future /pro tour copy) can't exceed Telegram's 4096-char cap.
-    const parts = splitForTelegram(text);
-    for (const part of parts) {
-      await bot.api.sendMessage(chatId, part);
+    // Wave 5 Bug 15: formatPlainText routes through the canonical splitter
+    // so a long callback-flow message (e.g. a multi-paragraph onboarding
+    // nudge, future tour copy) can't exceed Telegram's 4096-char cap.
+    for (const part of formatPlainText(text)) {
+      await telegramAdapter.send(part, { channel: "telegram", chatId });
     }
   } catch (err) {
     // Webhook must always 200 even if downstream send fails; log and move on.

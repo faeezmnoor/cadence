@@ -58,9 +58,12 @@ import type {
   ComposerInput,
   ComposerSourcesBundle,
 } from "@/server/ai/composer/types";
-import { formatComposerOutput } from "@/server/telegram/format";
-import { buildFeedbackKeyboard } from "@/server/telegram/keyboard";
-import { isTelegramConfigured, getBot, safeSendTelegramMessage } from "@/server/telegram/client";
+import {
+  telegramAdapter,
+  isTelegramConfigured,
+  type TelegramTarget,
+} from "@/server/channels/telegram";
+import { buildFeedbackKeyboard } from "@/server/channels/telegram/keyboard";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
 import { gatherSources } from "@/server/sources";
@@ -752,8 +755,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       markdown + `\n\n📎 Share this brief: ${getBriefShareUrl(briefShortId)}`;
   }
 
-  // 4. Format for Telegram
-  const parts = formatComposerOutput(markdown);
+  // 4. Format for the delivery channel (CAD-207: via the channel adapter)
+  const parts = telegramAdapter.format({ markdown });
 
   // 5. Deliver or skip
   let telegramMessageId: number | null = null;
@@ -762,7 +765,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   const canSend = !dryRun && isTelegramConfigured() && user.telegramChatId != null;
   if (canSend) {
     try {
-      const bot = getBot();
+      const target: TelegramTarget = {
+        channel: "telegram",
+        chatId: Number(user.telegramChatId),
+      };
       // T-401 (CAD-42): attach inline-keyboard ONLY to the final part, and
       // ONLY when:
       //   - the spec has keyboard_enabled = true (per-spec opt-in), and
@@ -771,27 +777,20 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       // dev-time previews don't need feedback collection.
       const keyboardOn = specRow.keyboardEnabled && digestRunId != null;
       for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
         const isLast = i === parts.length - 1;
         const replyMarkup =
           keyboardOn && isLast ? buildFeedbackKeyboard(digestRunId!) : undefined;
-        // Parse-mode fallback (CAD bug 2026-06-05): if the composer emits
-        // malformed Markdown (unbalanced `*`/`_`/`` ` ``/`[]()`), Telegram
-        // rejects with 400 "can't parse entities". safeSendTelegramMessage
-        // catches that ONE error and retries the same body as plain text so
-        // the user still gets the brief (unformatted) instead of nothing.
-        // Any other error re-throws into the outer catch below.
-        const m = await safeSendTelegramMessage(
-          (cid, txt, other) =>
-            bot.api.sendMessage(cid, txt, other as Parameters<typeof bot.api.sendMessage>[2]),
-          Number(user.telegramChatId),
-          part.text,
-          {
-            parse_mode: part.parseMode,
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          }
+        // adapter.send carries the parse-mode fallback (CAD bug 2026-06-05):
+        // if the composer emits malformed Markdown (unbalanced
+        // `*`/`_`/`` ` ``/`[]()`), Telegram rejects with 400 "can't parse
+        // entities" and the same body is retried as plain text so the user
+        // still gets the brief (unformatted) instead of nothing. Any other
+        // error re-throws into the outer catch below.
+        const receipt = await telegramAdapter.send(
+          replyMarkup ? { ...parts[i], replyMarkup } : parts[i],
+          target
         );
-        if (telegramMessageId == null) telegramMessageId = m.message_id;
+        if (telegramMessageId == null) telegramMessageId = receipt.messageId;
         partsSent++;
       }
       status = "delivered";

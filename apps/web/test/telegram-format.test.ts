@@ -10,7 +10,7 @@ import {
   formatComposerOutput,
   TELEGRAM_HARD_CAP,
   CADENCE_PART_CAP,
-} from "../server/telegram/format";
+} from "../server/channels/telegram/format";
 
 const allUnderHardCap = (parts: string[]) =>
   parts.every((p) => p.length <= TELEGRAM_HARD_CAP);

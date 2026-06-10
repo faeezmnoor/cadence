@@ -14,7 +14,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { dispatchTelegramUpdate } from "@/server/telegram/dispatch";
+import { dispatchTelegramUpdate } from "@/server/channels/telegram/inbound/dispatch";
 
 export const runtime = "nodejs";
 

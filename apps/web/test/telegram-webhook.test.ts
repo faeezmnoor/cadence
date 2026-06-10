@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 
 const recordFeedbackCallback = vi.fn();
-vi.mock("@/server/telegram/feedback-callback", () => ({
+vi.mock("@/server/channels/telegram/inbound/feedback-callback", () => ({
   recordFeedbackCallback: (...args: unknown[]) =>
     recordFeedbackCallback(...(args as [unknown])),
 }));
@@ -28,15 +28,23 @@ const answerCallbackQuery = vi.fn<(...args: any[]) => Promise<boolean>>(async ()
 const sendMessage = vi.fn<(...args: any[]) => Promise<{ message_id: number }>>(async () => ({
   message_id: 1,
 }));
-vi.mock("@/server/telegram/client", () => ({
-  isTelegramConfigured: () => true,
-  getBot: () => ({
-    api: { answerCallbackQuery, sendMessage },
-  }),
-}));
+// Spread the actual module so safeSendTelegramMessage (used by the channel
+// adapter, CAD-207) stays real; only the bot + config check are swapped.
+vi.mock("@/server/channels/telegram/client", async () => {
+  const actual = await vi.importActual<typeof import("@/server/channels/telegram/client")>(
+    "@/server/channels/telegram/client"
+  );
+  return {
+    ...actual,
+    isTelegramConfigured: () => true,
+    getBot: () => ({
+      api: { answerCallbackQuery, sendMessage },
+    }),
+  };
+});
 
 // link-token isn't exercised on the callback path but dispatch imports it.
-vi.mock("@/server/telegram/link-token", () => ({
+vi.mock("@/server/channels/telegram/inbound/link-token", () => ({
   resolveAndLinkToken: vi.fn(),
 }));
 
@@ -140,7 +148,7 @@ describe("POST /api/telegram/webhook — auth", () => {
 describe("dispatchTelegramUpdate(callback_query)", () => {
   it("answers with the duplicate toast when feedback was already recorded", async () => {
     recordFeedbackCallback.mockResolvedValue({ kind: "duplicate" });
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate({
       update_id: 1,
@@ -160,7 +168,7 @@ describe("dispatchTelegramUpdate(callback_query)", () => {
 
   it("answers with a 'too old' toast when run is unknown", async () => {
     recordFeedbackCallback.mockResolvedValue({ kind: "unknown_run" });
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate({
       update_id: 1,
@@ -177,7 +185,7 @@ describe("dispatchTelegramUpdate(callback_query)", () => {
   });
 
   it("answers but does NOT record when callback_data is garbage", async () => {
-    const { dispatchTelegramUpdate } = await import("@/server/telegram/dispatch");
+    const { dispatchTelegramUpdate } = await import("@/server/channels/telegram/inbound/dispatch");
 
     await dispatchTelegramUpdate({
       update_id: 1,
