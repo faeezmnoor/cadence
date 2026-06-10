@@ -6,7 +6,7 @@ import { ImageResponse } from "next/og";
  * 1200x630 — twitter:summary_large_image + og:image both consume this.
  */
 export const runtime = "edge";
-export const alt = "Cadence — a senior market researcher for your industry, delivered daily";
+export const alt = "Cadence — wake up knowing what changed";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -51,10 +51,10 @@ export default async function OGImage() {
             maxWidth: 1000,
           }}
         >
-          Your industry has a researcher now.
+          Wake up knowing what changed.
         </div>
         <div style={{ marginTop: 28, fontSize: 32, color: "#9aa4b2", maxWidth: 900 }}>
-          A daily, sourced market brief — in your language, in the messaging app you already use. For the price of coffee.
+          A short, sourced brief every morning, in the messaging app you already use. It learns from you, week after week.
         </div>
       </div>
     ),
