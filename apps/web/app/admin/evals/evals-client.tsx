@@ -111,14 +111,14 @@ function GateBanner({
         role="status"
         className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900"
       >
-        <div className="font-semibold">Ready to flip Pro tier to GA</div>
+        <div className="font-semibold">Ready to flip advanced research to GA</div>
         <div className="mt-1">
-          Pro is leading Default by{" "}
+          Advanced research is leading standard by{" "}
           <span className="font-medium">
             {gate.metrics.lead?.toFixed(2)}
           </span>{" "}
           composite points with{" "}
-          {gate.metrics.proCount} Pro / {gate.metrics.defaultCount} Default
+          {gate.metrics.proCount} advanced / {gate.metrics.defaultCount} standard
           ratings.
         </div>
       </div>

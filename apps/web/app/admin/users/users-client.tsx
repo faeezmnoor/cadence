@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { formatUserState } from "@/lib/labels";
 
 /**
  * /admin/users client — table view, sortable, "include deleted" toggle.
@@ -52,7 +53,7 @@ function StatePill({ state, deleted }: { state: string; deleted: boolean }) {
   if (state === "delivery_broken") {
     return (
       <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">
-        delivery_broken
+        {formatUserState(state)}
       </span>
     );
   }
