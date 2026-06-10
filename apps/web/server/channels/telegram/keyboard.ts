@@ -44,7 +44,7 @@ export const VOTE_TOAST: Record<FeedbackVote, string> = {
 
 const BUTTON_LABEL: Record<FeedbackVote, string> = {
   up: "👍 More like this",
-  down: "👎 Not for me",
+  down: "👎 Less like this",
   love: "🔥 Loved it",
   skip: "💤 Skip topic",
 };

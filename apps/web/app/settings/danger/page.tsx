@@ -36,7 +36,7 @@ export default async function DangerSettingsPage() {
             Danger zone
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            One-way doors. Read what gets deleted, then decide.
+            This can&apos;t be undone. Read what gets deleted, then decide.
           </p>
         </header>
 

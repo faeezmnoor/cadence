@@ -114,11 +114,11 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 
 One CTA per surface; a genuine second action is a text link, not a button. The CTA button label is **"Start your first brief"** product-wide.
 
-## 9. Pending founder decisions (everything else above is settled)
+## 9. Founder decisions (resolved 2026-06-11)
 
-1. **Pack 1 name:** CMO ruled **Taste** (concrete, universal, pairs with the pricing H1); UX writer ruled **Starter** ("Taste reads as a verb mid-sentence"). Packs 2–4 locked: **Everyday / Power / Max**. Display-name change only — Stripe SKUs and enums untouched.
-2. **Pricing H1 (linked to #1):** keep "$5 to taste. $100 if you love it." (CMO — the personality ceiling of the page) vs "$5 to start. Pay only for briefs you get." (UX — literal money-fear job).
-3. **Real keyboard tweak:** "👎 Not for me" → "👎 Less like this" (UX — mirrors its own toast, reads as correction not rejection). CMO ruled the real keyboard stays; mockup adopts it either way.
+1. **Pack names: Taste / Everyday / Power / Max.** Display names only — Stripe SKUs and enums untouched. Packs use quantity-flavored words; depths use quality words.
+2. **Pricing H1: "$5 to start. Pay only for briefs you get."** (literal money-fear job wins on the pricing page; personality budget spent elsewhere).
+3. **Keyboard: "👎 Less like this."** Mirrors its own toast; reads as a correction, not a rejection. The marketing mockup mirrors the real keyboard exactly.
 
 ## 10. Hero canon (landing)
 

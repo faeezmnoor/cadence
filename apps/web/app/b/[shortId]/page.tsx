@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps) {
   return {
     title: `Brief · ${shortId} · Cadence`,
     description:
-      "A daily research brief tuned by Cadence — a senior market researcher delivered to your favourite messaging app.",
+      "A daily research brief from Cadence — your own market researcher, delivered to the messaging app you already use.",
     openGraph: {
       title: "Daily research brief — Cadence",
       description:
@@ -195,8 +195,8 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
 
         <footer className="mt-12 border-t border-border pt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            A senior market researcher in your inbox &mdash; for the price of
-            coffee.
+            Your own market researcher, every morning &mdash; at a fraction of
+            the cost.
           </p>
           <Link
             href="/"

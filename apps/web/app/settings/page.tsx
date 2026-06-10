@@ -27,7 +27,7 @@ export default async function SettingsPage() {
     {
       href: "/settings/learning",
       title: "Learning",
-      blurb: "What Cadence picked up from your thumbs and tweaks.",
+      blurb: "What Cadence picked up from your reactions and corrections.",
     },
     {
       href: "/settings/billing",
@@ -50,7 +50,7 @@ export default async function SettingsPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your account, your credits, your exit door.{" "}
+            Your account, your credits, and how to leave.{" "}
             <Link
               href={"/chat" as never}
               className="underline-offset-4 hover:underline"

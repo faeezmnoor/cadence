@@ -30,8 +30,9 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-semibold tracking-tight">What we collect</h2>
         <p className="text-muted-foreground">
           Your email, your Google account ID (if you sign in with Google), the Telegram
-          chat ID we send your briefs to, your spec (the description of what you want
-          briefed), your feedback (thumbs and tunes), and the briefs we&apos;ve sent you.
+          chat ID we send your briefs to, your brief setup (the description of what you
+          want briefed), your feedback (reactions and corrections), and the briefs
+          we&apos;ve sent you.
           That&apos;s it. We do not collect anything you did not give us.
         </p>
       </section>

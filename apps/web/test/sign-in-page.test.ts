@@ -47,7 +47,7 @@ describe("/auth/sign-in source contract", () => {
     const googleIdx = pageSrc.indexOf("<GoogleSignInButton");
     // Use the JSX <span> wrapper to skip the docstring mention.
     const dividerIdx = pageSrc.indexOf("<span>or use email</span>");
-    const emailFormIdx = pageSrc.indexOf("Send magic link");
+    const emailFormIdx = pageSrc.indexOf("Email me a link");
 
     expect(googleIdx).toBeGreaterThan(-1);
     expect(dividerIdx).toBeGreaterThan(googleIdx);
@@ -57,7 +57,7 @@ describe("/auth/sign-in source contract", () => {
   it("keeps the magic-link fallback available", () => {
     // We don't want to accidentally drop magic-link entirely while moving
     // Google to primary — fallback for users who don't want Google.
-    expect(pageSrc).toContain("Send magic link");
+    expect(pageSrc).toContain("Email me a link");
     expect(pageSrc).toContain("/api/auth/sign-in");
   });
 });

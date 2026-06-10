@@ -49,9 +49,9 @@ export const PACKS: ReadonlyArray<Pack> = [
 /** Display labels — kept here so FE imports a single module. */
 export const PACK_LABELS: Record<PackId, string> = {
   taste: "Taste",
-  standard: "Standard",
+  standard: "Everyday",
   power: "Power",
-  pro: "Pro",
+  pro: "Max",
 };
 
 /** Trial credit grant count (B-7 locked at 3). */

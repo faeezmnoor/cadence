@@ -17,7 +17,7 @@ describe("spec sidebar: buildRows", () => {
     expect(rows.map((r) => r.label)).toEqual([
       "Topic",
       "Specificity",
-      "Cadence",
+      "Schedule",
       "Delivery time",
       "Channel",
       "Language",
@@ -38,7 +38,7 @@ describe("spec sidebar: buildRows", () => {
       },
       language: "ms",
     });
-    expect(rows.find((r) => r.label === "Cadence")?.value).toBe(
+    expect(rows.find((r) => r.label === "Schedule")?.value).toBe(
       "daily · weekdays"
     );
     expect(rows.find((r) => r.label === "Delivery time")?.value).toBe("07:30");
@@ -54,7 +54,7 @@ describe("spec sidebar: buildRows", () => {
         days_of_week: [1, 2, 3, 4, 5, 6, 7],
       },
     });
-    expect(rows.find((r) => r.label === "Cadence")?.value).toBe(
+    expect(rows.find((r) => r.label === "Schedule")?.value).toBe(
       "daily · every day"
     );
   });

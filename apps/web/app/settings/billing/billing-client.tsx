@@ -68,7 +68,7 @@ export function BillingClient() {
           </span>
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          One credit, one brief landed in your inbox. Credits never expire.
+          1 credit = 1 brief delivered. Credits never expire.
         </p>
       </section>
 
@@ -104,7 +104,7 @@ export function BillingClient() {
               <button
                 type="button"
                 disabled
-                title="Top-ups arrive when Stripe MY clears KYC"
+                title="Card payments are almost ready — email us for credits meanwhile"
                 className="mt-3 inline-flex h-8 w-full cursor-not-allowed items-center justify-center rounded-md border border-border bg-muted px-3 text-xs font-medium text-muted-foreground"
               >
                 Top up — coming soon
@@ -113,11 +113,11 @@ export function BillingClient() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Top-ups land when Stripe MY clears KYC. Until then, email{" "}
+          Card payments aren&apos;t switched on yet. Email{" "}
           <a className="underline-offset-2 hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
             {SUPPORT_EMAIL}
           </a>{" "}
-          to request a manual credit grant.
+          and we&apos;ll add credits to your account.
         </p>
 
         {/* CAD-95 (CAD-202 copy refresh): research-depth explainer
@@ -148,7 +148,8 @@ export function BillingClient() {
             <p className="p-6 text-sm text-muted-foreground">Loading…</p>
           ) : !ledger.data || ledger.data.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
-              Nothing spent yet. First brief lands tomorrow at 07:00 MYT.
+              Nothing spent yet. Your free briefs are ready for when your
+              first brief goes out.
             </p>
           ) : (
             <>

@@ -38,13 +38,19 @@ export default function SignInPage() {
       };
       if (!res.ok || !json.ok) {
         setStatus("error");
-        setErrorMsg(json.error ?? "Couldn't send the link. Try again?");
+        setErrorMsg(
+          json.error ?? "We couldn't send the link. Try again in a moment."
+        );
         return;
       }
       setStatus("sent");
     } catch (err) {
       setStatus("error");
-      setErrorMsg(err instanceof Error ? err.message : "Network error");
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "We couldn't reach the server. Check your connection and try again."
+      );
     }
   }
 
@@ -56,12 +62,12 @@ export default function SignInPage() {
             Cadence
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-            {status === "sent" ? "Check your inbox" : "Sign in"}
+            {status === "sent" ? "Check your email" : "Sign in"}
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
             {status === "sent"
-              ? `Magic link sent to ${email}. Click it to continue.`
-              : "One-time link to your inbox. Skip the password ceremony."}
+              ? `We sent a sign-in link to ${email}. Open it on this device.`
+              : "We'll email you a one-time sign-in link. No password."}
           </p>
         </div>
 
@@ -97,7 +103,7 @@ export default function SignInPage() {
               disabled={status === "sending" || !email}
               className="inline-flex h-11 w-full items-center justify-center rounded-md bg-foreground px-6 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "sending" ? "Sending..." : "Send magic link"}
+              {status === "sending" ? "Sending..." : "Email me a link"}
             </button>
             {status === "error" && errorMsg && (
               <p className="text-center text-sm text-red-500" role="alert">
@@ -109,7 +115,7 @@ export default function SignInPage() {
 
         {status === "sent" && (
           <div className="rounded-md border border-border bg-card p-4 text-center text-sm text-muted-foreground">
-            <p>Didn&apos;t get it? Check spam, or</p>
+            <p>Didn&apos;t get it? Check your spam folder, or</p>
             <button
               onClick={() => {
                 setStatus("idle");

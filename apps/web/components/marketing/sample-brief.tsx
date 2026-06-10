@@ -113,7 +113,7 @@ export function SampleBrief() {
                   </p>
                   <p className="text-[#8fa6b8]">Palm oil &amp; feedstock</p>
                   <p className="italic text-[#8fa6b8]">
-                    Tuned for: KL plantation trader watching CPO + Bursa planters
+                    Tuned for: Johor feed mill buying palm kernel + soymeal
                   </p>
 
                   <p className="pt-1">
@@ -150,8 +150,8 @@ export function SampleBrief() {
 
                   <p className="pt-2 font-medium text-[#f2f6fa]">Why this matters to you</p>
                   <p className="text-[#aebdcb]">
-                    Your CPO short gets a near-term tailwind from the quota lift; soyoil
-                    long in the pair-trade is in the money on 7d.
+                    Both of your main inputs moved the same direction this week — worth
+                    checking supplier quotes before Friday.
                   </p>
 
                   <p className="pt-1 text-[11.5px] italic text-[#8fa6b8]">
@@ -170,14 +170,19 @@ export function SampleBrief() {
               <div className="mt-[3px] space-y-[3px]">
                 <div className="flex gap-[3px]">
                   <div className="flex-1 rounded-[6px] bg-white/10 py-1.5 text-center text-[12px] font-medium text-[#dcebf7]">
-                    <span aria-hidden="true">👍</span> Useful
+                    <span aria-hidden="true">👍</span> More like this
                   </div>
                   <div className="flex-1 rounded-[6px] bg-white/10 py-1.5 text-center text-[12px] font-medium text-[#dcebf7]">
-                    <span aria-hidden="true">👎</span> Off
+                    <span aria-hidden="true">👎</span> Less like this
                   </div>
                 </div>
-                <div className="rounded-[6px] bg-white/10 py-1.5 text-center text-[12px] font-medium text-[#dcebf7]">
-                  <span aria-hidden="true">🎯</span> More like this
+                <div className="flex gap-[3px]">
+                  <div className="flex-1 rounded-[6px] bg-white/10 py-1.5 text-center text-[12px] font-medium text-[#dcebf7]">
+                    <span aria-hidden="true">🔥</span> Loved it
+                  </div>
+                  <div className="flex-1 rounded-[6px] bg-white/10 py-1.5 text-center text-[12px] font-medium text-[#dcebf7]">
+                    <span aria-hidden="true">💤</span> Skip topic
+                  </div>
                 </div>
               </div>
             </div>

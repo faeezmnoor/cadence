@@ -52,7 +52,7 @@ const MSG_LINKED = (firstName?: string) =>
 const MSG_TOKEN_INVALID =
   "That link expired (they only last 15 minutes). " +
   "Head back to Cadence on the web and tap \"Connect Telegram\" again — " +
-  "we'll mint you a fresh one.";
+  "we'll send you a fresh one.";
 
 const MSG_START_NO_TOKEN =
   "Hey 👋 you're in the right place. To finish connecting, head to cadence.news " +
@@ -131,7 +131,7 @@ export async function dispatchTelegramUpdate(
 
   // /status, /pause, /resume — stubs for next phase
   if (/^\/(status|pause|resume)\b/.test(text)) {
-    await safeSend(chatId, "That command is coming in the next round. Hang tight.");
+    await safeSend(chatId, "That command isn't ready yet — soon.");
     return;
   }
 

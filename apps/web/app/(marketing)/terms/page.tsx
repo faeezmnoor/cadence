@@ -26,7 +26,7 @@ export default function TermsPage() {
           Cadence composes and delivers periodical market-research briefs to the
           messaging app you connect, based on the spec you configure. Telegram is
           live today; WhatsApp and other channels are on the roadmap. You can pause,
-          change, or stop briefs at any time from the chat.
+          change, or stop any brief at any time from your Cadence dashboard.
         </p>
       </section>
 

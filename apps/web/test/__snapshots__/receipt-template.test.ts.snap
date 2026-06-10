@@ -91,7 +91,7 @@ exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > html matches sna
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Receipt — Pro pack (1000 credits) — Cadence</title>
+<title>Receipt — Max pack (1000 credits) — Cadence</title>
 </head>
 <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
@@ -110,7 +110,7 @@ exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > html matches sna
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
                 <tr>
                   <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
-                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Pro</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Max</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
@@ -155,7 +155,7 @@ exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > plain text match
 
 Thanks for topping up. Your credits are live and ready to spend on your next brief.
 
-Pack:            Pro
+Pack:            Max
 Credits added:   1000
 Amount charged:  $100 USD (RM 470)
 Date:            02 Jun 2026, 11:00 (MYT)
@@ -170,14 +170,14 @@ A senior market researcher in your inbox — for a fraction of the cost.
 cadence-web-bice.vercel.app"
 `;
 
-exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > subject matches snapshot 1`] = `"Receipt — Pro pack (1000 credits) — Cadence"`;
+exports[`Stream E #10 — renderReceiptEmail (per pack) > pro > subject matches snapshot 1`] = `"Receipt — Max pack (1000 credits) — Cadence"`;
 
 exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > html matches snapshot 1`] = `
 "<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Receipt — Standard pack (70 credits) — Cadence</title>
+<title>Receipt — Everyday pack (70 credits) — Cadence</title>
 </head>
 <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0a0a0a;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;padding:32px 12px;">
@@ -196,7 +196,7 @@ exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > html matche
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;">
                 <tr>
                   <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Pack</td>
-                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Standard</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#0a0a0a;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:500;">Everyday</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">Credits added</td>
@@ -241,7 +241,7 @@ exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > plain text 
 
 Thanks for topping up. Your credits are live and ready to spend on your next brief.
 
-Pack:            Standard
+Pack:            Everyday
 Credits added:   70
 Amount charged:  $10 USD (RM 47)
 Date:            02 Jun 2026, 11:00 (MYT)
@@ -256,7 +256,7 @@ A senior market researcher in your inbox — for a fraction of the cost.
 cadence-web-bice.vercel.app"
 `;
 
-exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > subject matches snapshot 1`] = `"Receipt — Standard pack (70 credits) — Cadence"`;
+exports[`Stream E #10 — renderReceiptEmail (per pack) > standard > subject matches snapshot 1`] = `"Receipt — Everyday pack (70 credits) — Cadence"`;
 
 exports[`Stream E #10 — renderReceiptEmail (per pack) > taste > html matches snapshot 1`] = `
 "<!doctype html>

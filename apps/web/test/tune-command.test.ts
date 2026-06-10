@@ -150,7 +150,7 @@ describe("dispatchTelegramUpdate(/tune …)", () => {
     // Ack reply went out with the warm confirmation + heard echo.
     expect(sendMessage).toHaveBeenCalledTimes(1);
     const [, replyText] = sendMessage.mock.calls[0]!;
-    expect(replyText).toMatch(/bias your next briefs/i);
+    expect(replyText).toMatch(/lean that way/i);
     expect(replyText).toMatch(/more on TikTok/);
   });
 

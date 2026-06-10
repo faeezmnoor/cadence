@@ -2,7 +2,7 @@ import { Lock, MessageSquare, Wallet, BookOpen } from "lucide-react";
 
 const items = [
   { icon: BookOpen, label: "Sources cited in every brief" },
-  { icon: MessageSquare, label: "One message a day, that's all" },
+  { icon: MessageSquare, label: "One brief every morning — quiet days included" },
   { icon: Wallet, label: "No subscription — pay as you go" },
   { icon: Lock, label: "Your data stays yours" },
 ];

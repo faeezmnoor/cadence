@@ -99,8 +99,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
       setSampleStatus({
         kind: "no_credits",
         scheduledNote:
-          "Your trial credits are used. Top-up coming when Stripe lands — your next scheduled brief still arrives at 07:00 MYT.",
-        // intentionally unchanged copy — flips on Stripe go-live
+          "Your 3 free briefs are used up. Email support@cadence.news to add credits — scheduled briefs are paused until then.",
       });
     } else if (res.status === "no_telegram_link") {
       // shouldn't happen at this branch but handle gracefully
@@ -118,7 +117,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
       setSampleStatus({
         kind: "error",
         message: opts.auto
-          ? "Couldn't write your sample right now. Your next scheduled brief still lands at 07:00 MYT."
+          ? "Couldn't write your sample right now. Your next scheduled brief is still on the way."
           : "Couldn't write your sample right now. Try again in a few minutes.",
       });
     } else {
@@ -387,9 +386,15 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
 
           {sampleStatus.kind === "idle" && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Your first brief lands tomorrow at 07:00 MYT. React 👍 / 👎 to
-              anything, or tell us what to change — Cadence learns from every
-              nudge.
+              {onboardingQuery.data?.timeLocal
+                ? `Your first brief arrives tomorrow at ${onboardingQuery.data.timeLocal}${
+                    onboardingQuery.data.timezone
+                      ? ` ${onboardingQuery.data.timezone}`
+                      : ""
+                  }.`
+                : "Your first brief arrives tomorrow morning."}{" "}
+              React 👍 / 👎 to anything, or tell us what to change — Cadence
+              learns from every nudge.
             </p>
           )}
         </div>
@@ -444,7 +449,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
           rel="noopener noreferrer"
           className="inline-flex h-12 w-full items-center justify-center rounded-md bg-foreground px-6 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
         >
-          Open Telegram to connect
+          Connect Telegram
         </a>
       ) : (
         <p className="text-sm text-muted-foreground">
