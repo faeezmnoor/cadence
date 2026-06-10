@@ -10,6 +10,9 @@ violating them produces noise diffs that get rejected at review.
 > The companion handover doc is [`README.md`](./README.md) (directory map,
 > stack, common tasks). System-level architecture lives in
 > [`server/ARCHITECTURE.md`](./server/ARCHITECTURE.md). Start with both.
+> Every user-facing string MUST follow [`COPY_GUIDE.md`](./COPY_GUIDE.md)
+> (voice, vocabulary, banned nouns, honesty rules); pending copy debt is
+> tracked in [`COPY_FIXES_PROPOSED.md`](./COPY_FIXES_PROPOSED.md).
 
 ---
 
