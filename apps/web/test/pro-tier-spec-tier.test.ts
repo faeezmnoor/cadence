@@ -89,8 +89,10 @@ describe("CAD-88 — /briefs/[id] page UI gating (ported from /spec, Wave 6 Bug 
 
   it("brief-detail-client only renders toggle when proTierAlphaEnabled is true", () => {
     expect(client).toMatch(/proTierAlphaEnabled && brief/);
-    expect(client).toMatch(/Research tier/);
-    expect(client).toMatch(/🔬 Pro · 3 credits/);
+    // CAD-202 copy refresh: "Research tier" → "Research depth";
+    // "🔬 Pro · 3 credits" → "🔬 Advanced · 3 credits".
+    expect(client).toMatch(/Research depth/);
+    expect(client).toMatch(/🔬 Advanced · 3 credits/);
   });
 
   it("setTier mutation wired through briefs router (per-brief tier)", () => {

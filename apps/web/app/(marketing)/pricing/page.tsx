@@ -118,15 +118,15 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* CAD-95: tier breakdown. Lives below the pack tiles + trust strip
-          so the pricing ladder leads the page; Pro tier is positioning
-          context, not the headline. */}
+      {/* CAD-202: research-depth breakdown. Lives below the pack tiles +
+          trust strip so the pricing ladder leads the page; research depth
+          is a per-brief configuration toggle, not a plan tier. */}
       <section className="mt-14 rounded-xl border border-border bg-card/40 p-6">
         <h2 className="text-balance text-xl font-semibold tracking-tight">
-          Two tiers. Same brief shape. Different research depth.
+          Pick a research depth per brief. Same shape, different intensity.
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every brief defaults to the Default tier. Switch to Pro on the briefs that deserve deeper research — you only spend Pro credits where you point them.
+          Every brief defaults to standard research. Switch to advanced research on the briefs that deserve deeper analysis — you only spend the extra credits where you point them.
         </p>
         <div className="mt-6">
           <TierExplainer />
