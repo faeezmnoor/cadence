@@ -1,3 +1,20 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "MemberExpression[object.property.name='api'][property.name='sendMessage']",
+        "message": "Raw bot.api.sendMessage is banned outside server/channels/telegram/ — route outbound messages through telegramAdapter.send() (CAD-207). See server/channels/types.ts."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["server/channels/telegram/**"],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }

@@ -8,7 +8,8 @@
 import { telegramAdapter } from "./telegram";
 import type { ChannelAdapter, ChannelTarget } from "./types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// `any` is deliberate: the registry erases each adapter's part/receipt types
+// so the invariant suite can iterate them uniformly.
 type AnyAdapter = ChannelAdapter<any, ChannelTarget, any>;
 
 export const registeredAdapters: ReadonlyArray<AnyAdapter> = [telegramAdapter];
