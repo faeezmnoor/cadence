@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { formatRunStatus } from "@/lib/labels";
 
 /**
  * Evals Phase 0 — per-run viewer client.
@@ -129,7 +130,7 @@ export function RunDetailClient({
         <p className="text-xs text-muted-foreground">
           {run.userEmail} · spec v{run.specVersion}
           {run.specIsSmoke ? " · 🧪 smoke" : ""} · status{" "}
-          <span className="font-mono">{run.status}</span> · admin {adminEmail}
+          <span className="font-mono">{formatRunStatus(run.status)}</span> · admin {adminEmail}
         </p>
       </header>
 

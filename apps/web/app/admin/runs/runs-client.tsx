@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { formatUserState } from "@/lib/labels";
 
 /**
  * /admin/runs — client component for the runs viewer.
@@ -161,7 +162,7 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                     <div className="text-neutral-900">{r.userEmail}</div>
                     {r.userState === "delivery_broken" ? (
                       <div className="text-xs text-red-600">
-                        delivery_broken
+                        {formatUserState(r.userState)}
                       </div>
                     ) : null}
                   </td>
