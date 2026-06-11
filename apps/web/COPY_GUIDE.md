@@ -122,6 +122,6 @@ One CTA per surface; a genuine second action is a text link, not a button. The C
 
 ## 10. Hero canon (landing)
 
-- H1: **"Wake up knowing what changed — and what didn't."** (kills the notify-on-change reading; claims the anti-alert-tool position; strict superset of the approved v3 line)
-- Trust pill 2: **"One brief every morning — quiet days included."**
+- H1: **"Wake up knowing what changed."** (founder ruling 2026-06-11: the "— and what didn't" extension was tried and reverted — too long, not catchy. The notify-on-change ambiguity is handled one layer down by trust pill 2, not in the hero.)
+- Trust pill 2: **"One brief every morning — quiet days included."** (load-bearing: it's what frees the H1 to stay short)
 - When change-only alerting ships as a real mode someday, this H1 family absorbs it without rewriting.

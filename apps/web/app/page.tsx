@@ -25,7 +25,7 @@ export default function HomePage() {
           </span>
 
           <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
-            Wake up knowing what changed — and what didn&apos;t.
+            Wake up knowing what changed.
           </h1>
 
           <p className="mt-5 text-pretty text-base text-muted-foreground sm:text-lg">
