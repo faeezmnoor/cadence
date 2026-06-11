@@ -59,6 +59,14 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 
 **Banned everywhere (all surfaces incl. billing tiles, receipts, bot replies):** Pro tier · Default tier · Pro plan · subscription/plan/membership framing · newsfeed/feed/aggregator/bot-as-identity/alerts/notifications/copilot · real-time/instant/never miss/everything/guaranteed/predict/forecast · revolutionary/game-changing/AI-powered-as-selling-point/supercharge/unlock/10x/seamless/effortless · idioms that don't travel (test: if a 12-year-old non-native reader would pause, rewrite) · inbox · burn/runway · mint · vendor names in user copy (Stripe, KYC, Perplexity/Claude model names — fine-print only).
 
+### 4a. Code vs UI (the "digest" leak guard)
+
+The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_runs`, `lib/digest-spec/`, `runDigestPipeline`). That is **internal vocabulary only** — telemetry-load-bearing, don't rename. In **every user-facing string it is a "brief."** Never surface `digest`/`spec`/`DigestSpec` to a user. (UX audit v3, doc 03.)
+
+### 4b. Open decision — the "brief" overload (decide before multi-brief GA)
+
+"Brief" is correct for the **delivered artifact** and is locked by "1 credit = 1 brief." But it is currently also used for the **standing, pausable configuration** (the `/briefs` cards you create / pause / resume). With the 1-brief cap this collision is invisible; at multi-brief it isn't ("5 briefs" configs vs "73 briefs" credits). **Recommended:** keep "brief" = the delivered artifact; give the standing configuration its own noun — lead candidate **"watch"** (already used in template names: "Competitor watch", "Tax and LHDN watch"). **Founder + UX-writer decision, to be ratified before multi-brief ships** — it amends this §4 and renames the `/briefs` surface; it touches "1 credit = 1 brief" zero times. Until ratified, do not rename. (UX audit v3, doc 03 §3.)
+
 ## 5. Honesty boundaries
 
 | Never say | Say instead |

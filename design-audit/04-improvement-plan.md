@@ -6,6 +6,20 @@
 
 ---
 
+## Implementation status (updated 2026-06-11)
+
+| Wave | Status | PRs |
+|------|--------|-----|
+| **A** — brand & tokens | ✅ **Shipped to prod** | #28 (semantic tokens + brand active-nav), #29 (AA-safe brand + storefront CTAs), #31 (app primary CTAs → brand) |
+| **B** — brief-creation wedge | 🟡 **Mostly shipped** | #32 (plain-language sidebar, styled brief render, Cadence chat presence, inline-confirm reset, turn-0 placeholder). **Deferred: B2** explicit deterministic save button (touches the agent `confirm_and_save` save path — needs env-backed verification). |
+| **A2/A3** — shadcn `Button`/`Badge`/`Card` extraction; type-scale tokenization | ⬜ Not started (follow-up; brand-primary currently applied per-call-site) |
+| **C** — IA + terminology | 🟡 Partial | Glossary + code-vs-UI "digest" guard added to `COPY_GUIDE §4a`; **C1 terminology rename ("brief"→"watch") remains a founder decision, gated before multi-brief GA** (§4b). IA dedup (C2), briefs-as-home (C3), activation checklist (C5) not started. |
+| **D** — detail/history + polish | ⬜ Not started (D1 edition-history page is a net-new feature) |
+
+Notes for whoever continues: white-on-`--brand` is AA at the shipped 45% L. Authed surfaces (chat/briefs/settings) were verified by typecheck + the full vitest suite (no local Supabase env to render them) — confirm visually on the Vercel Preview. A concurrent `scripts/pro-bakeoff` parallel session shares the working tree; isolate with stage-stash-gate before committing.
+
+---
+
 ## Wave A — Brand & design-system foundation (≈1 sprint)
 *Makes the product look like the premium researcher it claims to be, and stops the consistency drift at the source.*
 
