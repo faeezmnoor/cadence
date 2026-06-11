@@ -472,6 +472,24 @@ describe("composeDigest (default Haiku) — module boundary", () => {
     );
     expect(generateText).toHaveBeenCalledTimes(2);
   });
+
+  it("records the failed spend in cost_events before rethrowing (CAD-224 #2)", async () => {
+    const truncated = JSON.stringify(cleanBrief()).slice(0, 80);
+    vi.mocked(generateText).mockResolvedValue(modelResponse(truncated));
+    vi.mocked(recordCost).mockClear();
+
+    await expect(composeDigest(composerInput())).rejects.toThrow(
+      ComposerJsonError
+    );
+
+    // Both attempts billed tokens; exactly ONE cost row for the failed
+    // compose (and none from the unreached success path).
+    expect(recordCost).toHaveBeenCalledTimes(1);
+    const row = vi.mocked(recordCost).mock.calls[0][0];
+    expect(row.provider).toBe("anthropic");
+    expect(row.inputTokens).toBe(200); // 100 × 2 attempts (modelResponse fixture)
+    expect(row.outputTokens).toBe(100); // 50 × 2
+  });
 });
 
 describe("composeDigestPro (Sonnet) — same shared behavior", () => {

@@ -74,6 +74,16 @@ export const WEBSEARCH_COMPOSER_TIMEOUT_MS = 120_000;
  *  retry — see file header). */
 export const MAX_PAUSE_CONTINUATIONS = 2;
 
+/**
+ * CAD-224 #4 (review finding 4): wall-clock budget for one logical
+ * compose. Gates BOTH further pause_turn continuations and the
+ * corrective retry — without the continuation gate, one attempt alone
+ * could run 3 × 120s = 360s and blow the route's 300s Inngest ceiling.
+ * Worst case with the gate: a continuation issued just under the
+ * deadline finishes by ~deadline + 120s ≈ 270s.
+ */
+export const COMPOSE_DEADLINE_MS = 150_000;
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -163,6 +173,7 @@ export async function composeDigestWebSearch(
   const apiKey = deps.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new AnthropicKeyMissingError();
   const fetchFn = deps.fetchImpl ?? fetch;
+  const composeDeadlineAtMs = Date.now() + COMPOSE_DEADLINE_MS;
 
   const systemPrompt = buildWebSearchComposerSystemPrompt(input);
 
@@ -238,7 +249,12 @@ export async function composeDigestWebSearch(
 
         if (
           json.stop_reason === "pause_turn" &&
-          call < MAX_PAUSE_CONTINUATIONS
+          call < MAX_PAUSE_CONTINUATIONS &&
+          // CAD-224 #4: past the compose deadline, stop continuing — the
+          // partial text falls through to the parser; the retry is gated
+          // on the same deadline, so the compose ends here rather than
+          // running the route out of wall-clock.
+          Date.now() < composeDeadlineAtMs
         ) {
           // Documented continuation: pass the paused assistant turn back
           // verbatim and re-POST. Not a retry — same turn, resumed.
@@ -259,11 +275,9 @@ export async function composeDigestWebSearch(
       {
         modelId: PRO_COMPOSER_MODEL_ID,
         digestRunId: input.digestRunId ?? null,
-        // CAD-224 #4: with 120s calls and up to 2 pause continuations per
-        // attempt, a corrective retry starting late can push one compose
-        // far past the route's 300s budget. Skip the retry once 150s of
-        // compose wall-clock is gone.
-        retryDeadlineAtMs: Date.now() + 150_000,
+        // CAD-224 #4: same wall-clock deadline that gates pause_turn
+        // continuations above — once it passes, no corrective retry.
+        retryDeadlineAtMs: composeDeadlineAtMs,
       }
     );
   } catch (err) {

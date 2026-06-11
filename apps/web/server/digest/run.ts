@@ -185,6 +185,9 @@ export function buildSearchQueries(spec: {
   // unless the topic already names it. Company names stay untouched
   // (already specific). Benefits Brave (standard) and Sonar (advanced)
   // alike; A3's inline search reads the full spec and needs no hint.
+  // Scoped to "ms" deliberately: Malay is an unambiguous Malaysian-market
+  // signal. "zh" is plausible but not certain (SG/TW/HK readers); widen
+  // only with founder sign-off (review finding 7 documents the choice).
   const localeHint = spec.language === "ms" ? "Malaysia" : null;
   const withLocale = (topic: string): string =>
     localeHint && !/malaysia/i.test(topic) ? `${topic} ${localeHint}` : topic;
@@ -620,6 +623,14 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       }
     }
     let providers = getProviders(effectiveTier);
+    // CAD-224 review finding 1: stamp tier metadata BEFORE compose so a
+    // compose-stage failure still persists which tier this run was
+    // dispatched and resolved as — the refund fallback reads it. The
+    // richer post-compose assignment below overwrites with composer ids.
+    runMetadata.tier = {
+      requested: requestedTier,
+      resolved: providers.tier,
+    };
 
     // CAD-222 (A1) / platform-audit P0-1: the advanced tier finally RUNS
     // its research. Gated on the RESOLVED tier (post-downgrade) so an
@@ -869,6 +880,9 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           status: "failed",
           error,
           lastError: error,
+          // CAD-224 review finding 1: failed runs must carry their tier
+          // metadata too — the refund fallback prices off it.
+          metadata: runMetadata,
           attemptCount: sql`${digestRuns.attemptCount} + 1`,
           updatedAt: new Date(),
         })
@@ -894,6 +908,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         runDate,
         error,
         lastError: error,
+        metadata: runMetadata,
         attemptCount: 1,
       })
       .returning({ id: digestRuns.id, attemptCount: digestRuns.attemptCount });

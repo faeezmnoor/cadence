@@ -93,13 +93,21 @@ export async function refundForFailedRun(params: {
   // took money, so they have nothing to refund. Treat as no charge.
   const chargeAmount =
     charge && charge.creditsDelta < 0 ? Math.abs(charge.creditsDelta) : 0;
-  // CAD-224 #1 precedence for the no-charge fallback: tier the RUN was
-  // dispatched with (runMetadata.tier.requested) > spec's current tier >
+  // CAD-224 #1 precedence for the no-charge fallback: the tier the run
+  // actually RESOLVED to (post-downgrade — what the charge would have
+  // used) > the tier requested at dispatch > spec's current tier >
   // default. Mirroring a real charge row still wins outright above.
+  // `resolved` over `requested` matters: a pro_websearch spec downgraded
+  // to default for insufficient credits must not refund 5 for a run that
+  // would have charged 1.
+  const tierMeta = (
+    run.runMetadata as { tier?: { requested?: string; resolved?: string } } | null
+  )?.tier;
+  const runTierFromMetadata = (tierMeta?.resolved ?? tierMeta?.requested) as
+    | Tier
+    | undefined;
   const runTier =
-    ((run.runMetadata as { tier?: { requested?: string } } | null)?.tier
-      ?.requested as Tier | undefined) ??
-    ((run.specTier as Tier | null) ?? "default");
+    runTierFromMetadata ?? ((run.specTier as Tier | null) ?? "default");
   const refundAmount =
     chargeAmount > 0 ? chargeAmount : creditCostForTier(runTier);
 
@@ -155,7 +163,12 @@ export async function refundForFailedRun(params: {
             (charge?.metadata as { tier?: string } | undefined)?.tier ??
             (runTier as string | null) ??
             "default",
-          refundSource: chargeAmount > 0 ? "mirror_charge" : "spec_tier",
+          refundSource:
+            chargeAmount > 0
+              ? "mirror_charge"
+              : runTierFromMetadata !== undefined
+                ? "run_metadata_tier"
+                : "spec_tier",
         },
       })
       .returning({ id: transactions.id });

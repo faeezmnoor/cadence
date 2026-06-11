@@ -91,10 +91,12 @@ export async function composeDigestPro(
       {
         modelId: PRO_COMPOSER_MODEL_ID,
         digestRunId: input.digestRunId ?? null,
-        // CAD-224 #4: a 60s-per-call composer must not start a corrective
-        // retry when the compose is already ~90s in — the route's 300s
-        // budget also covers search + delivery.
-        retryDeadlineAtMs: Date.now() + 90_000,
+        // CAD-224 #4 (review finding 3): the deadline is checked right
+        // after attempt 1, whose duration is capped at 60s by the per-call
+        // AbortSignal — so it must sit BELOW that cap to ever fire. 50s:
+        // a slow-but-successful first attempt with a defect skips the
+        // retry (worst compose ~60s); fast attempts keep the retry.
+        retryDeadlineAtMs: Date.now() + 50_000,
       }
     );
   } catch (err) {
