@@ -619,7 +619,14 @@ export function ChatClient({
                 />
               );
             })}
-            {!isStreaming && latestQuickReplies.length > 0 && (
+            {/* Designer audit P2 (2026-06-12): while the confirm panel is
+                showing (draft ready, not yet saved), the quick-reply strip
+                is suppressed — otherwise the propose turn stacks three
+                affordances for one decision (agent question + model chip +
+                confirm button). The panel owns the confirm moment. */}
+            {!isStreaming &&
+              latestQuickReplies.length > 0 &&
+              !(draftIsReady(draft) && savedSpecId == null) && (
               <div
                 className="flex flex-wrap gap-1.5"
                 aria-label="Quick reply suggestions"
@@ -757,6 +764,7 @@ export function ChatClient({
                   content: "Looks good — save this brief.",
                 });
               }}
+              onTweak={() => composerInputRef.current?.focus()}
             />
             {friendlyError && (
               <div
