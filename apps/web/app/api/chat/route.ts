@@ -25,7 +25,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { buildAiSdkTools } from "@/server/ai/config-agent/runtime";
 import { saveSpecForUser } from "@/server/ai/config-agent/save-spec";
 import { loadConfigAgentSystemPrompt } from "@/server/ai/config-agent/system-prompt";
@@ -38,7 +38,10 @@ import {
   type DigestSpecDraft,
 } from "@/lib/digest-spec/schema";
 import { log } from "@/lib/log";
-import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
+import {
+  detectMultiTopicIntake,
+  MULTI_TOPIC_REFUSAL,
+} from "@/lib/chat/multi-topic";
 import { isKnownTemplateId } from "@/lib/digest-spec/templates";
 import { checkRateLimit } from "@/server/rate-limit/check";
 import {
@@ -194,8 +197,31 @@ export async function POST(req: Request) {
   // and let three topics fold into one spec. Mirror the same heuristic
   // here and short-circuit with a persisted assistant refusal turn — no
   // streamText call, no LLM cost.
+  //
+  // Dogfood 2026-06-11: gated to the INTAKE turn via the shared
+  // `detectMultiTopicIntake` wrapper — past the first user message the
+  // agent solicits comma-separated lists by design ("Name 2-5 companies"),
+  // and refusing those answers blocked the happy path. The gate count
+  // comes from persisted rows (authoritative), not the client-supplied
+  // `body.messages`, because this mirror exists for tampered clients.
   if (lastMsg?.role === "user") {
-    const detection = detectMultiTopic(lastUserText);
+    // The current message was inserted above, so >1 row = prior turns.
+    // archivedAt filter: today messages are only archived via resetThread
+    // (which also archives the thread, and non-active threads 409 above),
+    // but don't let the gate depend on that cross-module invariant.
+    const userRows = await db
+      .select({ id: chatMessages.id })
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.threadId, thread.id),
+          eq(chatMessages.role, "user"),
+          isNull(chatMessages.archivedAt)
+        )
+      )
+      .limit(2);
+    const priorUserTurns = Math.max(0, userRows.length - 1);
+    const detection = detectMultiTopicIntake(lastUserText, priorUserTurns);
     if (detection.multiTopic) {
       await db.insert(chatMessages).values({
         threadId: thread.id,

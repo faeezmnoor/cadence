@@ -16,7 +16,7 @@ import { usePinnedScroll } from "./use-pinned-scroll";
 import { groupMessages } from "@/lib/chat/group";
 import { trpc } from "@/lib/trpc/client";
 import {
-  detectMultiTopic,
+  detectMultiTopicIntake,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
 import {
@@ -103,9 +103,10 @@ export function ChatClient({
   const resetMut = trpc.chat.resetThread.useMutation();
   const appendMsg = trpc.chat.appendMessage.useMutation();
 
-  // MUST-SHIP #5: when the user proposes 3+ topics in one message, refuse
+  // MUST-SHIP #5: when the user's FIRST message proposes 3+ topics, refuse
   // gracefully instead of letting the config agent silently fold them all
-  // into one spec. Track an ephemeral chip set sourced from the detector
+  // into one spec (later turns are exempt — the agent solicits lists by
+  // design). Track an ephemeral chip set sourced from the detector
   // — tapping a chip re-enters the chat as a normal user message picking
   // a single topic, which the agent then handles as the brief topic.
   const [refusalChips, setRefusalChips] = useState<string[]>([]);
@@ -184,8 +185,9 @@ export function ChatClient({
   }, [friendlyError, reload, autoRetriedRef]);
 
   /**
-   * MUST-SHIP #5: intercept submit. If the typed message looks like a
-   * multi-topic enumeration (3+ candidates), short-circuit the round-trip:
+   * MUST-SHIP #5: intercept submit. If the FIRST user message of the
+   * thread looks like a multi-topic enumeration (3+ candidates),
+   * short-circuit the round-trip:
    *  - clear the input
    *  - persist a user_text row (so resume-on-reload sees the typed message)
    *  - persist + render an assistant refusal bubble
@@ -196,7 +198,11 @@ export function ChatClient({
    */
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     const typed = input.trim();
-    const detection = detectMultiTopic(typed);
+    // Dogfood 2026-06-11: gate by conversation position. Past the first
+    // user turn the agent solicits lists by design ("Name 2-5 companies"),
+    // so only the intake message is screened for topic scope-creep.
+    const priorUserTurns = messages.filter((m) => m.role === "user").length;
+    const detection = detectMultiTopicIntake(typed, priorUserTurns);
     if (!detection.multiTopic) {
       handleSubmit(e);
       return;
@@ -213,19 +219,29 @@ export function ChatClient({
     ]);
     setInput("");
     setRefusalChips(detection.candidates);
-    void appendMsg.mutateAsync({
-      threadId,
-      role: "user",
-      content: { kind: "user_text", text: typed },
-    });
-    void appendMsg.mutateAsync({
-      threadId,
-      role: "assistant",
-      content: {
-        kind: "assistant_turn",
-        text: MULTI_TOPIC_REFUSAL,
-        toolResults: [],
-      },
+    // Persist sequentially — firing both mutateAsync calls in parallel let
+    // the refusal row land before the user row, so resume-on-reload showed
+    // them swapped. Best-effort like before: a failed write degrades to
+    // optimistic-only rendering.
+    void (async () => {
+      await appendMsg.mutateAsync({
+        threadId,
+        role: "user",
+        content: { kind: "user_text", text: typed },
+      });
+      await appendMsg.mutateAsync({
+        threadId,
+        role: "assistant",
+        content: {
+          kind: "assistant_turn",
+          text: MULTI_TOPIC_REFUSAL,
+          toolResults: [],
+        },
+      });
+    })().catch((err) => {
+      // Best-effort persistence — the optimistic render already happened,
+      // but leave a trace so a resume-mismatch report is debuggable.
+      console.warn("multi-topic refusal persist failed", err);
     });
   };
 
@@ -450,6 +466,11 @@ export function ChatClient({
   ) => {
     if (isStreamingState) return;
     setGalleryOpen(false);
+    // Note: `append` bypasses onSubmit, so a template tap is never screened
+    // by the multi-topic gate AND counts as the thread's first user turn —
+    // the next typed message is exempt too. Deliberate: templates are
+    // curated single-topic queries (template-catalog.test.ts asserts none
+    // trip the detector), and the topic is already fixed by the tap.
     void append(
       { role: "user", content: tpl.exampleQuery },
       { body: { threadId, templateId: tpl.id, templateSource: source } }
