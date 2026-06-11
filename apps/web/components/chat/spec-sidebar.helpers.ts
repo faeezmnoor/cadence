@@ -91,6 +91,28 @@ export function buildRows(draft: DraftLike): FieldRow[] {
   ];
 }
 
+/**
+ * Design-review 2026-06-11 FINDING-001: the desktop rail is collapsible.
+ * "Channel" is always set (Telegram-only MVP), so it can't count as
+ * captured content — the rail should read as empty until the agent has
+ * actually captured something from the conversation.
+ */
+export function hasDraftContent(rows: FieldRow[]): boolean {
+  return rows.some((r) => r.label !== "Channel" && r.value != null);
+}
+
+/**
+ * Effective open state for the desktop rail: a manual user toggle (persisted)
+ * always wins; with no manual preference the rail opens exactly when there is
+ * captured content to show. Pure so vitest can pin the matrix without jsdom.
+ */
+export function resolveRailOpen(
+  manual: boolean | null,
+  hasContent: boolean
+): boolean {
+  return manual ?? hasContent;
+}
+
 export function isReady(draft: DraftLike): boolean {
   if (!draft || typeof draft !== "object") return false;
   const d = draft as Record<string, unknown>;
