@@ -10,7 +10,7 @@ const updated = "2 June 2026";
 
 export default function TermsPage() {
   return (
-    <article className="mx-auto max-w-2xl space-y-6 text-[15px] leading-relaxed">
+    <article className="mx-auto max-w-2xl space-y-6 text-base leading-relaxed">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Terms</h1>
         <p className="mt-2 text-xs text-muted-foreground">Last updated: {updated}</p>

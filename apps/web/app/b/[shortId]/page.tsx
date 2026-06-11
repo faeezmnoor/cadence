@@ -131,7 +131,7 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
               dependency. */}
           <div
             data-testid="brief-body"
-            className="break-words rounded-xl border border-border bg-card p-4 text-[14px] leading-relaxed sm:p-6"
+            className="break-words rounded-xl border border-border bg-card p-4 text-base leading-relaxed sm:p-6"
           >
             <ReactMarkdown
               components={{
