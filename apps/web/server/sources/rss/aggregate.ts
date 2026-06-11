@@ -21,6 +21,13 @@ import { CURATED_FEEDS } from "./feeds";
 const PER_FEED_TIMEOUT_MS = 5_000;
 const MAX_ITEMS_PER_FEED = 20;
 
+/**
+ * CAD-221: freshness window for the curated/gnews composer-time path.
+ * Mirrors the 48h cut the legacy spec-bound connector applies — without
+ * it a slow week serves the composer week-old items as "news".
+ */
+export const RSS_FRESHNESS_WINDOW_MS = 48 * 60 * 60 * 1_000;
+
 const parser = new Parser({
   timeout: PER_FEED_TIMEOUT_MS,
   headers: { "User-Agent": "Cadence/1.0 (+https://cadence.brief)" },
@@ -31,6 +38,12 @@ interface AggregateOptions {
   timeoutMs?: number;
   /** Inject parser for testing — defaults to module's rss-parser instance. */
   parserImpl?: Pick<Parser, "parseURL">;
+  /**
+   * CAD-221: explicit feed-URL → source_id mapping for feeds built at
+   * call time (dynamic Google News entity feeds) that aren't in
+   * CURATED_FEEDS. Takes precedence over the curated lookup.
+   */
+  sourceIdByUrl?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -38,7 +51,12 @@ interface AggregateOptions {
  * URL hostname when the URL isn't in CURATED_FEEDS (caller passed a raw
  * RSS URL).
  */
-function sourceIdForFeed(feedUrl: string): string {
+function sourceIdForFeed(
+  feedUrl: string,
+  sourceIdByUrl?: Readonly<Record<string, string>>
+): string {
+  const mapped = sourceIdByUrl?.[feedUrl];
+  if (mapped) return mapped;
   const known = CURATED_FEEDS.find((f) => f.url === feedUrl);
   if (known) return known.id;
   try {
@@ -62,7 +80,7 @@ export async function aggregateRss(
   const timeoutMs = opts.timeoutMs ?? PER_FEED_TIMEOUT_MS;
 
   const settled = await Promise.allSettled(
-    feedUrls.map((url) => fetchOne(url, p, timeoutMs))
+    feedUrls.map((url) => fetchOne(url, p, timeoutMs, opts.sourceIdByUrl))
   );
 
   const out: NormalizedSourceItem[] = [];
@@ -80,10 +98,46 @@ export async function aggregateRss(
   return out;
 }
 
+/**
+ * CAD-221: 48h freshness cut for the composer-time RSS path.
+ *
+ * Pure function. Splits items on `published_at`:
+ *  - dated items inside the window are kept, sorted newest-first;
+ *  - dated items older than the window are DROPPED (counted in `dropped`);
+ *  - undated items are KEPT — regulatory PDFs and price snapshots often
+ *    publish without a date and silently losing them is worse than a
+ *    stale item — but they sort AFTER every dated item, in input order.
+ */
+export function applyFreshnessCut(
+  items: readonly NormalizedSourceItem[],
+  opts: { now?: Date; windowMs?: number } = {}
+): { items: NormalizedSourceItem[]; dropped: number } {
+  const nowMs = (opts.now ?? new Date()).getTime();
+  const windowMs = opts.windowMs ?? RSS_FRESHNESS_WINDOW_MS;
+  const dated: NormalizedSourceItem[] = [];
+  const undated: NormalizedSourceItem[] = [];
+  let dropped = 0;
+  for (const it of items) {
+    const t = it.published_at?.getTime();
+    if (t == null || Number.isNaN(t)) {
+      undated.push(it);
+    } else if (nowMs - t <= windowMs) {
+      dated.push(it);
+    } else {
+      dropped++;
+    }
+  }
+  dated.sort(
+    (a, b) => (b.published_at?.getTime() ?? 0) - (a.published_at?.getTime() ?? 0)
+  );
+  return { items: [...dated, ...undated], dropped };
+}
+
 async function fetchOne(
   feedUrl: string,
   parserImpl: Pick<Parser, "parseURL">,
-  timeoutMs: number
+  timeoutMs: number,
+  sourceIdByUrl?: Readonly<Record<string, string>>
 ): Promise<NormalizedSourceItem[]> {
   // rss-parser doesn't expose AbortController, but its built-in timeout
   // covers us; we still race against a hard wall-clock cap as defense.
@@ -105,7 +159,7 @@ async function fetchOne(
     return [];
   }
 
-  const source_id = sourceIdForFeed(feedUrl);
+  const source_id = sourceIdForFeed(feedUrl, sourceIdByUrl);
   const items = (parsed.items ?? []).slice(0, MAX_ITEMS_PER_FEED);
   const out: NormalizedSourceItem[] = [];
   for (const raw of items) {

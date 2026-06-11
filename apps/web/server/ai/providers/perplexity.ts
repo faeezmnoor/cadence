@@ -4,8 +4,12 @@
  * Pro tier search backend. Uses Perplexity's chat-completions API with
  * model `sonar-reasoning-pro`, which performs LLM-driven web research
  * and returns both a synthesized answer AND a `citations` array of
- * source URLs. We discard the synthesized answer (the composer does
- * that job downstream) and surface the citations as `SearchResult[]`.
+ * source URLs. We surface the citations as `SearchResult[]` and (since
+ * CAD-222, bake-off contender A2) keep the synthesized answer as
+ * `SearchResponse.memo` — a bounded research memo the composer treats
+ * as secondary, verify-against-sources material. Before CAD-222 the
+ * synthesis was discarded, which left the Sonnet composer staring at
+ * bare citation URLs with empty snippets.
  *
  * Cost model (per Perplexity pricing page, 2026-06):
  *   - Input:  $2.00 / 1M tokens
@@ -131,6 +135,38 @@ export function perplexityCostUsd(usage: PerplexityUsage | undefined): number {
 // Response parsing
 // ---------------------------------------------------------------------------
 
+/**
+ * CAD-222: cap on the research memo we keep from the Sonar synthesis.
+ * Generous enough for a full researched answer, tight enough that the
+ * memo can never dominate the composer prompt (sources stay primary).
+ */
+export const MEMO_MAX_CHARS = 4_000;
+
+/**
+ * Extract the synthesized research answer as a bounded memo (CAD-222).
+ *
+ * `sonar-reasoning-pro` interleaves its chain-of-thought in the content
+ * as `<think>…</think>` blocks — that part is model scratchpad, not
+ * research output, so it is stripped before bounding. Returns undefined
+ * when there is no usable synthesis (empty content, think-only content).
+ */
+export function extractPerplexityMemo(
+  json: PerplexityResponse
+): string | undefined {
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) return undefined;
+  const withoutThink = content
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    // Defensive: an unclosed <think> means everything after it is
+    // scratchpad (truncated response) — drop it too.
+    .replace(/<think>[\s\S]*$/, "")
+    .trim();
+  if (!withoutThink) return undefined;
+  return withoutThink.length > MEMO_MAX_CHARS
+    ? withoutThink.slice(0, MEMO_MAX_CHARS)
+    : withoutThink;
+}
+
 export function parsePerplexityResults(
   json: PerplexityResponse,
   count: number
@@ -243,6 +279,7 @@ export async function perplexitySearch(
 
   const json = (await res.json()) as PerplexityResponse;
   const results = parsePerplexityResults(json, count);
+  const memo = extractPerplexityMemo(json);
 
   // Cap usage to PRD guards (logged ceiling, not enforced server-side
   // here — Perplexity ignores oversize requests on input/reasoning;
@@ -276,7 +313,13 @@ export async function perplexitySearch(
     costUsd,
   });
 
-  return { query, results, fromCache: false, costUsd };
+  return {
+    query,
+    results,
+    fromCache: false,
+    costUsd,
+    ...(memo !== undefined ? { memo } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

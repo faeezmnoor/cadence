@@ -1,0 +1,33 @@
+{
+  "name": "palm-oil-trader",
+  "spec": {
+    "schema_version": 1,
+    "topics": [
+      "Malaysian palm oil market",
+      "MPOB policy and export quotas",
+      "vegetable oil complex prices"
+    ],
+    "entities": {
+      "companies": ["MPOB", "Felda"],
+      "tickers": ["SDP.KL"],
+      "commodities": ["CPO", "FCPO"]
+    },
+    "keywords_include": ["export quota", "stockpile", "soyoil"],
+    "keywords_exclude": ["crypto"],
+    "data_addons": {
+      "show_prices": true,
+      "show_24h_change": true,
+      "show_7d_change": true,
+      "fx_pairs": ["MYR/USD"]
+    },
+    "rss_feeds": [],
+    "cadence": {
+      "frequency": "daily",
+      "delivery_time_local": "07:00",
+      "days_of_week": [1, 2, 3, 4, 5]
+    },
+    "tone_preset": "trader_quick_take",
+    "length_target": "short",
+    "language": "en"
+  }
+}

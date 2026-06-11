@@ -104,4 +104,55 @@ describe("composer prompt v2", () => {
   it("declares the hard char cap", () => {
     expect(COMPOSER_HARD_CHAR_CAP).toBe(3800);
   });
+
+  describe("research memo block (CAD-222 A2)", () => {
+    const memoInput = {
+      spec,
+      sources: { search: [], rss: [] },
+      researchMemo: "CPO eased 0.4% per MPOB data; quota lifted 12%.",
+    };
+
+    it("renders a clearly-bounded memo block AFTER the sources block", () => {
+      const p = buildComposerSystemPrompt(memoInput);
+      expect(p).toContain(
+        "RESEARCH MEMO (secondary — verify every claim against the SOURCES above; cite only numbered sources)"
+      );
+      expect(p).toContain("<research_memo>");
+      expect(p).toContain("CPO eased 0.4% per MPOB data; quota lifted 12%.");
+      expect(p).toContain("</research_memo>");
+      const sourcesIdx = p.indexOf("SOURCES (already fetched and deduped");
+      const memoIdx = p.indexOf("RESEARCH MEMO");
+      expect(sourcesIdx).toBeGreaterThan(-1);
+      expect(memoIdx).toBeGreaterThan(sourcesIdx);
+    });
+
+    it("marks the memo as non-citable", () => {
+      const p = buildComposerSystemPrompt(memoInput);
+      expect(p).toMatch(/NOT a\ncitable source/);
+    });
+
+    it("is omitted entirely when absent or blank", () => {
+      const without = buildComposerSystemPrompt({
+        spec,
+        sources: { search: [], rss: [] },
+      });
+      expect(without).not.toContain("RESEARCH MEMO");
+      expect(without).not.toContain("<research_memo>");
+      const blank = buildComposerSystemPrompt({
+        spec,
+        sources: { search: [], rss: [] },
+        researchMemo: "   ",
+      });
+      expect(blank).not.toContain("RESEARCH MEMO");
+    });
+
+    it("flows through to the Pro Sonnet prompt (A2 uses the Pro composer)", async () => {
+      const { buildProComposerSystemPrompt } = await import(
+        "@/server/ai/providers/anthropic-pro-prompt"
+      );
+      const p = buildProComposerSystemPrompt(memoInput);
+      expect(p).toContain("RESEARCH MEMO");
+      expect(p).toContain("CPO eased 0.4% per MPOB data; quota lifted 12%.");
+    });
+  });
 });

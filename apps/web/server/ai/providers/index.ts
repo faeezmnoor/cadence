@@ -13,8 +13,14 @@
 import { defaultComposerProvider, defaultSearchProvider } from "./default";
 import { proComposerProvider } from "./anthropic-pro";
 import { proSearchProvider } from "./perplexity";
+import { webSearchComposerProvider } from "./anthropic-websearch";
 import { isProTierAlpha } from "@/lib/feature-flags";
-import type { ProviderBundle, Tier } from "./types";
+import type {
+  ComposerProvider,
+  ProviderBundle,
+  SearchProvider,
+  Tier,
+} from "./types";
 
 /**
  * Is the Pro tier alpha flag set? When false, `getProviders("pro")`
@@ -44,6 +50,48 @@ export function getProviders(tier: Tier): ProviderBundle {
     search: defaultSearchProvider,
     composer: defaultComposerProvider,
   };
+}
+
+// ---------------------------------------------------------------------------
+// CAD-222 — Pro integrity bake-off stacks
+// ---------------------------------------------------------------------------
+
+/**
+ * The two research stacks competing for the (product-paused) advanced
+ * tier. Deliberately NOT part of the user-facing `Tier` union and NOT
+ * routed by `getProviders()` — `PRO_TIER_ALPHA` semantics are unchanged.
+ * Consumers: the bake-off runner (`scripts/pro-bakeoff.ts`) and the
+ * tier-aware call site the pipeline owner is wiring in
+ * `server/digest/run.ts`. The losing contender gets DELETED after the
+ * bake-off; keep this seam thin.
+ */
+export type BakeoffContender = "perplexity_sonnet" | "sonnet_websearch";
+
+export interface BakeoffStack {
+  contender: BakeoffContender;
+  /**
+   * Absent for `sonnet_websearch` — that contender researches inline via
+   * the Anthropic web-search server tool, so there is no separate search
+   * step. Callers must treat `search` as optional, not default it.
+   */
+  search?: SearchProvider;
+  composer: ComposerProvider;
+}
+
+export function getBakeoffStack(contender: BakeoffContender): BakeoffStack {
+  switch (contender) {
+    case "perplexity_sonnet":
+      // A2: Perplexity Sonar search (synthesis kept as researchMemo) +
+      // Pro Sonnet composer.
+      return {
+        contender,
+        search: proSearchProvider,
+        composer: proComposerProvider,
+      };
+    case "sonnet_websearch":
+      // A3: Pro Sonnet composer with the native web-search server tool.
+      return { contender, composer: webSearchComposerProvider };
+  }
 }
 
 export * from "./types";

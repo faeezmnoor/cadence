@@ -67,7 +67,7 @@ import {
 import { buildFeedbackKeyboard } from "@/server/channels/telegram/keyboard";
 import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
 import { recentRssForSpec } from "@/server/connectors/rss";
-import { gatherSources } from "@/server/sources";
+import { gatherSources, normalizeSourceUrl } from "@/server/sources";
 import { scrapeMpobStocks } from "@/server/sources/scrape/scrapers/mpob-stocks";
 import { scrapeBursaCpo } from "@/server/sources/scrape/scrapers/bursa-cpo";
 import { scrapeYahooQuote } from "@/server/sources/scrape/scrapers/yahoo-finance-quote";
@@ -163,6 +163,36 @@ export const MAX_DELIVERY_ATTEMPTS = 3;
 
 function todayIsoUtc(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * CAD-221 (S3): entity-aware search-query budget. Topics alone never
+ * surfaced competitor/entity news (the audit's competitor-watch failure) —
+ * split the same 5-query cap as up-to-2 topics + up-to-3 companies,
+ * falling back to all-topics when the spec has no entities. Same spend.
+ * Pure; exported for tests.
+ */
+export function buildSearchQueries(spec: {
+  topics?: string[];
+  entities?: { companies?: string[] };
+}): string[] {
+  const topics = spec.topics ?? [];
+  const companies = (spec.entities?.companies ?? []).filter(
+    (c) => c.trim().length >= 3
+  );
+  const picked = [
+    ...topics.slice(0, companies.length > 0 ? 2 : 5),
+    ...companies.slice(0, 3),
+  ];
+  const seen = new Set<string>();
+  return picked
+    .filter((q) => {
+      const k = q.trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, 5);
 }
 
 /**
@@ -321,12 +351,12 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
 
   // 2. Sources — Brave + RSS. yfinance/prices deferred.
   const sources: ComposerSourcesBundle = { search: [], rss: [] };
+  const searchQueries = buildSearchQueries(
+    specRow.spec as { topics?: string[]; entities?: { companies?: string[] } }
+  );
   try {
     if (isBraveConfigured()) {
-      // One Brave query per top-level topic, cap 5 topics to keep cost predictable.
-      const spec = specRow.spec as { topics?: string[] };
-      const topics = (spec.topics ?? []).slice(0, 5);
-      for (const query of topics) {
+      for (const query of searchQueries) {
         // CAD-213 (P0-2): attribute search spend to this run + user.
         const res = await braveSearch(query, {
           count: 10,
@@ -346,8 +376,14 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     }
   }
 
+  // CAD-221 (S2): legacy spec-declared RSS is collected into a holding
+  // array and folded in AFTER the gathered items below, deduped by
+  // normalized URL — gathered items (scrape-first per sources/index.ts)
+  // take precedence, and the prompt's head-slice can no longer push the
+  // anchor-ICP's price data off the end.
+  let legacyRssItems: ComposerSourcesBundle["rss"] = [];
   try {
-    sources.rss = (await recentRssForSpec(specRow.id, { limit: 30, sinceHours: 48 })).map((r) => ({
+    legacyRssItems = (await recentRssForSpec(specRow.id, { limit: 30, sinceHours: 48 })).map((r) => ({
       feedUrl: "",
       title: r.title,
       url: r.url,
@@ -394,7 +430,8 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     gatheredTelemetry = result.telemetry;
     // Fold into composer's existing rss bundle (the prompt renders it as
     // a flat "RSS items (last 48h)" block — scrape rows render fine there
-    // too because all we need is title + url + summary).
+    // too because all we need is title + url + summary). CAD-221: gathered
+    // items lead the block (already scrape-first + deduped internally).
     for (const it of result.items) {
       sources.rss.push({
         feedUrl: it.source_id,
@@ -407,6 +444,19 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   } catch (err) {
     // gatherSources promises not to throw, but defend the pipeline anyway.
     console.warn("[digest:gather]", err);
+  }
+
+  // CAD-221 (S2): append legacy RSS after gathered items, dropping any URL
+  // the gathered set already covers (same article often arrives via both
+  // the legacy rss_items path and a curated/gnews feed).
+  {
+    const seenUrls = new Set(sources.rss.map((r) => normalizeSourceUrl(r.url)));
+    for (const item of legacyRssItems) {
+      const key = normalizeSourceUrl(item.url);
+      if (seenUrls.has(key)) continue;
+      seenUrls.add(key);
+      sources.rss.push(item);
+    }
   }
 
   // 3. Compose
@@ -538,6 +588,55 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       }
     }
     let providers = getProviders(effectiveTier);
+
+    // CAD-222 (A1) / platform-audit P0-1: the advanced tier finally RUNS
+    // its research. Gated on the RESOLVED tier (post-downgrade) so an
+    // alpha-off / broke / cost-capped run never spends Sonar money.
+    // Mirrors the bake-off A2 gather (scripts/pro-bakeoff.ts) so the
+    // bake-off measures exactly what production does: top-3 queries,
+    // per-query memos joined under `### query` headers, joined cap 8000.
+    // Best-effort — a Sonar failure degrades to the Brave+RSS bundle
+    // already gathered above (CAD-102 spirit: research enrichment must
+    // never deny the brief).
+    if (providers.tier === "pro") {
+      const PRO_SEARCH_MAX_QUERIES = 3;
+      const PRO_MEMO_JOIN_CAP_CHARS = 8_000;
+      try {
+        const memos: string[] = [];
+        const proQueries = searchQueries.slice(0, PRO_SEARCH_MAX_QUERIES);
+        for (const query of proQueries) {
+          const resp = await providers.search.search(query, {
+            count: 8,
+            userId,
+            digestRunId: runRowId,
+          });
+          sources.search.push({
+            query,
+            results: resp.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+              description: r.snippet,
+              age: r.publishedAt,
+            })),
+          });
+          if (resp.memo) memos.push(`### ${query}\n${resp.memo}`);
+        }
+        const joinedMemo = memos
+          .join("\n\n---\n\n")
+          .slice(0, PRO_MEMO_JOIN_CAP_CHARS);
+        if (joinedMemo) composerInput.researchMemo = joinedMemo;
+        runMetadata.proSearch = {
+          provider: providers.search.id,
+          queries: proQueries.length,
+          memoChars: joinedMemo.length,
+        };
+      } catch (proSearchErr) {
+        const reason = sanitizeError(proSearchErr);
+        console.warn(`[digest:pro-search] user=${userId} degrading to gathered sources — ${reason}`);
+        runMetadata.proSearch = { error: reason };
+      }
+    }
+
     let out: Awaited<ReturnType<typeof providers.composer.compose>>;
     try {
       out = await providers.composer.compose(composerInput);

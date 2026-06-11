@@ -2,8 +2,13 @@
  * RSS aggregator tests — Phase 6a Pattern C (CAD-113 #2).
  */
 import { describe, it, expect } from "vitest";
-import { aggregateRss } from "@/server/sources/rss/aggregate";
+import {
+  aggregateRss,
+  applyFreshnessCut,
+  RSS_FRESHNESS_WINDOW_MS,
+} from "@/server/sources/rss/aggregate";
 import { CURATED_FEEDS, feedsForTopics } from "@/server/sources/rss/feeds";
+import type { NormalizedSourceItem } from "@/server/sources/types";
 
 function makeMockParser(map: Record<string, unknown>) {
   return {
@@ -119,6 +124,28 @@ describe("aggregateRss (Pattern C)", () => {
     expect(out[0].title).toBe("good");
   });
 
+  it("uses sourceIdByUrl override for feeds not in CURATED_FEEDS (CAD-221)", async () => {
+    const url = "https://news.google.com/rss/search?q=%22Sime+Darby%22&hl=en-MY&gl=MY&ceid=MY:en";
+    const parserImpl = makeMockParser({
+      [url]: {
+        items: [
+          {
+            title: "Sime Darby Q2 earnings",
+            link: "https://example.com/sd-q2",
+            guid: "sd1",
+            isoDate: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    const out = await aggregateRss([url], {
+      parserImpl,
+      sourceIdByUrl: { [url]: "gnews-sime-darby" },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].source_id).toBe("gnews-sime-darby");
+  });
+
   it("caps each feed at 20 items", async () => {
     const url = CURATED_FEEDS[0].url;
     const items = Array.from({ length: 30 }, (_, i) => ({
@@ -130,6 +157,64 @@ describe("aggregateRss (Pattern C)", () => {
     const parserImpl = makeMockParser({ [url]: { items } });
     const out = await aggregateRss([url], { parserImpl });
     expect(out).toHaveLength(20);
+  });
+});
+
+describe("applyFreshnessCut (CAD-221)", () => {
+  const NOW = new Date("2026-06-11T12:00:00Z");
+  function item(url: string, publishedAt: Date | null): NormalizedSourceItem {
+    return {
+      source_id: "bernama-agri",
+      source_type: "rss",
+      url,
+      title: url,
+      body_excerpt: "",
+      published_at: publishedAt,
+      raw_metadata: {},
+    };
+  }
+
+  it("keeps dated items inside the 48h window, newest-first", () => {
+    const fresh1 = item("https://x.com/a", new Date(NOW.getTime() - 1 * 3_600_000));
+    const fresh2 = item("https://x.com/b", new Date(NOW.getTime() - 47 * 3_600_000));
+    const out = applyFreshnessCut([fresh2, fresh1], { now: NOW });
+    expect(out.items.map((i) => i.url)).toEqual(["https://x.com/a", "https://x.com/b"]);
+    expect(out.dropped).toBe(0);
+  });
+
+  it("drops dated items older than the window and counts them", () => {
+    const stale = item("https://x.com/old", new Date(NOW.getTime() - 49 * 3_600_000));
+    const fresh = item("https://x.com/new", new Date(NOW.getTime() - 1 * 3_600_000));
+    const out = applyFreshnessCut([stale, fresh], { now: NOW });
+    expect(out.items.map((i) => i.url)).toEqual(["https://x.com/new"]);
+    expect(out.dropped).toBe(1);
+  });
+
+  it("keeps items exactly at the window boundary", () => {
+    const edge = item("https://x.com/edge", new Date(NOW.getTime() - RSS_FRESHNESS_WINDOW_MS));
+    const out = applyFreshnessCut([edge], { now: NOW });
+    expect(out.items).toHaveLength(1);
+    expect(out.dropped).toBe(0);
+  });
+
+  it("keeps undated items (regulatory PDFs) but sorts them after dated, in input order", () => {
+    const undatedA = item("https://x.com/pdf-a", null);
+    const undatedB = item("https://x.com/pdf-b", null);
+    const dated = item("https://x.com/dated", new Date(NOW.getTime() - 2 * 3_600_000));
+    const out = applyFreshnessCut([undatedA, dated, undatedB], { now: NOW });
+    expect(out.items.map((i) => i.url)).toEqual([
+      "https://x.com/dated",
+      "https://x.com/pdf-a",
+      "https://x.com/pdf-b",
+    ]);
+    expect(out.dropped).toBe(0);
+  });
+
+  it("honours a custom window", () => {
+    const it2h = item("https://x.com/2h", new Date(NOW.getTime() - 2 * 3_600_000));
+    const out = applyFreshnessCut([it2h], { now: NOW, windowMs: 1 * 3_600_000 });
+    expect(out.items).toEqual([]);
+    expect(out.dropped).toBe(1);
   });
 });
 

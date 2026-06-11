@@ -45,6 +45,15 @@ export interface ComposerInput {
   distilledPrefs?: string[];
   /** Last 5 raw learning_log entries (most-recent-first). */
   recentRawNotes?: string[];
+  /**
+   * CAD-222 (bake-off contender A2): synthesized research answer from an
+   * upstream research model (e.g. Perplexity Sonar's `SearchResponse.memo`).
+   * Rendered in the prompt AFTER the sources block as clearly-secondary
+   * material — the composer must verify every claim it lifts from the memo
+   * against the numbered SOURCES and may NEVER cite the memo itself.
+   * Omitted from the prompt entirely when absent/empty.
+   */
+  researchMemo?: string;
   /** For cost attribution. */
   userId?: string | null;
   digestRunId?: string | null;

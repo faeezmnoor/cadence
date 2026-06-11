@@ -1,0 +1,33 @@
+{
+  "name": "lhdn-tax-practice",
+  "spec": {
+    "schema_version": 1,
+    "topics": [
+      "LHDN circulars and public rulings",
+      "Malaysian SME tax compliance deadlines",
+      "e-Invoice rollout Malaysia"
+    ],
+    "entities": {
+      "companies": ["LHDN", "MyInvois"],
+      "tickers": [],
+      "commodities": []
+    },
+    "keywords_include": ["public ruling", "stamp duty", "CP204"],
+    "keywords_exclude": ["US tax", "IRS"],
+    "data_addons": {
+      "show_prices": false,
+      "show_24h_change": false,
+      "show_7d_change": false,
+      "fx_pairs": []
+    },
+    "rss_feeds": [],
+    "cadence": {
+      "frequency": "weekly",
+      "delivery_time_local": "08:30",
+      "days_of_week": [1]
+    },
+    "tone_preset": "executive_brief",
+    "length_target": "medium",
+    "language": "en"
+  }
+}

@@ -6,10 +6,12 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  extractPerplexityMemo,
   isPerplexityConfigured,
   parsePerplexityResults,
   perplexityCostUsd,
   perplexitySearch,
+  MEMO_MAX_CHARS,
   PerplexityApiError,
   PerplexityKeyMissingError,
 } from "@/server/ai/providers/perplexity";
@@ -110,6 +112,58 @@ describe("CAD-86 Perplexity client", () => {
     });
   });
 
+  describe("extractPerplexityMemo (CAD-222 A2 — keep the Sonar synthesis)", () => {
+    it("returns the synthesized answer from choices[0].message.content", () => {
+      const memo = extractPerplexityMemo({
+        choices: [{ message: { content: "CPO eased 0.4% on quota news." } }],
+      });
+      expect(memo).toBe("CPO eased 0.4% on quota news.");
+    });
+
+    it("strips <think> reasoning blocks before bounding", () => {
+      const memo = extractPerplexityMemo({
+        choices: [
+          {
+            message: {
+              content:
+                "<think>let me reason\nabout this</think>Real answer here.<think>more</think> Tail.",
+            },
+          },
+        ],
+      });
+      expect(memo).toBe("Real answer here. Tail.");
+    });
+
+    it("drops everything after an unclosed <think> (truncated response)", () => {
+      const memo = extractPerplexityMemo({
+        choices: [
+          { message: { content: "Answer first. <think>truncated reasoning" } },
+        ],
+      });
+      expect(memo).toBe("Answer first.");
+    });
+
+    it("bounds the memo to MEMO_MAX_CHARS", () => {
+      const memo = extractPerplexityMemo({
+        choices: [{ message: { content: "x".repeat(MEMO_MAX_CHARS + 500) } }],
+      });
+      expect(memo).toHaveLength(MEMO_MAX_CHARS);
+    });
+
+    it("returns undefined when there is no usable synthesis", () => {
+      expect(extractPerplexityMemo({})).toBeUndefined();
+      expect(extractPerplexityMemo({ choices: [] })).toBeUndefined();
+      expect(
+        extractPerplexityMemo({ choices: [{ message: { content: "" } }] })
+      ).toBeUndefined();
+      expect(
+        extractPerplexityMemo({
+          choices: [{ message: { content: "<think>only scratchpad</think>" } }],
+        })
+      ).toBeUndefined();
+    });
+  });
+
   describe("perplexityCostUsd", () => {
     it("returns per-search floor when usage is undefined", () => {
       expect(perplexityCostUsd(undefined)).toBeCloseTo(0.005, 5);
@@ -186,6 +240,22 @@ describe("CAD-86 Perplexity client", () => {
       expect(out.results[0].url).toBe("https://reuters.com/palm-oil-quota");
       expect(out.fromCache).toBe(false);
       expect(out.costUsd).toBeGreaterThan(0);
+      // CAD-222 A2: the Sonar synthesis is kept, not discarded.
+      expect(out.memo).toBe("synthesized answer");
+    });
+
+    it("omits memo when the response has no synthesis", async () => {
+      const fetchImpl = async () =>
+        jsonResponse({
+          citations: ["https://x.com/p1"],
+          usage: { prompt_tokens: 100, completion_tokens: 0 },
+        });
+      const out = await perplexitySearch("query", {}, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        apiKey: "test-key",
+      });
+      expect(out.memo).toBeUndefined();
+      expect("memo" in out).toBe(false);
     });
 
     it("throws PerplexityApiError on non-200", async () => {

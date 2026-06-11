@@ -18,7 +18,11 @@ export type CostProvider =
   | "yfinance"
   // Pro-tier providers (CAD-86, CAD-87). cost_events.provider column
   // is `text`, not an enum, so adding values here is a type-only change.
-  | "perplexity";
+  | "perplexity"
+  // CAD-222 bake-off contender A3: Sonnet compose with the Anthropic
+  // web-search server tool. Separate provider string (not "anthropic")
+  // so the per-search surcharge is attributable in cost rollups.
+  | "anthropic_websearch";
 
 interface RecordCostArgs {
   userId?: string | null;
@@ -79,4 +83,32 @@ export function anthropicCostUsd(
 /** Brave Search: ~$3 per 1k queries on Data for AI tier. Round to 0.003/req. */
 export function braveCostUsd(): number {
   return 0.003;
+}
+
+/**
+ * Anthropic web-search server tool surcharge, USD per 1,000 searches
+ * (CAD-222 bake-off contender A3). Charged ON TOP of normal token cost.
+ *
+ * Verified 2026-06-11 against the web-search tool docs
+ * (platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool):
+ * "$10 per 1,000 searches, plus standard token costs for
+ * search-generated content." Errored searches are not billed.
+ */
+export const ANTHROPIC_WEB_SEARCH_PER_1K_USD = 10.0;
+
+/**
+ * Token cost + per-search surcharge for an A3 (Sonnet + web-search)
+ * compose. `webSearches` is `usage.server_tool_use.web_search_requests`
+ * summed across the calls of one logical compose.
+ */
+export function anthropicWebSearchCostUsd(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+  webSearches: number
+): number {
+  return (
+    anthropicCostUsd(modelId, inputTokens, outputTokens) +
+    Math.max(0, webSearches) * (ANTHROPIC_WEB_SEARCH_PER_1K_USD / 1_000)
+  );
 }
