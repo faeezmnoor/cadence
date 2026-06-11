@@ -70,7 +70,7 @@ export function SpecSidebar({
       <div className="flex-1 overflow-y-auto px-5 py-4">{list}</div>
       <div className="border-t border-border px-5 py-3">
         {ready ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-600 dark:text-green-400">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
             <span aria-hidden>✓</span> Ready to confirm
           </span>
         ) : (

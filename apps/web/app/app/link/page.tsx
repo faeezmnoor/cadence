@@ -31,7 +31,7 @@ export default async function LinkPage() {
       <AppNav active="link" />
       <main className="safe-pb mx-auto flex max-w-xl flex-col gap-6 px-6 py-12">
         <header className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-green-600/30 bg-green-50/50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-950/30 dark:text-green-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-medium text-success">
             <span aria-hidden="true">✓</span>
             <span>Brief setup saved</span>
           </div>

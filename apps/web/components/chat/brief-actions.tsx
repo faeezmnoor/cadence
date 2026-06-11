@@ -215,17 +215,17 @@ export function BriefActions({
       </div>
 
       {send.kind === "sent" && (
-        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+        <p className="text-xs text-success">
           Sent — check Telegram.
         </p>
       )}
       {send.kind === "cooldown" && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-xs text-warning">
           {send.message}
         </p>
       )}
       {(send.kind === "no_credits" || send.kind === "error") && (
-        <p className="text-xs text-red-600 dark:text-red-400">{send.message}</p>
+        <p className="text-xs text-destructive">{send.message}</p>
       )}
 
       {preview.kind === "ready" && (
@@ -237,7 +237,7 @@ export function BriefActions({
         </div>
       )}
       {preview.kind === "error" && (
-        <p className="text-xs text-red-600 dark:text-red-400">{preview.message}</p>
+        <p className="text-xs text-destructive">{preview.message}</p>
       )}
     </div>
   );

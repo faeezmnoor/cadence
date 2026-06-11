@@ -646,7 +646,7 @@ export function ChatClient({
                 {langEmailError && (
                   <p
                     role="alert"
-                    className="text-[11px] text-red-500"
+                    className="text-[11px] text-destructive"
                   >
                     {langEmailError}
                   </p>
@@ -695,7 +695,7 @@ export function ChatClient({
               <div
                 data-testid="chat-error-bubble"
                 role="status"
-                className="rounded-2xl rounded-bl-sm border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm text-foreground"
+                className="rounded-2xl rounded-bl-sm border border-warning/40 bg-warning/5 px-4 py-3 text-sm text-foreground"
               >
                 <p>{friendlyError.userMessage}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
