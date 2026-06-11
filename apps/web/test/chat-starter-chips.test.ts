@@ -67,7 +67,10 @@ describe("chat starter chips (Designer #3 + Ticket 1)", () => {
     expect(starterCardsSource).toMatch(/data-testid="template-card"/);
     expect(starterCardsSource).toMatch(/onClick=\{\(\)\s*=>\s*onSelect\(template\)\}/);
     expect(source).toMatch(/content:\s*tpl\.exampleQuery/);
-    expect(source).toMatch(/templateSource:\s*"starter_card"/);
+    // PR 3 parameterized the source ("starter_card" | "gallery" |
+    // "deep_link") — assert the default + the body wiring.
+    expect(source).toMatch(/=\s*"starter_card"/);
+    expect(source).toMatch(/templateSource:\s*source/);
   });
 
   it("welcome bubble copy reflects channel-agnostic positioning", () => {

@@ -2,6 +2,7 @@ import { Send, MessageCircle } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { TrustStrip } from "@/components/marketing/trust-strip";
+import { IcpStripes } from "@/components/marketing/icp-stripes";
 import { SampleBrief } from "@/components/marketing/sample-brief";
 
 /**
@@ -92,6 +93,12 @@ export default function HomePage() {
               </p>
             </li>
           </ul>
+        </div>
+
+        {/* PR 3 (§8.4): three ICP stripes deep-linking into a pre-seeded
+            chat — the bridge between "watch anything" and a concrete start. */}
+        <div className="mt-14 w-full">
+          <IcpStripes />
         </div>
 
         <div className="mt-12 w-full max-w-3xl">

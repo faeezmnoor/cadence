@@ -19,8 +19,12 @@ import {
   detectMultiTopic,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
-import type { DigestTemplate } from "@/lib/digest-spec/templates";
+import {
+  VISIBLE_TEMPLATES,
+  type DigestTemplate,
+} from "@/lib/digest-spec/templates";
 import { StarterCards } from "./starter-cards";
+import { BriefGallery } from "./brief-gallery";
 
 /**
  * Streaming chat client for the config agent.
@@ -39,6 +43,7 @@ export function ChatClient({
   initialMessages,
   initialDraft,
   sessionEmail,
+  initialTemplateId = null,
 }: {
   threadId: string;
   initialMessages: PersistedMessage[];
@@ -46,6 +51,12 @@ export function ChatClient({
   /** Email from the Supabase session, used to pre-fill the BM/中文 opt-in
    *  form (QA P2 #2). Null if the auth provider didn't surface one. */
   sessionEmail: string | null;
+  /**
+   * PR 3: validated `/chat?template=<id>` deep-link (server-checked:
+   * known AND visible). Auto-submits that template's exampleQuery once,
+   * only on a fresh thread. Null = no deep-link.
+   */
+  initialTemplateId?: string | null;
 }) {
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -430,18 +441,42 @@ export function ChatClient({
   // template_selected telemetry. Note: per-request body REPLACES the
   // hook-level body in ai-sdk v4, so threadId must be re-sent here.
   const composerInputRef = useRef<HTMLInputElement>(null);
+  // PR 3: "Browse all briefs" disclosure. Open swaps the starter cards for
+  // the full catalog (desktop inline) / bottom sheet (mobile); close
+  // restores the starters — reversible, never destructive.
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
-  const handleTemplateSelect = (tpl: DigestTemplate) => {
+  const handleTemplateSelect = (
+    tpl: DigestTemplate,
+    source: "starter_card" | "gallery" | "deep_link" = "starter_card"
+  ) => {
     if (isStreamingState) return;
+    setGalleryOpen(false);
     void append(
       { role: "user", content: tpl.exampleQuery },
-      { body: { threadId, templateId: tpl.id, templateSource: "starter_card" } }
+      { body: { threadId, templateId: tpl.id, templateSource: source } }
     );
   };
 
   const handleDescribeOwn = () => {
     composerInputRef.current?.focus();
   };
+
+  // PR 3: /chat?template=<id> deep-link — auto-submit once, fresh threads
+  // only (a thread with history keeps its conversation; the deep-link is
+  // an entry point, not an interrupt). The URL is then rewritten to /chat
+  // so a reload doesn't re-fire the submission.
+  const deepLinkFiredRef = useRef(false);
+  useEffect(() => {
+    if (!initialTemplateId || deepLinkFiredRef.current) return;
+    if (messages.length > 0) return;
+    const tpl = VISIBLE_TEMPLATES.find((t) => t.id === initialTemplateId);
+    if (!tpl) return;
+    deepLinkFiredRef.current = true;
+    handleTemplateSelect(tpl, "deep_link");
+    router.replace("/chat", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once mount effect
+  }, []);
 
   return (
     <main className="flex min-h-0 flex-1 bg-background">
@@ -499,9 +534,18 @@ export function ChatClient({
                 <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground">
                   Tell me what to watch — in your own words.
                 </div>
-                <StarterCards
-                  onSelect={handleTemplateSelect}
-                  onDescribeOwn={handleDescribeOwn}
+                {!galleryOpen && (
+                  <StarterCards
+                    onSelect={handleTemplateSelect}
+                    onDescribeOwn={handleDescribeOwn}
+                    onBrowseAll={() => setGalleryOpen(true)}
+                    disabled={isStreaming}
+                  />
+                )}
+                <BriefGallery
+                  open={galleryOpen}
+                  onClose={() => setGalleryOpen(false)}
+                  onSelect={(tpl) => handleTemplateSelect(tpl, "gallery")}
                   disabled={isStreaming}
                 />
               </div>

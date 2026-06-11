@@ -475,6 +475,26 @@ export function isKnownTemplateId(id: unknown): id is string {
   );
 }
 
+export interface TemplateSection {
+  category: DigestTemplateCategory;
+  /** User-facing section header (TEMPLATE_CATEGORY_LABELS). */
+  label: string;
+  templates: DigestTemplate[];
+}
+
+/**
+ * The "Browse all briefs" surface (PR 3): visible templates grouped into
+ * the three ICP sections, in display order. An empty section is a removed
+ * section (proposal §3 — no "coming soon" placeholders, ever).
+ */
+export function groupedVisibleTemplates(): TemplateSection[] {
+  return VISIBLE_CATEGORY_ORDER.map((category) => ({
+    category,
+    label: TEMPLATE_CATEGORY_LABELS[category] ?? category,
+    templates: VISIBLE_TEMPLATES.filter((t) => t.category === category),
+  })).filter((s) => s.templates.length > 0);
+}
+
 /**
  * Render the card's cadence hint from seedHints.cadence — the single
  * source so the card never carries a second hardcoded cadence string.

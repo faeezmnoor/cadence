@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 /**
@@ -13,8 +14,28 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
  * On the email form: POSTs to /api/auth/sign-in which calls
  * supabase.auth.signInWithOtp. On success we swap the UI to a
  * "check your inbox" state — no redirect, no client session yet.
+ *
+ * PR 3: honors `?next=` (e.g. from a /chat?template= deep-link hitting the
+ * auth wall) by forwarding it to the OAuth flow — /auth/callback already
+ * redirects to `next` post-exchange. Same-origin paths only (open-redirect
+ * guard). Magic-link path doesn't carry `next` yet; Google is the primary
+ * flow.
  */
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInInner />
+    </Suspense>
+  );
+}
+
+function SignInInner() {
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : undefined;
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
     "idle"
@@ -73,7 +94,7 @@ export default function SignInPage() {
 
         {status !== "sent" && (
           <>
-            <GoogleSignInButton />
+            <GoogleSignInButton next={next} />
             <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
               <span className="h-px flex-1 bg-border" />
               <span>or use email</span>
