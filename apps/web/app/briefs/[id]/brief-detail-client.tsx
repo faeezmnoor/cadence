@@ -34,6 +34,7 @@ import {
   STACK_DESCRIPTIONS,
   STACK_ORDER,
   STACK_SUMMARIES,
+  isAdvancedStack,
   monthlyCreditEstimate,
   nextDeliveryCost,
   normalizeStack,
@@ -563,7 +564,7 @@ function ConfigurableStackSettings({
             className="mt-1 text-sm font-semibold text-foreground"
             data-testid="current-stack-badge"
           >
-            {tier === "pro" ? "🔬 " : ""}
+            {isAdvancedStack(tier) ? "🔬 " : ""}
             {currentLabel} · {currentCost} credit{currentCost === 1 ? "" : "s"}{" "}
             per brief
           </p>

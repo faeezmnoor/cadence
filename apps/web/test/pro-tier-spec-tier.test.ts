@@ -16,6 +16,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { STACK_ORDER } from "@/lib/research-stack";
 
 const ROOT = path.join(__dirname, "..");
 
@@ -30,12 +31,37 @@ describe("CAD-88 — migration 0023", () => {
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+tier text NOT NULL DEFAULT 'default'/i);
   });
 
-  it("constrains tier to ('default', 'pro')", () => {
+  it("constrains tier to ('default', 'pro') — historical vocabulary as shipped", () => {
     expect(sql).toMatch(/CHECK \(tier IN \('default', 'pro'\)\)/);
   });
 
   it("constraint is named digest_specs_tier_check (matches apply-0023 verifier)", () => {
     expect(sql).toMatch(/digest_specs_tier_check/);
+  });
+});
+
+describe("CAD-222 — migration 0027 (review P0: DB vocabulary tracks the registry)", () => {
+  const sql = read("server/db/migrations/0027_tier_pro_websearch.sql");
+
+  it("re-adds digest_specs_tier_check with the FULL three-stack vocabulary", () => {
+    expect(sql).toMatch(
+      /CHECK \(tier IN \('default', 'pro', 'pro_websearch'\)\)/
+    );
+    expect(sql).toMatch(/digest_specs_tier_check/);
+  });
+
+  it("apply runner exists and verifies the constraint predicate", () => {
+    const runner = read("server/db/apply-0027.mjs");
+    expect(runner).toMatch(/0027_tier_pro_websearch\.sql/);
+    expect(runner).toMatch(/pro_websearch/);
+  });
+
+  it("DB vocabulary covers every registry stack (drift guard)", () => {
+    // If STACK_ORDER grows a stack the newest tier migration doesn't
+    // mention, this fails — the exact gap the post-merge review caught.
+    for (const stack of STACK_ORDER) {
+      expect(sql).toContain(`'${stack}'`);
+    }
   });
 });
 

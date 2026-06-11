@@ -181,10 +181,13 @@ export function buildSearchQueries(spec: {
   const companies = (spec.entities?.companies ?? []).filter(
     (c) => c.trim().length >= 3
   );
-  const picked = [
-    ...topics.slice(0, companies.length > 0 ? 2 : 5),
-    ...companies.slice(0, 3),
-  ];
+  // Review P2-12: topics fill whatever the picked companies leave of the
+  // 5-query budget (min 2 topics) — a 1-company spec used to drop to 3
+  // queries and silently lose topic recall.
+  const companyPick = companies.slice(0, 3);
+  const topicBudget =
+    companyPick.length > 0 ? Math.max(2, 5 - companyPick.length) : 5;
+  const picked = [...topics.slice(0, topicBudget), ...companyPick];
   const seen = new Set<string>();
   return picked
     .filter((q) => {
@@ -414,12 +417,17 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     const spec = specRow.spec as {
       topics?: string[];
       topicHint?: string | null;
+      keywords_include?: string[];
       entities?: { tickers?: string[]; companies?: string[]; commodities?: string[] };
     };
     const result = await gatherSources(
       {
         topics: spec.topics,
         topicHint: spec.topicHint ?? null,
+        // Review P1-7: keywords_include drives the CAD-221 dynamic GNews
+        // feeds — gatherSources accepted it from day one but the pipeline
+        // never passed it, so half the recall pack only ran in tests.
+        keywords: spec.keywords_include ?? [],
         // Wave 4 Bug 9: forward ALL entity buckets, not just tickers. The
         // bucket router uses them for topic detection (e.g. ePerolehan →
         // malaysia + regulatory bucket) and downstream scrapers may key
@@ -610,10 +618,23 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     if (providers.tier === "pro") {
       const PRO_SEARCH_MAX_QUERIES = 3;
       const PRO_MEMO_JOIN_CAP_CHARS = 8_000;
+      // Review P1-4: each Sonar call can legitimately run up to 120s
+      // (REQUEST_TIMEOUT_MS) — three back-to-back slow-tail calls alone
+      // would blow the route's 300s Inngest budget before the composer
+      // even starts. Issue a FURTHER query only while elapsed search time
+      // is under this budget; one in-flight slow call past it caps the
+      // phase at ~budget+120s, leaving headroom for compose + delivery.
+      const PRO_SEARCH_ISSUE_BUDGET_MS = 60_000;
+      const proSearchStartedAt = Date.now();
+      let proSearchTruncated = 0;
       try {
         const memos: string[] = [];
         const proQueries = searchQueries.slice(0, PRO_SEARCH_MAX_QUERIES);
         for (const query of proQueries) {
+          if (Date.now() - proSearchStartedAt > PRO_SEARCH_ISSUE_BUDGET_MS) {
+            proSearchTruncated++;
+            continue;
+          }
           const resp = await providers.search.search(query, {
             count: 8,
             userId,
@@ -636,7 +657,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         if (joinedMemo) composerInput.researchMemo = joinedMemo;
         runMetadata.proSearch = {
           provider: providers.search.id,
-          queries: proQueries.length,
+          queries: proQueries.length - proSearchTruncated,
+          // No silent caps: surfaced so /admin can see when the time
+          // budget cut research short (review P1-4).
+          truncatedByTimeBudget: proSearchTruncated,
           memoChars: joinedMemo.length,
         };
       } catch (proSearchErr) {
@@ -882,9 +906,15 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   if (!dryRun && appUrl.length > 0) {
     const spec = specRow.spec as { cadence?: { frequency?: Cadence } };
     const frequency = spec.cadence?.frequency ?? "daily";
-    // The balance going into this brief — debit not yet applied. Subtract 1
-    // to reason about post-delivery state.
-    const projectedBalance = user.creditsBalance - 1;
+    // The balance going into this brief — debit not yet applied. Subtract
+    // the RESOLVED stack's real price (review P2-8: a hardcoded -1 made an
+    // advanced delivery's footer reason from a balance 2-4 credits too
+    // high, missing the paywall nudge exactly when it mattered).
+    const footerTier =
+      (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ??
+      "default";
+    const projectedBalance =
+      user.creditsBalance - creditCostForTier(footerTier);
     const trialActive =
       user.trialCreditsGrantedAt != null && user.creditsBalance <= TRIAL_CREDITS;
     const footer = buildLowBalanceFooter({

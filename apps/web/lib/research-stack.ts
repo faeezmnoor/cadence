@@ -88,8 +88,10 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
   {
     label: "Composer model",
     default: "Claude Haiku 4.5 — fast, lightweight",
-    pro: "Claude Sonnet 4.6 — sharper analysis, 1M context",
-    pro_websearch: "Claude Sonnet 4.6 — sharper analysis, 1M context",
+    // Matches PRO_COMPOSER_MODEL_ID (claude-sonnet-4-5) — review P2-14
+    // caught the table promising 4.6 while the code pins 4.5.
+    pro: "Claude Sonnet 4.5 — sharper analysis, deeper reasoning",
+    pro_websearch: "Claude Sonnet 4.5 — sharper analysis, deeper reasoning",
   },
   {
     label: "Research depth",
@@ -103,7 +105,7 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
     default: "Sources cited per section",
     pro: "Stronger inline citations + cross-source corroboration",
     pro_websearch:
-      "Strongest fit-to-brief in our evals — searched pages cited like any other source",
+      "Searched pages are folded in and cited like any other numbered source",
   },
   {
     label: "Typical latency",
