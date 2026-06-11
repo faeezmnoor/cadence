@@ -114,7 +114,7 @@ export function LearningClient() {
                   </div>
                   <p className="mt-2 text-sm leading-relaxed">{r.rawText}</p>
                   {r.distilledAt && (
-                    <p className="mt-2 text-xs text-emerald-500">
+                    <p className="mt-2 text-xs text-success">
                       Distilled {formatDate(r.distilledAt)}
                     </p>
                   )}
