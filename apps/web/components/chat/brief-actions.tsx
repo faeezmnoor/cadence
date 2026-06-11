@@ -197,7 +197,7 @@ export function BriefActions({
             data-testid="brief-actions-send-now"
             onClick={onSendNow}
             disabled={!saved || send.kind === "sending"}
-            className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {send.kind === "sending" ? "Sending…" : "Send to Telegram now"}
           </button>

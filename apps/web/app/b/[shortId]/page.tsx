@@ -200,7 +200,7 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
           </p>
           <Link
             href="/"
-            className="mt-4 inline-flex h-10 items-center rounded-md bg-foreground px-6 text-sm font-medium text-background transition hover:opacity-90"
+            className="mt-4 inline-flex h-10 items-center rounded-md bg-brand px-6 text-sm font-medium text-brand-foreground transition hover:bg-brand/90"
           >
             Get your own daily brief
           </Link>

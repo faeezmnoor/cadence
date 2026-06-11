@@ -447,7 +447,7 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
           href={token.deepLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-foreground px-6 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
+          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-brand px-6 text-base font-semibold text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
         >
           Connect Telegram
         </a>
