@@ -52,6 +52,10 @@ export const confirm_and_save: ToolDescriptor<typeof confirmAndSaveSchema> = {
       ok: true as const,
       spec_id: saved.id,
       version: saved.version,
+      // CAD-212: present when the brief-count gate turned this save into
+      // an update of the user's existing brief. The system prompt rule:
+      // relay this sentence to the user verbatim.
+      ...(saved.notice ? { notice: saved.notice } : {}),
     };
   },
 };

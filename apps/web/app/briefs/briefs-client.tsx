@@ -147,7 +147,8 @@ export function BriefsClient({
              * surfacing as a "1 of 5" mismatch even though the page
              * rendered multiple cards.
              */}
-            {sorted.length} of {canCreate.max} briefs · sorted by next delivery
+            {sorted.length} of {canCreate.max}{" "}
+            {canCreate.max === 1 ? "brief" : "briefs"} · sorted by next delivery
           </p>
           <ul className="space-y-3">
             {sorted.map((b) => (
@@ -173,9 +174,11 @@ export function BriefsClient({
 
 function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
   if (!canCreate.allowed) {
+    // CAD-212: the cap is 1 brief while multi-brief is gated — say so
+    // honestly instead of implying that archiving frees up a slot ladder.
     return (
       <span
-        title={`You've reached the limit of ${canCreate.max} active briefs. Pause or archive one to make room.`}
+        title="Multiple briefs are coming soon."
         className="inline-flex h-9 cursor-not-allowed items-center rounded-md border border-border bg-muted px-3 text-sm font-medium text-muted-foreground"
         aria-disabled="true"
       >

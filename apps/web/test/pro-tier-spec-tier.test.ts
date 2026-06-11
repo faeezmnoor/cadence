@@ -74,7 +74,7 @@ describe("CAD-88 — digest/run.ts wiring", () => {
     // (getProviders falls back to "default" when the flag is off). The
     // badge now appends iff the brief was actually composed on Pro.
     expect(src).toMatch(/resolvedTier === "pro"/);
-    expect(src).toMatch(/🔬 Pro brief — deeper research, 3 credits\./);
+    expect(src).toMatch(/🔬 Advanced research — deeper digging, 3 credits\./);
   });
 });
 
