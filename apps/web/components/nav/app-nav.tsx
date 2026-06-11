@@ -82,8 +82,8 @@ export function AppNav({ active }: { active: AppNavTab }) {
                 aria-current={isActive ? "page" : undefined}
                 className={
                   isActive
-                    ? "inline-flex h-9 items-center rounded-md bg-brand/15 px-3 text-sm font-semibold text-foreground"
-                    : "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                    ? "inline-flex h-9 items-center rounded-md bg-brand/15 px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    : "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 }
               >
                 {t.label}
@@ -118,9 +118,13 @@ export function AppNav({ active }: { active: AppNavTab }) {
               href={t.href as never}
               aria-current={isActive ? "page" : undefined}
               className={
+                /* Design-review 2026-06-11 FINDING-005: h-8 (32px) was under
+                   the 44px touch floor on the one nav mobile users hit on
+                   every page; h-10 + focus rings to match the rest of the
+                   component. */
                 isActive
-                  ? "inline-flex h-8 shrink-0 items-center rounded-md bg-brand/15 px-3 text-xs font-semibold text-foreground"
-                  : "inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "inline-flex h-10 shrink-0 items-center rounded-md bg-brand/15 px-3 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  : "inline-flex h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               }
             >
               {t.label}

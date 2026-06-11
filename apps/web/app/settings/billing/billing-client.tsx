@@ -245,7 +245,7 @@ export function BillingClient({
                       <span
                         className={`text-sm tabular-nums ${
                           row.creditsDelta > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
+                            ? "text-success"
                             : row.creditsDelta < 0
                               ? "text-foreground"
                               : "text-muted-foreground"
@@ -289,7 +289,7 @@ export function BillingClient({
                         <td
                           className={`px-4 py-3 text-right tabular-nums ${
                             row.creditsDelta > 0
-                              ? "text-emerald-600 dark:text-emerald-400"
+                              ? "text-success"
                               : row.creditsDelta < 0
                                 ? "text-foreground"
                                 : "text-muted-foreground"

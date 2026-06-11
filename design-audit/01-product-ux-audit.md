@@ -151,6 +151,19 @@ The brief-creation flow is audited in depth separately (doc 02); terminology in 
 
 ---
 
+## Found-late addendum (2026-06-11, live design-review pass)
+
+The founder's eyeball + the live `/design-review` pass surfaced findings the source-only audit missed — all spatial/layout-cost or rendered-state issues, confirming the audit's known weakness (it caught what components *say*, not what they *occupy* or how they render):
+
+- **C6 *(P1, fixed)*** — the desktop spec rail was a permanently-docked 320px panel showing five empty `—` rows at turn 0 (~30% of a wide viewport on nothing). Now collapsible: collapsed until content, auto-opens on first capture, manual toggle persisted (FINDING-001).
+- **G5 *(P1, fixed)*** — `/pricing` rendered "Advanced research is temporarily unavailable…" twice back-to-back while the flag is off (page intro + TierExplainer fallback) (FINDING-002).
+- **C7 *(P1, fixed)*** — marketing nav had no current-page indicator (trunk-test fail) (FINDING-003).
+- **F4/F5 *(P1, fixed)*** — focus-visible coverage was per-component lottery: public footer links and app-nav tabs had none; mobile tabs were 32px tall (FINDING-004/005).
+- **A5 *(P2, fixed)*** — token-migration stragglers: billing ledger emerald, learning emerald, landing dots, auth `red-500` (FINDING-006/007).
+- **Deferred:** brief-body type drift (`text-[13px]/[14px]/[15px]` for the same content role — needs the A3 type-scale decision); settings-vs-briefs page-shell padding split; broader focus-ring sweep on brief-detail/billing/danger.
+
+**Process lesson:** every future audit of this product should pair the source read with a rendered-pixel pass before triage, not after.
+
 ## Severity roll-up
 
 | P0 | P1 | P2 |

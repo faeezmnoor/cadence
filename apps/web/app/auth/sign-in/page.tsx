@@ -127,7 +127,7 @@ function SignInInner() {
               {status === "sending" ? "Sending..." : "Email me a link"}
             </button>
             {status === "error" && errorMsg && (
-              <p className="text-center text-sm text-red-500" role="alert">
+              <p className="text-center text-sm text-destructive" role="alert">
                 {errorMsg}
               </p>
             )}

@@ -16,20 +16,39 @@ export function MarketingFooter() {
             Your own researcher, every morning.
           </p>
         </div>
-        <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <Link href={"/how-it-works" as Route} className="hover:text-foreground">
+        {/* Design-review 2026-06-11 FINDING-004: these links had no
+            focus-visible style and ~16px hit areas; same destinations in the
+            header nav get both. -mx/my offsets keep visual alignment while
+            the padding grows the target. */}
+        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Link
+            href={"/how-it-works" as Route}
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             How it works
           </Link>
-          <Link href={"/pricing" as Route} className="hover:text-foreground">
+          <Link
+            href={"/pricing" as Route}
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             Pricing
           </Link>
-          <Link href={"/privacy" as Route} className="hover:text-foreground">
+          <Link
+            href={"/privacy" as Route}
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             Privacy
           </Link>
-          <Link href={"/terms" as Route} className="hover:text-foreground">
+          <Link
+            href={"/terms" as Route}
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             Terms
           </Link>
-          <a href={SUPPORT_MAILTO} className="hover:text-foreground">
+          <a
+            href={SUPPORT_MAILTO}
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             {SUPPORT_EMAIL}
           </a>
         </nav>

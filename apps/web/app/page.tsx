@@ -21,7 +21,7 @@ export default function HomePage() {
       <section className="flex flex-col items-center px-6 pb-16 pt-10 sm:pt-16">
         <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
             Your own researcher, reporting in every morning
           </span>
 
@@ -54,7 +54,7 @@ export default function HomePage() {
           <div className="mt-6 flex items-center gap-5 text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Send className="h-4 w-4" aria-hidden />
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
               <span className="text-[11px] font-medium">Live</span>
             </span>
             <span className="flex items-center gap-3 opacity-35" aria-label="WhatsApp coming next">
