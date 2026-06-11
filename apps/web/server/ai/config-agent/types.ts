@@ -42,7 +42,15 @@ export interface ConfigAgentContext {
   saveSpec: (args: {
     userId: string;
     spec: DigestSpecV1;
-  }) => Promise<{ id: string; version: number }>;
+  }) => Promise<{
+    id: string;
+    version: number;
+    /**
+     * CAD-212: set when the brief-count gate redirected this save into an
+     * update of the user's existing brief. The agent must relay it.
+     */
+    notice?: string;
+  }>;
 }
 
 /**

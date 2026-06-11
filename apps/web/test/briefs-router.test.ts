@@ -273,64 +273,68 @@ describe("briefs.preview", () => {
   });
 });
 
-describe("briefs.canCreate (soft cap)", () => {
-  it("allows when under the cap", async () => {
-    for (let i = 0; i < 3; i++) {
-      specStore.push({
-        id: `0000000${i}-0000-0000-0000-000000000000`,
-        userId: "u-self",
-        name: `b${i}`,
-        status: "active",
-        scheduling: sampleRule(),
-        tier: "default",
-        nextRunAt: null,
-        pausedAt: null,
-        archivedAt: null,
-        createdAt: FIXED_NOW,
-        updatedAt: FIXED_NOW,
-      });
-    }
-    currentSelectFilter = (r) =>
-      r.userId === "u-self" && (r.status === "active" || r.status === "paused");
-    const caller = appRouter.createCaller(makeCtx());
-    const result = await caller.briefs.canCreate();
-    expect(result).toEqual({ allowed: true, count: 3, max: 5 });
-  });
-
-  it("blocks at exactly the cap (5 active+paused)", async () => {
-    for (let i = 0; i < 5; i++) {
-      specStore.push({
-        id: `0000000${i}-0000-0000-0000-000000000000`,
-        userId: "u-self",
-        name: `b${i}`,
-        status: i % 2 === 0 ? "active" : "paused",
-        scheduling: sampleRule(),
-        tier: "default",
-        nextRunAt: null,
-        pausedAt: null,
-        archivedAt: null,
-        createdAt: FIXED_NOW,
-        updatedAt: FIXED_NOW,
-      });
-    }
-    // Add an archived row to confirm it doesn't count.
+describe("briefs.canCreate (CAD-212 brief cap: 1 per user, founder 2)", () => {
+  function pushBrief(i: number, status: "active" | "paused" | "archived" = "active") {
     specStore.push({
-      id: "99999999-9999-9999-9999-999999999999",
+      id: `0000000${i}-0000-0000-0000-000000000000`,
       userId: "u-self",
-      name: "archived",
-      status: "archived",
+      name: `b${i}`,
+      status,
       scheduling: sampleRule(),
       tier: "default",
       nextRunAt: null,
       pausedAt: null,
-      archivedAt: FIXED_NOW,
+      archivedAt: status === "archived" ? FIXED_NOW : null,
       createdAt: FIXED_NOW,
       updatedAt: FIXED_NOW,
     });
+  }
+
+  it("allows the first brief (0 non-archived)", async () => {
     currentSelectFilter = (r) =>
       r.userId === "u-self" && (r.status === "active" || r.status === "paused");
     const caller = appRouter.createCaller(makeCtx());
     const result = await caller.briefs.canCreate();
-    expect(result).toEqual({ allowed: false, count: 5, max: 5 });
+    expect(result).toEqual({ allowed: true, count: 0, max: 1 });
+  });
+
+  it("blocks at 1 brief for a non-admin; archived rows don't count", async () => {
+    pushBrief(0, "active");
+    pushBrief(9, "archived");
+    currentSelectFilter = (r) =>
+      r.userId === "u-self" && (r.status === "active" || r.status === "paused");
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.briefs.canCreate();
+    expect(result).toEqual({ allowed: false, count: 1, max: 1 });
+  });
+
+  it("paused briefs still count toward the cap", async () => {
+    pushBrief(0, "paused");
+    currentSelectFilter = (r) =>
+      r.userId === "u-self" && (r.status === "active" || r.status === "paused");
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.briefs.canCreate();
+    expect(result).toEqual({ allowed: false, count: 1, max: 1 });
+  });
+
+  it("founder (admin email allowlist) is exempt at 2", async () => {
+    vi.stubEnv("CADENCE_ADMIN_EMAILS", "founder@cadence.news");
+    try {
+      pushBrief(0, "active");
+      currentSelectFilter = (r) =>
+        r.userId === "u-self" && (r.status === "active" || r.status === "paused");
+      const caller = appRouter.createCaller({
+        user: { id: "u-self", email: "founder@cadence.news" },
+        supabase: null,
+      } as never);
+      const one = await caller.briefs.canCreate();
+      expect(one).toEqual({ allowed: true, count: 1, max: 2 });
+
+      pushBrief(1, "active");
+      const two = await caller.briefs.canCreate();
+      expect(two).toEqual({ allowed: false, count: 2, max: 2 });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

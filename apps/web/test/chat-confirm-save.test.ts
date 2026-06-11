@@ -98,6 +98,32 @@ describe("chat E2E: propose_spec -> confirm_and_save", () => {
     expect(session.savedSpecId).toBe("spec-1");
   });
 
+  it("relays the CAD-212 brief-gate notice when saveSpec returns one", async () => {
+    const notice =
+      "You have one brief already — multiple briefs are coming soon. " +
+      "This chat updates your existing brief instead.";
+    const { ctx } = makeCtx(
+      vi.fn().mockResolvedValue({ id: "spec-1", version: 2, notice })
+    );
+    await configAgentTools.propose_spec.handler({ spec: validProposal }, ctx);
+    const result = (await configAgentTools.confirm_and_save.handler(
+      { user_confirmed: true },
+      ctx
+    )) as { ok: boolean; notice?: string };
+    expect(result.ok).toBe(true);
+    expect(result.notice).toBe(notice);
+  });
+
+  it("omits notice when saveSpec returns none", async () => {
+    const { ctx } = makeCtx();
+    await configAgentTools.propose_spec.handler({ spec: validProposal }, ctx);
+    const result = (await configAgentTools.confirm_and_save.handler(
+      { user_confirmed: true },
+      ctx
+    )) as Record<string, unknown>;
+    expect("notice" in result).toBe(false);
+  });
+
   it("rejects an incomplete draft at confirm-time (no topics)", async () => {
     const { ctx } = makeCtx();
     // Propose a draft without topics, then try to save. propose_spec accepts

@@ -4,14 +4,25 @@
  * callable from inside an Inngest function or chat route without going
  * through tRPC.
  *
- * Both paths flip the previous current row and insert a new version atomically.
+ * CAD-212 brief-count gate (joint ruling 2026-06-11):
+ *   - 0 non-archived briefs        -> plain insert (first brief).
+ *   - at the cap (1; founder 2)    -> the save becomes an UPDATE of the
+ *     existing brief: archive-then-replace the current row (the legacy
+ *     single-brief versioning flow) and return a `notice` the chat
+ *     surfaces. No silent data loss, no second brief.
+ *   - under the cap with ≥1 brief  -> founder only. Inserts a genuinely
+ *     NEW brief and leaves the existing brief running (status untouched);
+ *     only `is_current` hands over so the legacy single-current invariant
+ *     holds. Scheduled dispatch resolves by spec_id (see digest/run.ts),
+ *     so the older brief keeps delivering.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestSpecs, users } from "@/server/db/schema";
 import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
 import { ruleFromLegacyCadence } from "@/lib/scheduling/rule";
 import { nextRunAt as computeNextRunAt } from "@/lib/scheduling/evaluator";
+import { maxBriefsForEmail, SINGLE_BRIEF_NOTICE } from "@/server/briefs/limit";
 
 const DEFAULT_TIMEZONE = "Asia/Kuala_Lumpur";
 
@@ -39,17 +50,57 @@ export async function saveSpecForUser(args: {
    * row for per-template retention/feedback segmentation. Null = freehand.
    */
   templateId?: string | null;
-}): Promise<{ id: string; version: number }> {
+}): Promise<{ id: string; version: number; notice?: string }> {
   return db.transaction(async (tx) => {
-    await tx
-      .update(digestSpecs)
-      .set({ isCurrent: false, status: "archived", updatedAt: new Date() })
+    // CAD-212: one user-row read serves both the brief-count gate (email
+    // -> cap) and the Wave 4 Bug 7 scheduling derivation (timezone).
+    const userRow = await tx
+      .select({ timezone: users.timezone, email: users.email })
+      .from(users)
+      .where(eq(users.id, args.userId))
+      .limit(1);
+    const timezone = userRow[0]?.timezone ?? DEFAULT_TIMEZONE;
+    const maxBriefs = maxBriefsForEmail(userRow[0]?.email);
+
+    const existing = await tx
+      .select({ id: digestSpecs.id })
+      .from(digestSpecs)
       .where(
         and(
           eq(digestSpecs.userId, args.userId),
-          eq(digestSpecs.isCurrent, true)
+          inArray(digestSpecs.status, ["active", "paused"])
         )
       );
+    const atCap = existing.length >= maxBriefs;
+
+    if (atCap) {
+      // UPDATE path (single-brief flow): archive-then-replace the current
+      // row — the pre-CAD-212 behavior, now reserved for exactly this
+      // case. The old version stays recoverable in version history.
+      await tx
+        .update(digestSpecs)
+        .set({ isCurrent: false, status: "archived", updatedAt: new Date() })
+        .where(
+          and(
+            eq(digestSpecs.userId, args.userId),
+            eq(digestSpecs.isCurrent, true)
+          )
+        );
+    } else if (existing.length > 0) {
+      // Founder under the cap: a real second brief. Hand over is_current
+      // WITHOUT archiving — the existing brief keeps its status and its
+      // next_run_at, so cron-dispatch (which claims by next_run_at and
+      // resolves by spec_id) keeps delivering it.
+      await tx
+        .update(digestSpecs)
+        .set({ isCurrent: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(digestSpecs.userId, args.userId),
+            eq(digestSpecs.isCurrent, true)
+          )
+        );
+    }
 
     const latest = await tx
       .select({ version: digestSpecs.version })
@@ -65,12 +116,6 @@ export async function saveSpecForUser(args: {
     // placeholders. Pre-Wave-4 these columns were left at their schema
     // defaults ('{}' jsonb + "Untitled brief"), which broke the briefs
     // page for every chat-saved spec.
-    const userRow = await tx
-      .select({ timezone: users.timezone })
-      .from(users)
-      .where(eq(users.id, args.userId))
-      .limit(1);
-    const timezone = userRow[0]?.timezone ?? DEFAULT_TIMEZONE;
     const startDate = new Date().toISOString().slice(0, 10);
     const scheduling = ruleFromLegacyCadence({
       cadence: args.spec.cadence,
@@ -100,6 +145,10 @@ export async function saveSpecForUser(args: {
     if (!inserted) {
       throw new Error("digestSpec insert returned no row");
     }
-    return inserted;
+    // CAD-212: when the save was redirected into an update of the existing
+    // brief, hand the chat a notice it can surface honestly.
+    return atCap && existing.length > 0
+      ? { ...inserted, notice: SINGLE_BRIEF_NOTICE }
+      : inserted;
   });
 }

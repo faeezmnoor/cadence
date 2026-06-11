@@ -23,7 +23,7 @@ import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs } from "@/server/db/schema";
 import { AppNav } from "@/components/nav/app-nav";
 import { BriefsClient, type BriefRow } from "./briefs-client";
-import { MAX_BRIEFS_PER_USER } from "@/server/trpc/routers/briefs";
+import { maxBriefsForEmail } from "@/server/briefs/limit";
 
 export const dynamic = "force-dynamic";
 
@@ -111,11 +111,13 @@ export default async function BriefsPage() {
   });
 
   // canCreate is a quick count of the same non-archived rows — reuse what
-  // we already pulled to skip an extra round-trip.
+  // we already pulled to skip an extra round-trip. CAD-212: max comes from
+  // the per-user cap (1; founder/admin 2), same source as briefs.canCreate.
+  const maxBriefs = maxBriefsForEmail(user.email);
   const initialCanCreate = {
-    allowed: specs.length < MAX_BRIEFS_PER_USER,
+    allowed: specs.length < maxBriefs,
     count: specs.length,
-    max: MAX_BRIEFS_PER_USER,
+    max: maxBriefs,
   };
 
   // sql import retained so future migrations to a proper count(*) live here.

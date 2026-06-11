@@ -76,10 +76,13 @@ describe("inline-keyboard callback_data encoding", () => {
 // 2. recordFeedbackCallback — DB write + dedupe
 // ===========================================================================
 
-// Mocked db: we capture the last insert payload and let the test
-// control whether onConflictDoNothing returns a row (insert ok) or
-// nothing (dup).
-const insertedRows: Array<Record<string, unknown>> = [];
+// Mocked db: we capture every insert payload (tagged with its target
+// table) and let the test control whether onConflictDoNothing returns a
+// row (insert ok) or nothing (dup). CAD-211: a recorded vote now writes
+// TWO rows — feedback_events, then a learning_log fingerprint — so the
+// insert mock supports both the onConflictDoNothing chain and a plain
+// awaited `.values()`.
+const insertedRows: Array<{ table: unknown; values: Record<string, unknown> }> = [];
 let nextInsertReturning: Array<{ id: string }> = [];
 
 vi.mock("@/server/db/client", async () => {
@@ -102,22 +105,39 @@ vi.mock("@/server/db/client", async () => {
               return Promise.resolve([{ id: "user-1" }]);
             }
             if (activeTable === schema.digestRuns) {
-              return Promise.resolve([{ id: "run-1" }]);
+              return Promise.resolve([
+                {
+                  id: "run-1",
+                  specId: "spec-1",
+                  runDate: "2026-06-11",
+                  composedMarkdown:
+                    "# Daily brief\n\n## Prices\nCPO up.\n\n## What moved\nMPOB stocks.\n\n## Watchlist\nnothing.",
+                },
+              ]);
+            }
+            if (activeTable === schema.digestSpecs) {
+              return Promise.resolve([
+                { spec: { topics: ["CPO", "MPOB", "palm oil exports", "ringgit"] } },
+              ]);
             }
             return Promise.resolve([]);
           },
         };
         return chain;
       },
-      insert(_table: unknown) {
+      insert(table: unknown) {
         return {
           values(v: Record<string, unknown>) {
-            insertedRows.push(v);
+            insertedRows.push({ table, values: v });
             return {
               onConflictDoNothing() {
                 return {
                   returning: () => Promise.resolve(nextInsertReturning),
                 };
+              },
+              // Plain awaited insert (learning_log path).
+              then(resolve: (v: unknown) => unknown) {
+                return Promise.resolve(undefined).then(resolve);
               },
             };
           },
@@ -128,6 +148,14 @@ vi.mock("@/server/db/client", async () => {
 });
 
 import { recordFeedbackCallback } from "@/server/channels/telegram/inbound/feedback-callback";
+import { db } from "@/server/db/client";
+import { learningLog, feedbackEvents as feedbackEventsTable } from "@/server/db/schema";
+
+void db; // imported to make the mock graph explicit
+
+function insertsInto(table: unknown) {
+  return insertedRows.filter((r) => r.table === table);
+}
 
 beforeEach(() => {
   insertedRows.length = 0;
@@ -145,8 +173,9 @@ describe("recordFeedbackCallback — feedback_events writes", () => {
     });
 
     expect(result).toEqual({ kind: "recorded" });
-    expect(insertedRows).toHaveLength(1);
-    expect(insertedRows[0]).toMatchObject({
+    const fbInserts = insertsInto(feedbackEventsTable);
+    expect(fbInserts).toHaveLength(1);
+    expect(fbInserts[0]!.values).toMatchObject({
       userId: "user-1",
       digestRunId: "2f4c5a6e-1234-4567-89ab-cdef01234567",
       vote: "up",
@@ -169,6 +198,126 @@ describe("recordFeedbackCallback — feedback_events writes", () => {
     });
 
     expect(result).toEqual({ kind: "duplicate" });
+  });
+});
+
+// ===========================================================================
+// 2b. CAD-211 — recorded votes mirror a fingerprint into learning_log
+// ===========================================================================
+describe("recordFeedbackCallback — learning_log fingerprint (CAD-211)", () => {
+  const RUN_ID = "2f4c5a6e-1234-4567-89ab-cdef01234567";
+  const baseInput = {
+    callbackId: "cb-lll",
+    telegramUserId: 9999,
+    telegramChatId: 12345,
+    runId: RUN_ID,
+  } as const;
+
+  it("a recorded 👍 inserts source=feedback_event with the fingerprint shape", async () => {
+    const result = await recordFeedbackCallback({ ...baseInput, vote: "up" });
+    expect(result).toEqual({ kind: "recorded" });
+
+    const llInserts = insertsInto(learningLog);
+    expect(llInserts).toHaveLength(1);
+    expect(llInserts[0]!.values).toMatchObject({
+      userId: "user-1",
+      source: "feedback_event",
+    });
+
+    const rawText = llInserts[0]!.values.rawText as string;
+    // Vote label + run date + sections (markdown headings) + topics.
+    expect(rawText).toBe(
+      "👍 (more like this) on brief 2026-06-11 — sections: Daily brief, Prices, What moved; about: CPO, MPOB, palm oil exports"
+    );
+    expect(rawText.length).toBeLessThanOrEqual(200);
+  });
+
+  it("all four votes write, with the matching label", async () => {
+    const expectations: Array<[string, RegExp]> = [
+      ["up", /^👍 \(more like this\) on brief 2026-06-11/],
+      ["down", /^👎 \(less like this\) on brief 2026-06-11/],
+      ["love", /^🔥 \(loved it\) on brief 2026-06-11/],
+      ["skip", /^💤 \(skip topic\) on brief 2026-06-11/],
+    ];
+    for (const [vote, re] of expectations) {
+      insertedRows.length = 0;
+      await recordFeedbackCallback({
+        ...baseInput,
+        callbackId: `cb-${vote}`,
+        vote: vote as "up" | "down" | "love" | "skip",
+      });
+      const llInserts = insertsInto(learningLog);
+      expect(llInserts).toHaveLength(1);
+      expect(llInserts[0]!.values.rawText as string).toMatch(re);
+    }
+  });
+
+  it("a duplicate vote does NOT double-write learning_log", async () => {
+    nextInsertReturning = []; // ON CONFLICT DO NOTHING -> duplicate
+
+    const result = await recordFeedbackCallback({ ...baseInput, vote: "love" });
+    expect(result).toEqual({ kind: "duplicate" });
+    expect(insertsInto(learningLog)).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// 2c. CAD-211 — fingerprint builders are pure and bounded
+// ===========================================================================
+import {
+  buildBriefFingerprint,
+  extractSectionHeadings,
+  FINGERPRINT_MAX_CHARS,
+} from "@/server/channels/telegram/inbound/feedback-callback";
+
+describe("buildBriefFingerprint / extractSectionHeadings", () => {
+  it("extracts up to 3 headings, stripping markdown decoration", () => {
+    const md = "# *Daily* brief\nbody\n## Prices\n## What moved\n## Watchlist\n## Extra";
+    expect(extractSectionHeadings(md)).toEqual(["Daily brief", "Prices", "What moved"]);
+    expect(extractSectionHeadings(null)).toEqual([]);
+    expect(extractSectionHeadings("no headings here")).toEqual([]);
+  });
+
+  it("reads the real renderer's whole-line bold headings, skipping header + boilerplate", () => {
+    // Mirrors server/ai/composer/render.ts output shape.
+    const md = [
+      "🌾 *Cadence* · Daily · 2026-06-11",
+      "",
+      "*TL;DR* — CPO futures slid 2%.",
+      "",
+      "*Prices*",
+      "- CPO Aug: RM 3,900",
+      "",
+      "*What moved*",
+      "- MPOB stocks report",
+      "",
+      "*Why this matters to you*",
+      "blah",
+      "",
+      "*Sources*",
+      "1. example.com",
+    ].join("\n");
+    expect(extractSectionHeadings(md)).toEqual(["Prices", "What moved"]);
+  });
+
+  it("omits empty sections/topics segments cleanly", () => {
+    expect(
+      buildBriefFingerprint({ vote: "down", runDate: "2026-06-11", sections: [], topics: [] })
+    ).toBe("👎 (less like this) on brief 2026-06-11");
+    expect(
+      buildBriefFingerprint({ vote: "skip", runDate: "2026-06-11", sections: [], topics: ["crypto"] })
+    ).toBe("💤 (skip topic) on brief 2026-06-11 — about: crypto");
+  });
+
+  it("hard-caps rawText at 200 chars even with pathological inputs", () => {
+    const fp = buildBriefFingerprint({
+      vote: "up",
+      runDate: "2026-06-11",
+      sections: ["s".repeat(40), "t".repeat(40), "u".repeat(40)],
+      topics: ["x".repeat(120), "y".repeat(120), "z".repeat(120)],
+    });
+    expect(fp.length).toBeLessThanOrEqual(FINGERPRINT_MAX_CHARS);
+    expect(fp.endsWith("…")).toBe(true);
   });
 });
 

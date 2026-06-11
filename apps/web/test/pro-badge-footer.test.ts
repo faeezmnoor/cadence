@@ -18,7 +18,7 @@ describe("CAD-91 — Pro tier badge", () => {
 
   it("Pro footer wording is stable (user-visible copy lock)", () => {
     expect(PRO_BADGE_FOOTER).toBe(
-      "🔬 Pro brief — deeper research, 3 credits."
+      "🔬 Advanced research — deeper digging, 3 credits."
     );
   });
 
