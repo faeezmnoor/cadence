@@ -25,7 +25,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { buildAiSdkTools } from "@/server/ai/config-agent/runtime";
 import { saveSpecForUser } from "@/server/ai/config-agent/save-spec";
 import { loadConfigAgentSystemPrompt } from "@/server/ai/config-agent/system-prompt";
@@ -206,13 +206,17 @@ export async function POST(req: Request) {
   // `body.messages`, because this mirror exists for tampered clients.
   if (lastMsg?.role === "user") {
     // The current message was inserted above, so >1 row = prior turns.
+    // archivedAt filter: today messages are only archived via resetThread
+    // (which also archives the thread, and non-active threads 409 above),
+    // but don't let the gate depend on that cross-module invariant.
     const userRows = await db
       .select({ id: chatMessages.id })
       .from(chatMessages)
       .where(
         and(
           eq(chatMessages.threadId, thread.id),
-          eq(chatMessages.role, "user")
+          eq(chatMessages.role, "user"),
+          isNull(chatMessages.archivedAt)
         )
       )
       .limit(2);

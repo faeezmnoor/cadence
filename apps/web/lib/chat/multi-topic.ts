@@ -15,11 +15,22 @@
  *      ("palm oil and EUDR", "S&P 500 and watchlist"). Three+ is when
  *      users start scope-creeping.
  *
- * This runs client-side before the chat round-trip — no LLM cost, no
- * draft pollution. Server is the ultimate gate (config agent prompt
- * already discourages multi-topic) but this catches the loud cases up
- * front and steers them.
+ * Runs on BOTH surfaces — client-side before the chat round-trip (no LLM
+ * cost, no draft pollution) and mirrored server-side in /api/chat for
+ * non-browser callers (QA P1 #4). Since dogfood 2026-06-11 both surfaces
+ * must go through `detectMultiTopicIntake`, which gates detection to the
+ * thread's FIRST user message — later turns answer the agent's own list
+ * questions and must pass through untouched.
  */
+
+/**
+ * Sanity bound on refusal chips. NOT a truncation budget: the chips echo
+ * the user's own enumeration back, so every item must survive (dogfood
+ * 2026-06-11: a cap-at-4 silently dropped "sleekflow" from a 5-item
+ * list). The strip flex-wraps, so up to 6 render fine; past 6 the
+ * message is noise, not enumeration.
+ */
+const MAX_CANDIDATES = 6;
 
 /**
  * Words that, when used between two short noun phrases, signal the user
@@ -92,11 +103,7 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
   });
   if (tight.length < 3) return { multiTopic: false, candidates: [] };
 
-  // Dedupe (case-insensitive). Sanity-bound at 6 — refusal chips echo the
-  // user's OWN list back, so dropping an item reads as data loss (dogfood
-  // 2026-06-11: "sleekflow" silently vanished from a 5-item list). The UI
-  // strip flex-wraps, so up to 6 chips render fine; past 6 the message is
-  // noise, not enumeration.
+  // Dedupe (case-insensitive), sanity-bounded — see MAX_CANDIDATES.
   const seen = new Set<string>();
   const candidates: string[] = [];
   for (const c of tight) {
@@ -110,8 +117,6 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
 
   return { multiTopic: true, candidates };
 }
-
-const MAX_CANDIDATES = 6;
 
 /**
  * Conversation-position gate for the multi-topic refusal (dogfood
@@ -135,8 +140,8 @@ export function detectMultiTopicIntake(
 }
 
 /**
- * Canonical refusal copy. Kept here so the test, the client, and any
- * future server-side mirror all agree on the exact text.
+ * Canonical refusal copy. Kept here so the test, the client interceptor,
+ * and the server mirror in /api/chat all agree on the exact text.
  */
 export const MULTI_TOPIC_REFUSAL =
   "One topic per brief works best — which one first?";

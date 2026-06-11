@@ -103,9 +103,10 @@ export function ChatClient({
   const resetMut = trpc.chat.resetThread.useMutation();
   const appendMsg = trpc.chat.appendMessage.useMutation();
 
-  // MUST-SHIP #5: when the user proposes 3+ topics in one message, refuse
+  // MUST-SHIP #5: when the user's FIRST message proposes 3+ topics, refuse
   // gracefully instead of letting the config agent silently fold them all
-  // into one spec. Track an ephemeral chip set sourced from the detector
+  // into one spec (later turns are exempt — the agent solicits lists by
+  // design). Track an ephemeral chip set sourced from the detector
   // — tapping a chip re-enters the chat as a normal user message picking
   // a single topic, which the agent then handles as the brief topic.
   const [refusalChips, setRefusalChips] = useState<string[]>([]);
@@ -237,7 +238,11 @@ export function ChatClient({
           toolResults: [],
         },
       });
-    })().catch(() => {});
+    })().catch((err) => {
+      // Best-effort persistence — the optimistic render already happened,
+      // but leave a trace so a resume-mismatch report is debuggable.
+      console.warn("multi-topic refusal persist failed", err);
+    });
   };
 
   const handleRefusalChip = (chip: string) => {
@@ -461,6 +466,11 @@ export function ChatClient({
   ) => {
     if (isStreamingState) return;
     setGalleryOpen(false);
+    // Note: `append` bypasses onSubmit, so a template tap is never screened
+    // by the multi-topic gate AND counts as the thread's first user turn —
+    // the next typed message is exempt too. Deliberate: templates are
+    // curated single-topic queries (template-catalog.test.ts asserts none
+    // trip the detector), and the topic is already fixed by the tap.
     void append(
       { role: "user", content: tpl.exampleQuery },
       { body: { threadId, templateId: tpl.id, templateSource: source } }
