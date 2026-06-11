@@ -16,6 +16,13 @@
  * Having retries in two places (provider + pipeline) is how brief cost
  * silently doubles and how the cost-overrun circuit breaker gets gamed.
  *
+ * CAD-219 carve-out: the SHARED compose path (`composeBriefWithRepair` in
+ * `server/ai/composer/compose.ts`) performs at most ONE compose-only
+ * corrective re-prompt when the model's OUTPUT is malformed (bad JSON /
+ * citation parity). That is an output-format repair, not a transport
+ * retry — timeouts and non-2xx still throw immediately and remain
+ * pipeline-owned. Providers still MUST NOT add their own retry loops.
+ *
  * ---
  *
  * Provider abstraction (CAD-85 / T-520, Phase 5.1 Pro Tier foundation).

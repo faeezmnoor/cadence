@@ -20,6 +20,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, feedbackEvents, learningLog, users } from "@/server/db/schema";
+import { emitLearningSignal } from "@/server/inngest/learning-signal";
 import type { FeedbackVote } from "../keyboard";
 
 export interface RecordFeedbackCallbackInput {
@@ -222,6 +223,11 @@ export async function recordFeedbackCallback(
       source: "feedback_event",
       rawText: fingerprint,
     });
+
+    // CAD-220: nudge the event-triggered distill (debounced per user).
+    // Inside the same best-effort block — a dropped event is swept up by
+    // the Sunday weekly-distill cron.
+    await emitLearningSignal(user.id);
   } catch (err) {
     console.error("[feedback-callback:learning_log]", err);
   }

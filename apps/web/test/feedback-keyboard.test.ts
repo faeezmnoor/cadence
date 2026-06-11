@@ -147,6 +147,15 @@ vi.mock("@/server/db/client", async () => {
   };
 });
 
+// CAD-220: a recorded vote also emits learning/signal.recorded. Mocked at
+// the module boundary so no test touches the Inngest client.
+const emitLearningSignal = vi.fn(async (_userId: string) => undefined);
+vi.mock("@/server/inngest/learning-signal", () => ({
+  LEARNING_SIGNAL_EVENT: "learning/signal.recorded",
+  emitLearningSignal: (...args: unknown[]) =>
+    emitLearningSignal(...(args as [string])),
+}));
+
 import { recordFeedbackCallback } from "@/server/channels/telegram/inbound/feedback-callback";
 import { db } from "@/server/db/client";
 import { learningLog, feedbackEvents as feedbackEventsTable } from "@/server/db/schema";
@@ -160,6 +169,7 @@ function insertsInto(table: unknown) {
 beforeEach(() => {
   insertedRows.length = 0;
   nextInsertReturning = [{ id: "fb-1" }]; // default: insert succeeds
+  emitLearningSignal.mockClear();
 });
 
 describe("recordFeedbackCallback — feedback_events writes", () => {
@@ -488,7 +498,10 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
     expect(sendMessage.mock.calls[0]![2]).not.toHaveProperty("reply_markup");
   });
 
-  it("omits reply_markup on manual sampleNow path (no digestRunId)", async () => {
+  it("attaches reply_markup on manual sampleNow path via the pre-claimed run row (CAD-220)", async () => {
+    // CAD-220 (pipeline half): non-dry sample runs PRE-CLAIM a digest_runs
+    // row precisely so the keyboard can attach — the sample brief must seed
+    // the vote habit. The old "sampleNow omits the keyboard" pin is stale.
     const { runDigestPipeline, sendMessage } = await loadPipeline({
       keyboardEnabled: true,
       parts: ["only part"],
@@ -496,6 +509,14 @@ describe("runDigestPipeline — inline-keyboard attachment", () => {
 
     await runDigestPipeline({ userId: "user-1" });
     expect(sendMessage).toHaveBeenCalledTimes(1);
-    expect(sendMessage.mock.calls[0]![2]).not.toHaveProperty("reply_markup");
+    const opts = sendMessage.mock.calls[0]![2] as {
+      reply_markup?: { inline_keyboard: Array<Array<{ callback_data: string }>> };
+    };
+    expect(opts.reply_markup).toBeDefined();
+    // Callback data encodes the pre-claimed row id from the insert mock.
+    const allData = opts.reply_markup!.inline_keyboard
+      .flat()
+      .map((b) => b.callback_data);
+    expect(allData.every((d) => d.endsWith("run-1"))).toBe(true);
   });
 });
