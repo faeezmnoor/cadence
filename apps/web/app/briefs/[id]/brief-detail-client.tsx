@@ -118,7 +118,7 @@ export function BriefDetailClient({
       <header className="space-y-2">
         <Link
           href={"/briefs" as never}
-          className="inline-flex items-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          className="inline-flex items-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           ← All briefs
         </Link>
@@ -184,7 +184,7 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={
-        "rounded px-3 py-1.5 text-sm font-medium transition " +
+        "rounded px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
         (active
           ? "bg-foreground text-background"
           : "text-muted-foreground hover:text-foreground")
@@ -347,7 +347,7 @@ function AdvancedTab({
             type="button"
             onClick={handleSave}
             disabled={updateRaw.isPending || isArchived}
-            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+            className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           >
             {updateRaw.isPending ? "Saving…" : "Save new version"}
           </button>
@@ -479,7 +479,7 @@ function VersionsSection({
                           href={`/b/${b.shortId}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[11px] text-foreground hover:bg-muted"
+                          className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 font-mono text-[11px] text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           title={`Delivered ${new Date(b.runDate).toLocaleDateString()}`}
                         >
                           {b.shortId}
@@ -499,7 +499,7 @@ function VersionsSection({
             type="button"
             onClick={() => setPageSize((s) => s + 10)}
             disabled={versionsQuery.isFetching}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           >
             {versionsQuery.isFetching
               ? "Loading…"
@@ -596,7 +596,7 @@ function ConfigurableStackSettings({
               onClick={() => setDraftStack(stack)}
               disabled={setTier.isPending}
               data-testid={`stack-option-${stack}`}
-              className={`rounded-md border p-3 text-left transition ${
+              className={`rounded-md border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                 selected
                   ? "border-foreground bg-foreground/5 ring-1 ring-foreground"
                   : "border-border bg-transparent hover:bg-muted"
@@ -653,7 +653,7 @@ function ConfigurableStackSettings({
           type="button"
           onClick={() => setTier.mutate({ id: brief.id, tier: draftStack })}
           disabled={!dirty || setTier.isPending}
-          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50"
+          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           data-testid="save-stack-button"
         >
           {setTier.isPending
@@ -674,7 +674,7 @@ function ConfigurableStackSettings({
 
       {/* Transparency table — what you actually get */}
       <details className="mt-4 rounded-md border border-border bg-background p-3 [&_summary::-webkit-details-marker]:hidden">
-        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           What changes between standard and advanced
         </summary>
         <div className="mt-3">

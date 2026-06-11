@@ -293,7 +293,7 @@ function BriefCard({
                 <>
                   {" · "}
                   <a
-                    className="text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+                    className="text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     href={`/b/${row.lastRun.shortId}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -313,7 +313,7 @@ function BriefCard({
             type="button"
             onClick={onResume}
             disabled={busy}
-            className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:opacity-50"
+            className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           >
             Resume
           </button>
@@ -322,7 +322,7 @@ function BriefCard({
             type="button"
             onClick={onPause}
             disabled={busy}
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           >
             Pause
           </button>
@@ -338,14 +338,14 @@ function BriefCard({
                 onArchive();
               }}
               disabled={busy}
-              className="inline-flex h-7 items-center rounded-md bg-destructive px-2 text-xs font-medium text-destructive-foreground transition hover:opacity-90 disabled:opacity-50"
+              className="inline-flex h-7 items-center rounded-md bg-destructive px-2 text-xs font-medium text-destructive-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
             >
               Yes, archive
             </button>
             <button
               type="button"
               onClick={() => setArchiving(false)}
-              className="inline-flex h-7 items-center rounded-md border border-border px-2 text-xs text-foreground"
+              className="inline-flex h-7 items-center rounded-md border border-border px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               Keep it
             </button>
@@ -354,7 +354,7 @@ function BriefCard({
           <button
             type="button"
             onClick={() => setArchiving(true)}
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             Archive
           </button>

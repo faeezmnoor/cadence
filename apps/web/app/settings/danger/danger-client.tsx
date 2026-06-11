@@ -104,7 +104,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
             {error}
             {" "}
             <a
-              className="underline-offset-2 hover:underline"
+              className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               href={`mailto:${SUPPORT_EMAIL}`}
             >
               Contact support
@@ -132,7 +132,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
             type="button"
             disabled={deleteSelf.isPending}
             onClick={() => router.push("/settings" as never)}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             Cancel
           </button>
