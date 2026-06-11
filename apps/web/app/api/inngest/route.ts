@@ -3,6 +3,16 @@ import * as Sentry from "@sentry/nextjs";
 import { inngest } from "@/server/inngest/client";
 
 /**
+ * CAD-219: the digest pipeline (sources + Chromium scrapes + compose +
+ * multi-part send) runs inside Inngest step invocations served by THIS
+ * route. Without an explicit ceiling, Vercel's default function timeout
+ * can kill a slow run mid-step; Inngest then retries the whole step and
+ * we pay compose cost again. 300s is Vercel's max configurable duration
+ * and comfortably bounds the worst observed pipeline wall time.
+ */
+export const maxDuration = 300;
+
+/**
  * Security MEDIUM #4: cold-start assertion that INNGEST_SIGNING_KEY is
  * present in production builds. Without it, Inngest can't verify webhook
  * signatures and our cron pipeline silently degrades to "anyone with the
@@ -27,6 +37,7 @@ import { digestRunFn } from "@/server/inngest/functions/digest-run";
 import { cronDispatch } from "@/server/inngest/functions/cron-dispatch";
 import { smokeSummary } from "@/server/inngest/functions/smoke-summary";
 import { weeklyDistill } from "@/server/inngest/functions/weekly-distill";
+import { distillOnSignal } from "@/server/inngest/functions/distill-on-signal";
 import { feedbackEvalCron } from "@/server/inngest/functions/feedback-eval-cron";
 import { purgeSoftDeletedBriefs_fn } from "@/server/inngest/functions/purge-soft-deleted-briefs";
 
@@ -39,6 +50,7 @@ export const { GET, POST, PUT } = serve({
     cronDispatch,
     smokeSummary,
     weeklyDistill,
+    distillOnSignal,
     feedbackEvalCron,
     purgeSoftDeletedBriefs_fn,
   ],

@@ -47,6 +47,41 @@ import { inngest } from "../client";
 import { db } from "@/server/db/client";
 import { users } from "@/server/db/schema";
 import { runDigestPipeline, MAX_DELIVERY_ATTEMPTS } from "@/server/digest/run";
+import {
+  telegramAdapter,
+  formatPlainText,
+  isTelegramConfigured,
+} from "@/server/channels/telegram";
+
+/**
+ * CAD-218: a failed brief must never be silent. Best-effort Telegram
+ * notice — failures here are swallowed (the most common permanent error
+ * IS an unreachable chat, where the notice cannot land either).
+ */
+async function notifyDeliveryFailure(
+  userId: string,
+  kind: "retrying" | "gave_up"
+): Promise<void> {
+  if (!isTelegramConfigured()) return;
+  try {
+    const rows = await db
+      .select({ telegramChatId: users.telegramChatId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const chatId = rows[0]?.telegramChatId;
+    if (chatId == null) return;
+    const text =
+      kind === "retrying"
+        ? "Your brief hit a snag on the way out. We're retrying — it should arrive shortly. Your credits weren't touched."
+        : "We couldn't deliver your brief after several tries, so deliveries are paused while we look into it. Your credits weren't touched — manage your briefs from the dashboard.";
+    for (const part of formatPlainText(text)) {
+      await telegramAdapter.send(part, { channel: "telegram", chatId: Number(chatId) });
+    }
+  } catch {
+    // Best-effort only.
+  }
+}
 
 interface ScheduledPayload {
   userId?: string;
@@ -127,6 +162,22 @@ export async function digestRunHandler(ctx: HandlerCtx): Promise<unknown> {
         .where(eq(users.id, userId));
     });
 
+    // CAD-218: tell the user (best-effort) + page the operator. Silent
+    // permanent schedule death was the audit's #1 churn mechanism.
+    await step.run("notify-delivery-broken", async () => {
+      await notifyDeliveryFailure(userId, "gave_up");
+      try {
+        const Sentry = await import("@sentry/nextjs");
+        Sentry.captureMessage("digest delivery_broken", {
+          level: "error",
+          tags: { route: "digest.run", reason: permanent ? "permanent" : "exhausted" },
+          extra: { userId, digestRunId, attemptCount, lastError: result.error },
+        });
+      } catch {
+        // Sentry-optional.
+      }
+    });
+
     console.warn(
       JSON.stringify({
         event: "digest.delivery_broken",
@@ -148,6 +199,15 @@ export async function digestRunHandler(ctx: HandlerCtx): Promise<unknown> {
       attemptCount,
       error: result.error,
     };
+  }
+
+  // CAD-218: first failure gets a one-time "retrying" notice so the user
+  // is never wondering where their brief went. Only on attempt 1 — the
+  // backoff retries shouldn't spam.
+  if (attemptCount === 1) {
+    await step.run("notify-retrying", async () => {
+      await notifyDeliveryFailure(userId, "retrying");
+    });
   }
 
   // Transient + retries remaining: throw so Inngest reschedules with its

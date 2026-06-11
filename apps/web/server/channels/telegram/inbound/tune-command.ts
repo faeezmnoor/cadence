@@ -15,6 +15,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { learningLog, users } from "@/server/db/schema";
+import { emitLearningSignal } from "@/server/inngest/learning-signal";
 
 export interface HandleTuneCommandInput {
   /** Telegram chat.id from message.chat.id — 1:1 chats only pre-WA. */
@@ -99,6 +100,9 @@ export async function handleTuneCommand(
     source: "tune_command",
     rawText: input.rawText,
   });
+
+  // CAD-220: nudge the event-triggered distill (debounced per user).
+  await emitLearningSignal(user.id);
 
   return { kind: "logged" };
 }

@@ -50,6 +50,19 @@ export interface ComposerInput {
   digestRunId?: string | null;
 }
 
+/**
+ * CAD-219 self-repair telemetry. Populated by the shared compose path when
+ * a brief needed fixing before it validated. OPTIONAL end-to-end: the
+ * digest pipeline may stamp it onto run metadata later, and nothing breaks
+ * while it's unwired.
+ */
+export interface ComposerRepairInfo {
+  /** Never-cited sources dropped by the deterministic $0 prune+renumber. */
+  prunedUnused?: number;
+  /** Compose-only corrective LLM retries performed (bounded to 1). */
+  composeRetries?: number;
+}
+
 export interface ComposerOutput {
   /** Final Markdown brief — pre-split for Telegram. */
   markdown: string;
@@ -57,6 +70,11 @@ export interface ComposerOutput {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  /**
+   * Present only when the brief needed repair (deterministic prune and/or
+   * one compose-only retry). Absent on the clean path. See CAD-219.
+   */
+  repair?: ComposerRepairInfo;
   /**
    * Structured brief the renderer turned into markdown. Exposed so the
    * digest pipeline can run downstream evals (Phase 0: source-resolution
