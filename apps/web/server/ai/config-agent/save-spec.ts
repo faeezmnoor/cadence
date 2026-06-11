@@ -33,6 +33,12 @@ function deriveBriefName(spec: DigestSpecV1): string {
 export async function saveSpecForUser(args: {
   userId: string;
   spec: DigestSpecV1;
+  /**
+   * Brief-creation revamp PR 1 (migration 0026): catalog template id the
+   * thread started from (chat_threads.template_id), copied onto the spec
+   * row for per-template retention/feedback segmentation. Null = freehand.
+   */
+  templateId?: string | null;
 }): Promise<{ id: string; version: number }> {
   return db.transaction(async (tx) => {
     await tx
@@ -87,6 +93,7 @@ export async function saveSpecForUser(args: {
         status: "active",
         tier: "default",
         nextRunAt: next,
+        templateId: args.templateId ?? null,
       })
       .returning({ id: digestSpecs.id, version: digestSpecs.version });
 

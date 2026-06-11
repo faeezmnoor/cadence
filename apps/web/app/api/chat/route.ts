@@ -39,6 +39,7 @@ import {
 } from "@/lib/digest-spec/schema";
 import { log } from "@/lib/log";
 import { detectMultiTopic, MULTI_TOPIC_REFUSAL } from "@/lib/chat/multi-topic";
+import { isKnownTemplateId } from "@/lib/digest-spec/templates";
 import { checkRateLimit } from "@/server/rate-limit/check";
 import {
   recordChatTurn,
@@ -62,7 +63,17 @@ export const maxDuration = 60;
 interface ChatRequestBody {
   threadId: string;
   messages: Message[];
+  /**
+   * Brief-creation revamp PR 1: set when the latest user message was
+   * auto-submitted by a template card / deep-link rather than typed.
+   * Validated against the catalog; stamped once on chat_threads.template_id
+   * (migration 0026). NULL/absent = freehand.
+   */
+  templateId?: string;
+  templateSource?: string;
 }
+
+const TEMPLATE_SOURCES = new Set(["starter_card", "gallery", "deep_link"]);
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServerClient();
@@ -146,6 +157,34 @@ export async function POST(req: Request) {
       role: "user",
       charCount: text.length,
     });
+
+    // Brief-creation revamp PR 1: template provenance. Stamp once — the
+    // first template submission wins; later taps in the same thread don't
+    // overwrite, so freehand-vs-template share stays honest. Unknown ids
+    // (tampered client, removed template) are dropped, not errored — the
+    // message itself is still a valid user turn.
+    if (
+      typeof body.templateId === "string" &&
+      thread.templateId == null &&
+      isKnownTemplateId(body.templateId)
+    ) {
+      const source = TEMPLATE_SOURCES.has(body.templateSource ?? "")
+        ? (body.templateSource as string)
+        : "unknown";
+      await db
+        .update(chatThreads)
+        .set({ templateId: body.templateId, updatedAt: new Date() })
+        .where(eq(chatThreads.id, thread.id));
+      thread.templateId = body.templateId;
+      // next-axiom's Logger has no `event` method — use the repo-wide
+      // `log.info("message", fields)` convention (see lib/log.ts usage).
+      log.info("template_selected", {
+        templateId: body.templateId,
+        source,
+        threadId: thread.id,
+        userId: user.id,
+      });
+    }
   }
 
   // QA P1 #4: server-side mirror of the multi-topic refusal. The client
@@ -246,7 +285,11 @@ export async function POST(req: Request) {
   };
   const agentCtx: ConfigAgentContext = {
     session,
-    saveSpec: saveSpecForUser,
+    // Brief-creation revamp PR 1: carry the thread's template provenance
+    // onto the saved spec row (digest_specs.template_id, migration 0026)
+    // without widening the tool-facing saveSpec contract.
+    saveSpec: (args) =>
+      saveSpecForUser({ ...args, templateId: thread.templateId ?? null }),
   };
 
   // PRIOR CONTEXT block: if anything was applied or proposed this turn,

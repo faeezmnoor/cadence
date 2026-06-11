@@ -21,12 +21,23 @@ const chatClientPath = fileURLToPath(
 );
 const source = readFileSync(chatClientPath, "utf8");
 
+// Brief-creation revamp PR 1: the turn-0 starters moved out of
+// chat-client.tsx into components/chat/starter-cards.tsx (TemplateCard /
+// StarterCards). The single-editable-file + turn-0-only invariants still
+// hold — they're just pinned against the new module.
+const starterCardsPath = fileURLToPath(
+  new URL("../components/chat/starter-cards.tsx", import.meta.url)
+);
+const starterCardsSource = readFileSync(starterCardsPath, "utf8");
+
 describe("chat starter chips (Designer #3 + Ticket 1)", () => {
-  it("sources chips from the DIGEST_TEMPLATES library (single editable file)", () => {
-    expect(source).toMatch(
-      /import\s*\{\s*DIGEST_TEMPLATES\s*\}\s*from\s*"@\/lib\/digest-spec\/templates"/
+  it("sources cards from the templates library (single editable file)", () => {
+    expect(starterCardsSource).toMatch(
+      /import\s*\{[\s\S]*?STARTER_TEMPLATES[\s\S]*?\}\s*from\s*"@\/lib\/digest-spec\/templates"/
     );
-    expect(source).toMatch(/const STARTER_CHIPS = DIGEST_TEMPLATES/);
+    expect(starterCardsSource).toMatch(/STARTER_TEMPLATES\.map\(/);
+    // chat-client renders the shared StarterCards component, not its own copy.
+    expect(source).toMatch(/import\s*\{\s*StarterCards\s*\}\s*from\s*"\.\/starter-cards"/);
   });
 
   it("ships at least 10 curated templates spanning multiple categories", () => {
@@ -48,26 +59,29 @@ describe("chat starter chips (Designer #3 + Ticket 1)", () => {
     expect(source).toMatch(/\{!hasMessages && \(/);
   });
 
-  it("chip click autofills the input via handleStarterChip (NOT auto-submit)", () => {
-    // Per Ticket 1: chips populate the input so the user can edit before
-    // sending. This is intentionally different from the T-414 contextual
-    // chips, which auto-submit via handleSuggestion -> append().
-    expect(source).toMatch(/data-testid="chat-starter-chips"/);
-    expect(source).toMatch(
-      /onClick=\{\(\)\s*=>\s*handleStarterChip\(tpl\.exampleQuery\)\}/
-    );
-    expect(source).toMatch(/setInput\(exampleQuery\)/);
+  it("card tap auto-submits the exampleQuery with template provenance", () => {
+    // Brief-creation revamp PR 1 deliberately replaced autofill-and-edit
+    // with informed-consent auto-submit (the card IS the preview). The
+    // tap must ride templateId/templateSource so the server can stamp
+    // chat_threads.template_id (migration 0026).
+    expect(starterCardsSource).toMatch(/data-testid="template-card"/);
+    expect(starterCardsSource).toMatch(/onClick=\{\(\)\s*=>\s*onSelect\(template\)\}/);
+    expect(source).toMatch(/content:\s*tpl\.exampleQuery/);
+    expect(source).toMatch(/templateSource:\s*"starter_card"/);
   });
 
   it("welcome bubble copy reflects channel-agnostic positioning", () => {
     const welcomeBlock = source.match(
-      /data-testid="chat-welcome"[\s\S]*?<\/div>\s*<\/div>\s*\)\}/
+      /data-testid="chat-welcome"[\s\S]*?<StarterCards/
     );
     expect(welcomeBlock).not.toBeNull();
     const text = welcomeBlock![0].toLowerCase();
     expect(text).not.toContain("telegram");
     expect(text).not.toContain("whatsapp");
-    expect(text).toContain("cadence");
+    // COPY_GUIDE §6: the researcher speaks as "I" in chat — third-person
+    // "Cadence" is banned mid-surface, so the bubble introduces the value
+    // ("I research…"), not the brand name.
+    expect(text).toContain("i research");
   });
 
   it("classifyTopic buckets known keywords and returns null for unknown topics", () => {

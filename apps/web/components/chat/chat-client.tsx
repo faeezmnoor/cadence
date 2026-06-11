@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Message } from "ai";
 import type { PersistedMessage } from "./types";
@@ -19,7 +19,8 @@ import {
   detectMultiTopic,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
-import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
+import type { DigestTemplate } from "@/lib/digest-spec/templates";
+import { StarterCards } from "./starter-cards";
 
 /**
  * Streaming chat client for the config agent.
@@ -414,25 +415,32 @@ export function ChatClient({
 
   const hasMessages = messages.length > 0;
 
-  // Designer #3 (audit §3) + Ticket 1: seed turn 0 with a welcome bubble +
-  // curated template chips so the user sees concrete examples across the
-  // categories Cadence supports (commodity, equity, social-commerce, crypto,
-  // sports, regulatory, OSS, real estate, government, travel). Chips reflect
-  // Cadence's channel-agnostic, industry-customizable framing — NOT
-  // "telegram-y" copy. See feedback_cadence_positioning.
-  //
-  // Click behaviour: autofill the input with the template's exampleQuery
-  // (user can edit before sending). This is intentionally different from the
-  // T-414 contextual chips below (which auto-submit) — first-time users
-  // benefit from seeing+tweaking the example before committing.
+  // Brief-creation revamp PR 1 (proposals/brief-creation-flow-proposal.md):
+  // turn 0 shows two greeting bubbles + 3 starter cards (one per anchor
+  // ICP) + the "Describe it in your words" escape hatch. The 10-pill cloud
+  // and its autofill-and-edit behaviour are retired — a card tap is
+  // informed consent and auto-submits the template's exampleQuery so the
+  // agent can confirm-and-personalize instead of re-interviewing.
   //
   // Templates source of truth: apps/web/lib/digest-spec/templates.ts —
-  // Faeez edits that file and redeploys to add/remove starter examples.
-  const STARTER_CHIPS = DIGEST_TEMPLATES;
+  // Faeez edits that file and redeploys (see the `visible` flag doc there).
+  //
+  // `templateId`/`templateSource` ride the request body so the server can
+  // stamp chat_threads.template_id (provenance, migration 0026) and emit
+  // template_selected telemetry. Note: per-request body REPLACES the
+  // hook-level body in ai-sdk v4, so threadId must be re-sent here.
+  const composerInputRef = useRef<HTMLInputElement>(null);
 
-  const handleStarterChip = (exampleQuery: string) => {
+  const handleTemplateSelect = (tpl: DigestTemplate) => {
     if (isStreamingState) return;
-    setInput(exampleQuery);
+    void append(
+      { role: "user", content: tpl.exampleQuery },
+      { body: { threadId, templateId: tpl.id, templateSource: "starter_card" } }
+    );
+  };
+
+  const handleDescribeOwn = () => {
+    composerInputRef.current?.focus();
   };
 
   return (
@@ -485,30 +493,17 @@ export function ChatClient({
             {!hasMessages && (
               <div data-testid="chat-welcome" className="flex flex-col gap-3">
                 <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground">
-                  Hey 👋 I&apos;m Cadence. Tell me what industry to watch, in
-                  your words. I&apos;ll handle the rest.
+                  I research your industry and send you a brief, on your
+                  schedule.
                 </div>
-                <div
-                  data-testid="chat-starter-chips"
-                  className="flex flex-wrap gap-1.5"
-                  aria-label="Starter examples"
-                >
-                  {STARTER_CHIPS.map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      data-template-id={tpl.id}
-                      data-template-category={tpl.category}
-                      onClick={() => handleStarterChip(tpl.exampleQuery)}
-                      disabled={isStreaming}
-                      title={tpl.exampleQuery}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span aria-hidden="true">{tpl.emoji}</span>
-                      <span>{tpl.label}</span>
-                    </button>
-                  ))}
+                <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  Tell me what to watch — in your own words.
                 </div>
+                <StarterCards
+                  onSelect={handleTemplateSelect}
+                  onDescribeOwn={handleDescribeOwn}
+                  disabled={isStreaming}
+                />
               </div>
             )}
             {groupedItems.map((item) => {
@@ -691,6 +686,7 @@ export function ChatClient({
         >
           <div className="mx-auto flex w-full max-w-2xl gap-2">
             <input
+              ref={composerInputRef}
               type="text"
               value={input}
               onChange={handleInputChange}

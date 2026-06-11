@@ -154,6 +154,11 @@ export const digestSpecs = pgTable(
      * back to default until Faeez flips the env flag.
      */
     tier: text("tier").notNull().default("default"),
+    // Brief-creation revamp PR 1 (migration 0026): provenance — copied from
+    // chat_threads.template_id at confirm_and_save. NULL = freehand brief.
+    // Powers D7-survival / 👍-rate segmentation by template (the starter-trio
+    // swap trigger) via plain joins against feedback_events.
+    templateId: text("template_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -187,6 +192,12 @@ export const chatThreads = pgTable("chat_threads", {
   // T-408: in-progress DigestSpecDraft so multi-turn edits compose. NULL
   // until first write; cleared back to NULL on successful confirm_and_save.
   draftSpec: jsonb("draft_spec"),
+  // Brief-creation revamp PR 1 (migration 0026): provenance — which catalog
+  // template (lib/digest-spec/templates.ts id) started this thread via a
+  // starter card / gallery tap / ?template= deep-link. NULL = freehand.
+  // Stamped once at first template submission; never overwritten, so the
+  // freehand-vs-template share metric stays honest.
+  templateId: text("template_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
