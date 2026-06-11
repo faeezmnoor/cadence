@@ -97,10 +97,19 @@ export interface DigestTemplate {
   /**
    * Draft-shaped hints for this brief. PR 1 uses `cadence` to render the
    * card's cadence hint; PR 2 injects the full object into the config
-   * agent's prior-context block after a card tap. Must validate against
-   * digestSpecDraftSchema (test/template-catalog.test.ts).
+   * agent's system prompt (template-seed block) after a card tap — the
+   * agent CONFIRMS these with the user, it never writes them to the spec
+   * unasked. Must validate against digestSpecDraftSchema
+   * (test/template-catalog.test.ts).
    */
   seedHints?: Partial<DigestSpecDraft>;
+  /**
+   * PR 2: THE one personalizing question the agent asks right after a
+   * card tap (the card already set topic + cadence). Chat voice, ≤12
+   * words. Required on visible rows — the ≤3-questions-to-save contract
+   * hangs off it (server/ai/config-agent/template-seed.ts).
+   */
+  forkingQuestion?: string;
   /**
    * Lowercase keyword list used by classifyTopic() to bucket incoming spec
    * topics into this template. A single hit is enough — keep keywords
@@ -132,27 +141,40 @@ export const DIGEST_TEMPLATES: readonly DigestTemplate[] = [
     id: "palm_oil_mpob",
     label: "Palm oil market brief",
     emoji: "🌴",
-    exampleQuery: "Daily palm oil prices and MPOB news",
+    exampleQuery:
+      "Daily palm oil market brief, weekday mornings — MPOB stocks data, CPO futures moves and USDA updates, explained in plain language for someone working in the palm oil industry.",
     suggestedTier: "default",
     category: "markets_commodities",
     description: "MPOB stocks, USDA data and futures moves, explained",
     visible: true,
     starter: true,
     exampleHeadline: "CPO futures tighten as MPOB stocks fall",
-    seedHints: { cadence: WEEKDAY_MORNINGS },
+    seedHints: {
+      topics: ["palm oil market"],
+      entities: { companies: [], tickers: [], commodities: ["CPO", "FCPO"] },
+      keywords_include: ["MPOB", "USDA"],
+      cadence: WEEKDAY_MORNINGS,
+    },
+    forkingQuestion: "Do you produce, trade or buy palm oil?",
     match: ["palm oil", "mpob", "cpo", "fcpo"],
   },
   {
     id: "multi_commodity_weekly",
     label: "Multi-commodity weekly brief",
     emoji: "🌾",
-    exampleQuery: "Weekly brief on the agricultural commodity prices I buy",
+    exampleQuery:
+      "Weekly brief on the agricultural commodity prices I buy — corn, wheat and sugar moves with the reasons behind them, in one short read every Monday morning before the week starts.",
     suggestedTier: "default",
     category: "markets_commodities",
     description: "Corn, wheat and sugar moves in one weekly read",
     visible: true,
     exampleHeadline: "Wheat slips as harvest outlook improves",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["agricultural commodity prices"],
+      keywords_include: ["corn", "wheat", "sugar"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "Which commodities do you buy most?",
     match: [
       "corn",
       "wheat",
@@ -167,13 +189,21 @@ export const DIGEST_TEMPLATES: readonly DigestTemplate[] = [
     id: "fnb_cost_watch",
     label: "F&B cost watch",
     emoji: "🍗",
-    exampleQuery: "Weekly brief on ingredient costs for my F&B business",
+    // NB: no "sugar" in this query — it would classify to
+    // multi_commodity_weekly (earlier row) in classifyTopic's first-hit scan.
+    exampleQuery:
+      "Weekly brief on ingredient cost pressure for my F&B business — chicken and cooking oil prices with what's driving them, summarized every Monday so I can plan menus and orders.",
     suggestedTier: "default",
     category: "markets_commodities",
     description: "Chicken, cooking oil and sugar price pressure, summarized",
     visible: true,
     exampleHeadline: "Cooking oil costs ease after export quota lift",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["F&B ingredient costs"],
+      keywords_include: ["chicken", "cooking oil", "sugar"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "What are your biggest ingredient costs?",
     match: ["chicken", "cooking oil", "f&b", "fnb", "ingredient", "food cost"],
   },
 
@@ -184,13 +214,18 @@ export const DIGEST_TEMPLATES: readonly DigestTemplate[] = [
     id: "regulation_watch",
     label: "Regulation watch",
     emoji: "🏛️",
-    exampleQuery: "Weekly brief on regulation changes affecting my industry",
+    exampleQuery:
+      "Weekly brief on regulation changes affecting my industry — new rules, enforcement updates and compliance deadlines, summarized every Monday in plain language so nothing catches me off guard.",
     suggestedTier: "default",
     category: "regulation_tax",
     description: "Rule changes in your sector, before they bite",
     visible: true,
     exampleHeadline: "New e-invoicing phase covers smaller firms from August",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["industry regulation changes"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "Which industry are you in?",
     // NB: no "ruling" here — it would shadow lhdn_circulars ("tax rulings")
     // in classifyTopic's first-hit scan (this row sorts earlier).
     match: ["regulation", "regulatory", "compliance", "e-invoicing"],
@@ -199,14 +234,20 @@ export const DIGEST_TEMPLATES: readonly DigestTemplate[] = [
     id: "lhdn_circulars",
     label: "Tax and LHDN watch",
     emoji: "🧾",
-    exampleQuery: "Weekly brief on LHDN circulars and tax rulings",
+    exampleQuery:
+      "Weekly brief on LHDN circulars and tax rulings — new public rulings, guidelines and practice notes, summarized every Monday morning before my clients start asking questions.",
     suggestedTier: "default",
     category: "regulation_tax",
     description: "New rulings and circulars before your clients ask",
     visible: true,
     starter: true,
     exampleHeadline: "LHDN clarifies capital allowance claims for SMEs",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["LHDN circulars and tax rulings"],
+      keywords_include: ["LHDN", "public ruling"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "Do you advise clients, or handle your own taxes?",
     match: ["lhdn", "tax", "circular", "irb", "inland revenue"],
   },
 
@@ -218,27 +259,36 @@ export const DIGEST_TEMPLATES: readonly DigestTemplate[] = [
     label: "Competitor watch",
     emoji: "🔭",
     exampleQuery:
-      "Weekly brief on my competitors — launches, pricing changes and hiring moves",
+      "Weekly brief on my competitors — product launches, pricing changes and hiring moves at rival companies, summarized every Monday morning so I'm never the last one to know.",
     suggestedTier: "default",
     category: "competitors_companies",
     description: "Launches, pricing changes and hiring moves at your rivals",
     visible: true,
     starter: true,
     exampleHeadline: "Rival cuts entry pricing ahead of quarter close",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["competitor moves"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "Who should I watch? Name 2-5 companies.",
     match: ["competitor", "competitors", "rival", "rivals"],
   },
   {
     id: "target_account_watch",
     label: "Target-account watch",
     emoji: "🎯",
-    exampleQuery: "Weekly brief on news about my target accounts",
+    exampleQuery:
+      "Weekly brief on news about my target accounts — funding rounds, expansion plans and leadership changes at the companies I want to win, summarized every Monday morning before the week starts.",
     suggestedTier: "default",
     category: "competitors_companies",
     description: "Signals from the accounts you want to win",
     visible: true,
     exampleHeadline: "Key account announces regional expansion plan",
-    seedHints: { cadence: WEEKLY_MONDAY },
+    seedHints: {
+      topics: ["target account news"],
+      cadence: WEEKLY_MONDAY,
+    },
+    forkingQuestion: "Which accounts should I watch? Name a few.",
     match: ["target account", "target accounts", "prospects", "key account"],
   },
 
