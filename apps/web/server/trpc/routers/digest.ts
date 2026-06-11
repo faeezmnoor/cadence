@@ -4,31 +4,24 @@
  * T-210: `digest.sampleNow` — authed user requests a one-shot digest.
  *   - dryRun=true  => compose only, no Telegram send, return markdown
  *   - dryRun=false => compose + send to linked Telegram chat (if any)
- *   - Always writes a digest_runs row for auditability + cost tracking
+ *
+ * Manage-mode wave (plan §4.5): the guard logic (expectedSpecId/is_current
+ * assertion, 5-minute delivery cooldown) moved verbatim into the shared
+ * core `server/digest/sample.ts`, which the chat agent's `send_sample`
+ * tool also calls. This router is a thin wrapper that maps the core's
+ * typed failures back to the EXACT TRPCError codes/messages the
+ * brief-actions client depends on (locked by router tests). The trpc
+ * origin is exempt from the chat-only 60s dry-run throttle.
  *
  * Listing past runs is also exposed for the /app history view.
  */
 import { z } from "zod";
-import { and, desc, eq, gte, ne } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs } from "@/server/db/schema";
+import { digestRuns } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
-import { runDigestPipeline } from "@/server/digest/run";
-
-/**
- * Cool-down window for digest.sampleNow.
- *
- * PM-audit #9: bumped from 30s to 5min so the "Send sample now" button on
- * /app/link and /settings/account can't be used to mass-burn credits in a
- * tight loop. 5 minutes is the smallest window that still feels generous
- * for "I didn't see it, send again" while gating the LLM cost ceiling at
- * one paid compose per 5 minutes per user.
- *
- * Migration 0004 dropped the (user_id, run_date) UNIQUE that previously
- * folded back-to-back clicks; this is the application-level replacement.
- */
-const SAMPLE_NOW_COOLDOWN_MS = 5 * 60_000;
+import { runSampleForUser } from "@/server/digest/sample";
 
 export const digestRouter = router({
   /** Compose now. Sends to Telegram unless dryRun is true. */
@@ -53,76 +46,43 @@ export const digestRouter = router({
         .optional()
     )
     .mutation(async ({ ctx, input }) => {
-      const dryRun = input?.dryRun ?? false;
+      const result = await runSampleForUser({
+        userId: ctx.user.id,
+        dryRun: input?.dryRun ?? false,
+        origin: "trpc",
+        expectedSpecId: input?.expectedSpecId,
+      });
 
-      if (input?.expectedSpecId) {
-        // Wave 5 Bug 10/11: also exclude archived specs. Otherwise an
-        // archived `is_current=true` row (legacy drift from briefs.archive
-        // not flipping the flag) would silently pass the expected-spec
-        // guard and let sampleNow compose against a tombstoned brief.
-        const currentRows = await db
-          .select({ id: digestSpecs.id })
-          .from(digestSpecs)
-          .where(
-            and(
-              eq(digestSpecs.userId, ctx.user.id),
-              eq(digestSpecs.isCurrent, true),
-              ne(digestSpecs.status, "archived")
-            )
-          )
-          .limit(1);
-        const currentId = currentRows[0]?.id ?? null;
-        if (currentId !== input.expectedSpecId) {
+      if (!result.ok) {
+        // EXACT legacy codes/messages — brief-actions error handling
+        // string-matches these (see components/chat/brief-actions.tsx).
+        if (result.code === "stale_spec") {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message:
               "Your spec hasn't been saved yet. Confirm it in chat first, then try again.",
           });
         }
-      }
-
-      // Dedup guard (replaces the dropped user_run_date_uq, per T-303 bonus).
-      // Skip the cool-down for dry-runs — previewing twice is cheap and
-      // doesn't hit Telegram.
-      //
-      // QA P1 #5: the cooldown query previously counted EVERY digest_runs
-      // row in the window, including status='failed'. A failed compose
-      // (no Telegram link, model error, source bundle empty) would lock
-      // the user out for 5 minutes even though no brief actually went out.
-      // Dry-runs already short-circuit before the persist block in
-      // server/digest/run.ts so they don't land in digest_runs at all —
-      // we only need to exclude 'failed' here. Status values that should
-      // count as a real send: 'composing' (in-flight) and 'delivered'.
-      if (!dryRun) {
-        const since = new Date(Date.now() - SAMPLE_NOW_COOLDOWN_MS);
-        const recent = await db
-          .select({ id: digestRuns.id, status: digestRuns.status })
-          .from(digestRuns)
-          .where(
-            and(
-              eq(digestRuns.userId, ctx.user.id),
-              gte(digestRuns.createdAt, since),
-              ne(digestRuns.status, "failed")
-            )
-          )
-          .limit(1);
-        if (recent.length > 0) {
+        if (result.code === "cooldown") {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message:
               "You just sent a brief. Try again in a few minutes.",
           });
         }
+        if (!("run" in result)) {
+          // spec_not_found/archived only fire on the specId (chat tool)
+          // path; the trpc path never passes specId. Defensive.
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        }
+        return result.run;
       }
 
-      return runDigestPipeline({
-        userId: ctx.user.id,
-        dryRun,
-        // UX P0 #2: surface the sample-brief banner. Both the auto-fire
-        // post-link path and the manual "Send sample now" button hit this
-        // mutation, and both should label the result as a sample.
-        trigger: "sample",
-      });
+      // Pipeline outcomes (delivered, composed_dry_run, no_telegram_link,
+      // skipped_no_credits, no_spec, duplicate, failed) pass through as the
+      // raw RunDigestResult exactly as before the extraction — the client
+      // branches on run.status.
+      return result.run;
     }),
 
   /** Recent runs for the authed user, newest first. */
