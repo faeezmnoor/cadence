@@ -112,4 +112,4 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
  * future server-side mirror all agree on the exact text.
  */
 export const MULTI_TOPIC_REFUSAL =
-  "One topic per brief works best — which one first? You can add more briefs after.";
+  "One topic per brief works best — which one first? I'll focus on the one you pick.";

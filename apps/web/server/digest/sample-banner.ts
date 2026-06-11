@@ -55,7 +55,9 @@ export function buildSampleBanner(input: SampleBannerInput): string {
   const lines = [
     "✨ *Thanks for trying Cadence — here's your first sample.*",
     `Your real briefs land ${cadenceWord}${timeFragment}${tzFragment}.`,
-    "React 👍 / 👎 to anything below — or just reply with what you'd change. Cadence learns from every nudge.",
+    // CAD-212: samples are free (no debit, see run.ts) and votes are wired
+    // into the learning loop (CAD-211) — this line is now literally true.
+    "This sample is free — it doesn't use your credits. React 👍 / 👎 below and I'll shape your next brief around it.",
   ];
 
   // Two trailing newlines so the actual brief markdown starts cleanly.

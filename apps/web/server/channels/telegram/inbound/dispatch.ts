@@ -47,7 +47,9 @@ interface TelegramUpdate {
 const MSG_LINKED = (firstName?: string) =>
   `Hey${firstName ? ` ${firstName}` : ""} — you're connected. ` +
   `Your first brief lands tomorrow morning. ` +
-  `Reply to any brief with feedback — Cadence learns from every nudge.`;
+  // CAD-211: reactions are wired into learning; free-text replies are NOT
+  // captured until Wave 2 (CAD-220) — don't invite them yet.
+  `React 👍/👎 to any brief and I'll shape the next one around it.`;
 
 const MSG_TOKEN_INVALID =
   "That link expired (they only last 15 minutes). " +
@@ -59,8 +61,8 @@ const MSG_START_NO_TOKEN =
   "on the web and tap \"Connect Telegram\" — we'll bring you back here with one tap.";
 
 const MSG_UNKNOWN =
-  "I'm still learning — right now I deliver your briefs and listen for feedback. " +
-  "Try a thumbs up/down, or reply with what you'd change.";
+  "I deliver your briefs and read your reactions. " +
+  "Tap 👍/👎 on any brief — replies are coming soon.";
 
 export async function dispatchTelegramUpdate(
   update: TelegramUpdate

@@ -33,6 +33,7 @@ import {
 } from "@/lib/scheduling/rule";
 import { nextRunAt } from "@/lib/scheduling/evaluator";
 import { creditCostForTier, type Tier } from "@/server/billing/cost";
+import { maxBriefsForEmail } from "@/server/briefs/limit";
 import { users } from "@/server/db/schema";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 
@@ -48,12 +49,11 @@ function deriveBriefName(spec: DigestSpecV1): string {
 }
 
 /**
- * Multi-brief soft cap. Active + paused briefs are billable surface area
- * (every active row contributes to per-minute scan) and a UX-clutter risk
- * on /briefs. Hard-coded for v1; we'll graduate to a per-tier limit when
- * Pro lands beyond alpha.
+ * CAD-212: the brief cap moved to server/briefs/limit.ts (1 per user;
+ * founder/admin 2) so the chat-save gate in save-spec.ts and this router
+ * share one source of truth. Re-exported for existing import sites.
  */
-export const MAX_BRIEFS_PER_USER = 5;
+export { MAX_BRIEFS_PER_USER } from "@/server/briefs/limit";
 
 /**
  * Helper: count of non-archived briefs for a user. Pulled out so both
@@ -450,15 +450,17 @@ export const briefsRouter = router({
 
   /**
    * UI pre-check before opening the create flow. Returns `allowed=false`
-   * with the current count when the user has already hit MAX_BRIEFS_PER_USER
-   * active+paused briefs.
+   * with the current count when the user has already hit their brief cap
+   * (CAD-212: 1 per user, founder/admin 2 — see server/briefs/limit.ts).
+   * The UI renders `max` as-is; it never hard-codes a limit.
    */
   canCreate: protectedProcedure.query(async ({ ctx }) => {
     const count = await countActiveOrPaused(ctx.user.id);
+    const max = maxBriefsForEmail(ctx.user.email);
     return {
-      allowed: count < MAX_BRIEFS_PER_USER,
+      allowed: count < max,
       count,
-      max: MAX_BRIEFS_PER_USER,
+      max,
     };
   }),
 
