@@ -47,7 +47,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
   const canSubmit = confirm === "DELETE" && !deleteSelf.isPending;
 
   return (
-    <section className="rounded-xl border border-destructive/40 bg-destructive/5 p-6">
+    <section className="max-w-2xl rounded-xl border border-destructive/40 bg-destructive/5 p-6">
       <h2 className="text-base font-semibold text-destructive">
         Delete my account
       </h2>
@@ -104,7 +104,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
             {error}
             {" "}
             <a
-              className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
               href={`mailto:${SUPPORT_EMAIL}`}
             >
               Contact support
@@ -124,7 +124,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
                 reason: reason.trim() || undefined,
               });
             }}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground transition hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground transition hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-40"
           >
             {deleteSelf.isPending ? "Deleting…" : "Delete my account"}
           </button>
@@ -132,7 +132,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
             type="button"
             disabled={deleteSelf.isPending}
             onClick={() => router.push("/settings" as never)}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Cancel
           </button>

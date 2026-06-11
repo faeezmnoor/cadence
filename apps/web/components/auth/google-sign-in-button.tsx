@@ -59,7 +59,7 @@ export function GoogleSignInButton({ next }: { next?: string }) {
         type="button"
         onClick={onClick}
         disabled={loading}
-        className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-6 text-sm font-medium text-foreground shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-6 text-sm font-medium text-foreground shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Continue with Google"
       >
         <GoogleGlyph />

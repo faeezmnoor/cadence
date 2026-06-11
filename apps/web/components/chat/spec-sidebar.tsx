@@ -110,7 +110,7 @@ export function SpecSidebar({
           aria-label="Show your brief"
           aria-expanded="false"
           title="Show your brief"
-          className="relative rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="relative rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <PanelRightOpen className="h-4 w-4" aria-hidden />
           {ready && (
@@ -144,7 +144,7 @@ export function SpecSidebar({
           aria-label="Hide your brief"
           aria-expanded="true"
           title="Hide your brief"
-          className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <PanelRightClose className="h-4 w-4" aria-hidden />
         </button>

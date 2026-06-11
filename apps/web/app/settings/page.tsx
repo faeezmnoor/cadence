@@ -53,7 +53,7 @@ export default async function SettingsPage() {
             Your account, your credits, and how to leave.{" "}
             <Link
               href={"/chat" as never}
-              className="underline-offset-4 hover:underline"
+              className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               Back to chat
             </Link>
@@ -68,8 +68,8 @@ export default async function SettingsPage() {
                 href={s.href as never}
                 className={
                   s.tone === "danger"
-                    ? "block rounded-xl border border-destructive/30 bg-destructive/5 p-5 transition hover:border-destructive/60 hover:bg-destructive/10"
-                    : "block rounded-xl border border-border bg-card p-5 transition hover:border-foreground/30 hover:bg-muted/40"
+                    ? "block rounded-xl border border-destructive/30 bg-destructive/5 p-5 transition hover:border-destructive/60 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                    : "block rounded-xl border border-border bg-card p-5 transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                 }
               >
                 <p

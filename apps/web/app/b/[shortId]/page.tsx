@@ -182,7 +182,7 @@ export default async function BriefByShortIdPage({ params }: PageProps) {
                   </blockquote>
                 ),
                 code: ({ children }) => (
-                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">
                     {children}
                   </code>
                 ),

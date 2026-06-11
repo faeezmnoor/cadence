@@ -40,7 +40,7 @@ export function TemplateCard({
       data-template-category={template.category}
       onClick={() => onSelect(template)}
       disabled={disabled}
-      className="flex w-full flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3 text-left transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3 text-left transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span className="flex items-baseline gap-2">
         <span aria-hidden="true" className="text-base leading-none">
@@ -100,7 +100,7 @@ export function StarterCards({
             data-testid="browse-all-briefs"
             onClick={onBrowseAll}
             disabled={disabled}
-            className="text-xs font-medium text-foreground underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="text-xs font-medium text-foreground underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
           >
             Browse all briefs
           </button>
@@ -110,7 +110,7 @@ export function StarterCards({
           data-testid="describe-it-yourself"
           onClick={onDescribeOwn}
           disabled={disabled}
-          className="text-xs font-medium text-foreground underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-xs font-medium text-foreground underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           Describe it in your words
         </button>

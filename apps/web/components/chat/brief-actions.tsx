@@ -171,7 +171,7 @@ export function BriefActions({
         <Link
           data-testid="brief-actions-link-telegram-cta"
           href="/app/link"
-          className="inline-flex items-center justify-between gap-3 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex items-center justify-between gap-3 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <span>
             Your brief is saved. Connect Telegram so it has somewhere to land
@@ -186,7 +186,7 @@ export function BriefActions({
           data-testid="brief-actions-preview"
           onClick={onPreview}
           disabled={!saved || preview.kind === "loading"}
-          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           {preview.kind === "loading"
             ? "Writing preview…"
@@ -198,7 +198,7 @@ export function BriefActions({
             data-testid="brief-actions-send-now"
             onClick={onSendNow}
             disabled={!saved || send.kind === "sending"}
-            className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
           >
             {send.kind === "sending" ? "Sending…" : "Send to Telegram now"}
           </button>
@@ -208,7 +208,7 @@ export function BriefActions({
           <Link
             data-testid="brief-actions-link-telegram"
             href="/app/link"
-            className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Connect Telegram first &rarr;
           </Link>

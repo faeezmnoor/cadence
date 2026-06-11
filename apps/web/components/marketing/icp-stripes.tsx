@@ -34,7 +34,7 @@ export function IcpStripes() {
                 href={`/chat?template=${tpl.id}`}
                 data-testid="icp-stripe"
                 data-template-id={tpl.id}
-                className="flex h-full flex-col gap-1 rounded-lg border border-border bg-card p-4 transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-full flex-col gap-1 rounded-lg border border-border bg-card p-4 transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
               >
                 <span className="flex items-baseline gap-2">
                   <span aria-hidden="true">{tpl.emoji}</span>
