@@ -7,6 +7,7 @@ import {
   type Pack,
 } from "@/server/billing/packs";
 import { TierExplainer } from "@/components/billing/tier-explainer";
+import { isProTierAlpha } from "@/lib/feature-flags";
 
 export const metadata: Metadata = {
   title: "Pricing — Cadence",
@@ -126,7 +127,9 @@ export default function PricingPage() {
           Choose a research depth for each brief.
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every brief uses standard research unless you say otherwise. Switch on advanced research where it&apos;s worth more — it digs deeper and uses 3 credits instead of 1.
+          {isProTierAlpha()
+            ? "Every brief uses standard research unless you say otherwise. Switch on advanced research where it's worth more — it digs deeper and uses 3 credits instead of 1."
+            : "Every brief uses standard research — 1 credit each. Advanced research is temporarily unavailable while we improve it."}
         </p>
         <div className="mt-6">
           <TierExplainer />
@@ -140,6 +143,11 @@ export default function PricingPage() {
         >
           Start free — {TRIAL_CREDITS} briefs, no card
         </Link>
+        {/* CAD-212e: honest payments status — card checkout isn't live yet. */}
+        <p className="mt-3 text-xs text-muted-foreground">
+          Card payments are almost ready — early users get credits added by
+          hand, usually within a day.
+        </p>
       </div>
     </div>
   );

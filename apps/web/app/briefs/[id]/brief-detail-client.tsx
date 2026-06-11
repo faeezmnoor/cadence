@@ -123,7 +123,11 @@ export function BriefDetailClient({
           {brief.name}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {formatBriefStatus(brief.status)} · {formatTier(brief.tier)} · v
+          {/* CAD-215: while advanced research is paused, every delivery is
+              served (and debited) at standard depth regardless of the
+              persisted tier — show the depth the user will actually get. */}
+          {formatBriefStatus(brief.status)} ·{" "}
+          {formatTier(proTierAlphaEnabled ? brief.tier : "default")} · v
           {brief.version}
         </p>
       </header>
@@ -300,12 +304,17 @@ function AdvancedTab({
           "Standard research" / "Advanced research" per CAD-202 and
           project_cadence_no_tier_plans. NO plan-tier nouns. NO "upgrade".
           Credit cost is the primary axis. */}
-      {proTierAlphaEnabled && brief && (
+      {proTierAlphaEnabled && brief ? (
         <ConfigurableStackSettings
           brief={brief}
           tier={tier}
           setTier={setTier}
         />
+      ) : (
+        // CAD-215: advanced research is product-paused. No depth switch, no
+        // comparison — one quiet line. The full card above returns when the
+        // tier un-pauses (flag back on).
+        <ResearchDepthPausedCard />
       )}
 
       <section>
@@ -668,7 +677,10 @@ function ConfigurableStackSettings({
           What changes between standard and advanced
         </summary>
         <div className="mt-3">
-          <TierExplainer variant="compact" />
+          {/* This card only renders when the alpha flag is on (CAD-215), so
+              the explainer can assert availability rather than re-deriving
+              it — client components can't read the env flag themselves. */}
+          <TierExplainer variant="compact" proTierAlphaEnabled />
         </div>
         <table
           className="mt-3 w-full text-left text-xs"
@@ -706,6 +718,33 @@ function ConfigurableStackSettings({
           know which research depth produced the brief.
         </p>
       </details>
+    </section>
+  );
+}
+
+/**
+ * CAD-215 — quiet replacement for ConfigurableStackSettings while advanced
+ * research is product-paused (PRO_TIER_ALPHA off). The ruling: users must
+ * not be able to opt into advanced research or see upsell surfaces while
+ * the depth is paused, regardless of what tier their spec has persisted.
+ * Keeps the "Research depth" section so the page shape doesn't jump when
+ * the flag flips back on.
+ */
+function ResearchDepthPausedCard() {
+  return (
+    <section
+      aria-label="Research depth"
+      className="rounded-xl border border-border bg-card p-4 text-card-foreground"
+    >
+      <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Research depth
+      </h2>
+      <p className="mt-1 text-sm font-semibold text-foreground">
+        Standard research · 1 credit per brief
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Advanced research is temporarily unavailable while we improve it.
+      </p>
     </section>
   );
 }

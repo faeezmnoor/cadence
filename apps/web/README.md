@@ -310,6 +310,50 @@ direct from call sites.
 
 ---
 
+## Ops: nightly database backups (CAD-216)
+
+`.github/workflows/db-backup.yml` runs every night at 20:00 UTC
+(04:00 MYT, off-peak): `pg_dump --format=custom` against
+`secrets.DATABASE_URL`, gzipped, uploaded as a GitHub Actions artifact
+named `db-backup` with **30-day retention**. The job fails loudly if the
+secret is missing, the dump errors, or the file is under 100KB — the
+GitHub workflow-failure email is the alert. There is no other alerting;
+do not mute those emails.
+
+**Founder action required (one-time):** add the `DATABASE_URL` secret in
+GitHub → repo Settings → Secrets and variables → Actions. Use the direct
+(non-pooled) connection string. Until it's set, every nightly run fails —
+which is the intended nag.
+
+**To restore:**
+
+1. Download the artifact from the workflow run (Actions → DB backup →
+   pick a run → Artifacts → `db-backup`), then unpack:
+
+   ```bash
+   gunzip cadence-YYYY-MM-DD.dump.gz
+   ```
+
+2. Restore into the target database (custom-format dumps need
+   `pg_restore`, not `psql`):
+
+   ```bash
+   pg_restore --clean --if-exists --no-owner --no-privileges \
+     -d "$DATABASE_URL" cadence-YYYY-MM-DD.dump
+   ```
+
+   `--clean --if-exists` drops and recreates objects, so this overwrites
+   the target — point it at a fresh database first when in doubt. Your
+   local `pg_restore` must be at least the version that produced the dump
+   (the workflow uses the `postgres:17` client).
+
+3. Sanity-check row counts on `users`, `digest_specs`, and `transactions`
+   before pointing the app at the restored database.
+
+A manual run before risky migrations: Actions → DB backup → Run workflow.
+
+---
+
 ## Where to ask for help
 
 - Blueprint (the "what should this be?"): `cadence/blueprint/`

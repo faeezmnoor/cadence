@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { AppNav } from "@/components/nav/app-nav";
+import { isProTierAlphaEnabled } from "@/server/ai/providers";
 import { BillingClient } from "./billing-client";
 
 /**
@@ -26,7 +27,9 @@ export default async function BillingPage() {
             One credit, one brief delivered. Pre-paid, no subscription, cancel by stopping.
           </p>
         </header>
-        <BillingClient />
+        {/* CAD-215: the research-depth explainer gates on the server-read
+            flag — client components can't read PRO_TIER_ALPHA themselves. */}
+        <BillingClient proTierAlphaEnabled={isProTierAlphaEnabled()} />
       </main>
     </div>
   );
