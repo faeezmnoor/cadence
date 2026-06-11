@@ -71,8 +71,11 @@ export function BriefActions({
 }) {
   const saved = savedSpecId != null;
   const state = briefActionsState({ ready, saved });
+  // Warm from the confirm state onward (review nit: enabling only in
+  // "actions" left a cold query at the confirm→actions flip, flashing
+  // "Connect Telegram first" at already-linked users for one fetch).
   const telegramStatus = trpc.telegram.status.useQuery(undefined, {
-    enabled: state === "actions",
+    enabled: state !== "hidden",
     refetchOnWindowFocus: false,
   });
   const sampleMut = trpc.digest.sampleNow.useMutation();
@@ -96,7 +99,7 @@ export function BriefActions({
             Happy with this draft?
           </h3>
           <p className="text-xs text-muted-foreground">
-            Confirm it and Cadence starts researching. You can change
+            Save it and your briefs arrive on your schedule. You can change
             anything later by chatting.
           </p>
         </div>
