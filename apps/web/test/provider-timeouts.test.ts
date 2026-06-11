@@ -5,8 +5,9 @@
  * well-meaning future edit can't quietly tighten them back to a value
  * that trips legitimate slow-tail requests:
  *
- *   - Perplexity Sonar Reasoning Pro: 45s. Was 30s, which was occasionally
- *     timing out otherwise-successful searches.
+ *   - Perplexity Sonar Reasoning Pro: 120s. Was 30s, then 45s — both
+ *     tripped legitimate research calls (the CAD-222 bake-off measured
+ *     4/5 specs timing out at 45s).
  *   - Anthropic Sonnet 4.6 Pro composer: 60s. The AI SDK has no implicit
  *     timeout — without this, a stuck connection blocks the Inngest
  *     worker until the function-level timeout fires.
@@ -21,11 +22,12 @@ import { REQUEST_TIMEOUT_MS as PERPLEXITY_TIMEOUT_MS } from "@/server/ai/provide
 import { PRO_COMPOSER_TIMEOUT_MS } from "@/server/ai/providers/anthropic-pro";
 
 describe("CAD-97 provider timeout tuning", () => {
-  it("Perplexity Sonar Reasoning Pro uses a 45s request timeout", () => {
-    // Was 30s. Sonar Reasoning Pro routinely takes 25–40s on broad queries;
-    // 45s gives the slow tail headroom without holding the pipeline open
-    // on a stuck connection.
-    expect(PERPLEXITY_TIMEOUT_MS).toBe(45_000);
+  it("Perplexity Sonar Reasoning Pro uses a 120s request timeout", () => {
+    // Was 30s, then 45s — both tripped legitimate calls. The CAD-222
+    // bake-off (2026-06-11) measured the real slow tail at 60–120s:
+    // research happens INSIDE the call, same rationale as the websearch
+    // composer's 120s. Beyond that it's a stuck connection.
+    expect(PERPLEXITY_TIMEOUT_MS).toBe(120_000);
   });
 
   it("Anthropic Sonnet 4.6 Pro composer uses a 60s request timeout", () => {
