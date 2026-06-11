@@ -30,6 +30,7 @@ import {
   composeBriefWithRepair,
   COMPOSE_USER_MESSAGE,
 } from "@/server/ai/composer/compose";
+import { ComposerJsonError } from "@/server/ai/composer/schema";
 import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
 import type { ComposerProvider } from "./types";
 
@@ -67,26 +68,57 @@ export async function composeDigestPro(
   // prune, then at most ONE compose-only corrective retry). Each attempt
   // gets a fresh AbortSignal — the per-request timeout contract (CAD-97)
   // applies per model call, and timeouts are never retried here.
-  const composed = await composeBriefWithRepair(
-    async (correctiveAddendum) => {
-      const result = await generateText({
-        model: anthropic(PRO_COMPOSER_MODEL_ID),
-        system: correctiveAddendum
-          ? `${systemPrompt}\n\n${correctiveAddendum}`
-          : systemPrompt,
-        prompt: COMPOSE_USER_MESSAGE,
-        temperature: 0.25,
-        maxTokens: PRO_MAX_OUTPUT_TOKENS,
-        abortSignal: AbortSignal.timeout(PRO_COMPOSER_TIMEOUT_MS),
+  let composed: Awaited<ReturnType<typeof composeBriefWithRepair>>;
+  try {
+    composed = await composeBriefWithRepair(
+      async (correctiveAddendum) => {
+        const result = await generateText({
+          model: anthropic(PRO_COMPOSER_MODEL_ID),
+          system: correctiveAddendum
+            ? `${systemPrompt}\n\n${correctiveAddendum}`
+            : systemPrompt,
+          prompt: COMPOSE_USER_MESSAGE,
+          temperature: 0.25,
+          maxTokens: PRO_MAX_OUTPUT_TOKENS,
+          abortSignal: AbortSignal.timeout(PRO_COMPOSER_TIMEOUT_MS),
+        });
+        return {
+          text: result.text,
+          inputTokens: result.usage?.promptTokens ?? 0,
+          outputTokens: result.usage?.completionTokens ?? 0,
+        };
+      },
+      {
+        modelId: PRO_COMPOSER_MODEL_ID,
+        digestRunId: input.digestRunId ?? null,
+        // CAD-224 #4 (review finding 3): the deadline is checked right
+        // after attempt 1, whose duration is capped at 60s by the per-call
+        // AbortSignal — so it must sit BELOW that cap to ever fire. 50s:
+        // a slow-but-successful first attempt with a defect skips the
+        // retry (worst compose ~60s); fast attempts keep the retry.
+        retryDeadlineAtMs: Date.now() + 50_000,
+      }
+    );
+  } catch (err) {
+    // CAD-224 #2: record the failed spend before rethrowing.
+    if (err instanceof ComposerJsonError && err.inputTokens !== undefined) {
+      await recordCost({
+        userId: input.userId ?? null,
+        digestRunId: input.digestRunId ?? null,
+        kind: "llm_call",
+        provider: "anthropic",
+        model: PRO_COMPOSER_MODEL_ID,
+        inputTokens: err.inputTokens,
+        outputTokens: err.outputTokens ?? 0,
+        costUsd: anthropicCostUsd(
+          PRO_COMPOSER_MODEL_ID,
+          err.inputTokens,
+          err.outputTokens ?? 0
+        ),
       });
-      return {
-        text: result.text,
-        inputTokens: result.usage?.promptTokens ?? 0,
-        outputTokens: result.usage?.completionTokens ?? 0,
-      };
-    },
-    { modelId: PRO_COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
-  );
+    }
+    throw err;
+  }
 
   const markdown = renderBriefMarkdown(composed.brief);
 

@@ -289,8 +289,25 @@ export function extractJsonObject(raw: string): unknown {
 }
 
 export class ComposerJsonError extends Error {
-  constructor(message: string) {
+  /**
+   * CAD-224 #2: tokens burned across the failed attempt(s). The repair
+   * driver stamps these at throw time so the calling provider can write
+   * a cost_events row for spend that produced no brief — repeated
+   * composer failures at full per-call cost are the circuit breaker's
+   * stated runaway scenario, and previously wrote no rows at all.
+   */
+  inputTokens?: number;
+  outputTokens?: number;
+
+  constructor(
+    message: string,
+    tokens?: { inputTokens: number; outputTokens: number }
+  ) {
     super(message);
     this.name = "ComposerJsonError";
+    if (tokens) {
+      this.inputTokens = tokens.inputTokens;
+      this.outputTokens = tokens.outputTokens;
+    }
   }
 }

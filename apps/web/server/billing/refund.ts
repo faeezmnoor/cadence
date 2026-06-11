@@ -54,6 +54,12 @@ export async function refundForFailedRun(params: {
       id: digestRuns.id,
       userId: digestRuns.userId,
       status: digestRuns.status,
+      // CAD-224 #1: tier AT RUN TIME, stamped by the pipeline on
+      // runMetadata.tier.requested — the spec's current tier can have
+      // changed since (e.g. default run, brief later switched to a
+      // 5-credit stack → spec-tier fallback would refund 5 for a run
+      // that charged 0/1).
+      runMetadata: digestRuns.metadata,
       specTier: digestSpecs.tier,
     })
     .from(digestRuns)
@@ -87,10 +93,23 @@ export async function refundForFailedRun(params: {
   // took money, so they have nothing to refund. Treat as no charge.
   const chargeAmount =
     charge && charge.creditsDelta < 0 ? Math.abs(charge.creditsDelta) : 0;
+  // CAD-224 #1 precedence for the no-charge fallback: the tier the run
+  // actually RESOLVED to (post-downgrade — what the charge would have
+  // used) > the tier requested at dispatch > spec's current tier >
+  // default. Mirroring a real charge row still wins outright above.
+  // `resolved` over `requested` matters: a pro_websearch spec downgraded
+  // to default for insufficient credits must not refund 5 for a run that
+  // would have charged 1.
+  const tierMeta = (
+    run.runMetadata as { tier?: { requested?: string; resolved?: string } } | null
+  )?.tier;
+  const runTierFromMetadata = (tierMeta?.resolved ?? tierMeta?.requested) as
+    | Tier
+    | undefined;
+  const runTier =
+    runTierFromMetadata ?? ((run.specTier as Tier | null) ?? "default");
   const refundAmount =
-    chargeAmount > 0
-      ? chargeAmount
-      : creditCostForTier((run.specTier as Tier | null) ?? "default");
+    chargeAmount > 0 ? chargeAmount : creditCostForTier(runTier);
 
   // Idempotency: existing refund row on this run?
   const existing = await db
@@ -142,9 +161,14 @@ export async function refundForFailedRun(params: {
           // charge row, or inferred from the spec's tier?
           tier:
             (charge?.metadata as { tier?: string } | undefined)?.tier ??
-            (run.specTier as string | null) ??
+            (runTier as string | null) ??
             "default",
-          refundSource: chargeAmount > 0 ? "mirror_charge" : "spec_tier",
+          refundSource:
+            chargeAmount > 0
+              ? "mirror_charge"
+              : runTierFromMetadata !== undefined
+                ? "run_metadata_tier"
+                : "spec_tier",
         },
       })
       .returning({ id: transactions.id });

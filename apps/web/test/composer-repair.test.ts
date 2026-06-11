@@ -472,6 +472,24 @@ describe("composeDigest (default Haiku) — module boundary", () => {
     );
     expect(generateText).toHaveBeenCalledTimes(2);
   });
+
+  it("records the failed spend in cost_events before rethrowing (CAD-224 #2)", async () => {
+    const truncated = JSON.stringify(cleanBrief()).slice(0, 80);
+    vi.mocked(generateText).mockResolvedValue(modelResponse(truncated));
+    vi.mocked(recordCost).mockClear();
+
+    await expect(composeDigest(composerInput())).rejects.toThrow(
+      ComposerJsonError
+    );
+
+    // Both attempts billed tokens; exactly ONE cost row for the failed
+    // compose (and none from the unreached success path).
+    expect(recordCost).toHaveBeenCalledTimes(1);
+    const row = vi.mocked(recordCost).mock.calls[0][0];
+    expect(row.provider).toBe("anthropic");
+    expect(row.inputTokens).toBe(200); // 100 × 2 attempts (modelResponse fixture)
+    expect(row.outputTokens).toBe(100); // 50 × 2
+  });
 });
 
 describe("composeDigestPro (Sonnet) — same shared behavior", () => {
@@ -510,5 +528,71 @@ describe("composeDigestPro (Sonnet) — same shared behavior", () => {
     const out = await composeDigestPro(composerInput());
     expect(generateText).toHaveBeenCalledTimes(1);
     expect(out.repair).toEqual({ prunedUnused: 2 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. CAD-224 — failed-spend visibility + retry deadline
+// ---------------------------------------------------------------------------
+
+describe("CAD-224 — composeBriefWithRepair failure contract", () => {
+  const ctx = { modelId: "test-model", digestRunId: "run-1" };
+
+  it("throws with summed token counts when both attempts fail (#2)", async () => {
+    const callModel = vi.fn(async (_addendum?: string) => ({
+      text: "not json at all",
+      inputTokens: 100,
+      outputTokens: 50,
+    }));
+    let caught: unknown;
+    try {
+      await composeBriefWithRepair(callModel, ctx);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ComposerJsonError);
+    const e = caught as ComposerJsonError;
+    // Two attempts × (100 in / 50 out) — the spend a provider must record.
+    expect(e.inputTokens).toBe(200);
+    expect(e.outputTokens).toBe(100);
+  });
+
+  it("skips the corrective retry when past retryDeadlineAtMs (#4)", async () => {
+    const callModel = vi.fn(async (_addendum?: string) => ({
+      text: "not json at all",
+      inputTokens: 100,
+      outputTokens: 50,
+    }));
+    let caught: unknown;
+    try {
+      await composeBriefWithRepair(callModel, {
+        ...ctx,
+        retryDeadlineAtMs: Date.now() - 1, // already expired
+      });
+    } catch (err) {
+      caught = err;
+    }
+    // ONE call only — the retry was skipped, and the error says so while
+    // still carrying the first attempt's tokens.
+    expect(callModel).toHaveBeenCalledTimes(1);
+    const e = caught as ComposerJsonError;
+    expect(e).toBeInstanceOf(ComposerJsonError);
+    expect(e.message).toContain("compose deadline exceeded");
+    expect(e.inputTokens).toBe(100);
+    expect(e.outputTokens).toBe(50);
+  });
+
+  it("future deadline leaves the retry path unchanged", async () => {
+    const callModel = vi.fn(async (addendum?: string) =>
+      addendum
+        ? { text: JSON.stringify(cleanBrief()), inputTokens: 100, outputTokens: 50 }
+        : { text: "garbage", inputTokens: 100, outputTokens: 50 }
+    );
+    const result = await composeBriefWithRepair(callModel, {
+      ...ctx,
+      retryDeadlineAtMs: Date.now() + 60_000,
+    });
+    expect(callModel).toHaveBeenCalledTimes(2);
+    expect(result.repair?.composeRetries).toBe(1);
   });
 });

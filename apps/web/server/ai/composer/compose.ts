@@ -64,7 +64,9 @@ export async function composeDigest(
 ): Promise<ComposerOutput> {
   const systemPrompt = buildComposerSystemPrompt(input);
 
-  const composed = await composeBriefWithRepair(
+  let composed: ComposeWithRepairResult;
+  try {
+    composed = await composeBriefWithRepair(
     async (correctiveAddendum) => {
       const result = await generateText({
         model: anthropic(COMPOSER_MODEL_ID),
@@ -81,8 +83,30 @@ export async function composeDigest(
         outputTokens: result.usage?.completionTokens ?? 0,
       };
     },
-    { modelId: COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
-  );
+      { modelId: COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
+    );
+  } catch (err) {
+    // CAD-224 #2: both attempts produced invalid output — the tokens were
+    // still billed. Record the spend before rethrowing (recordCost is
+    // best-effort and never throws).
+    if (err instanceof ComposerJsonError && err.inputTokens !== undefined) {
+      await recordCost({
+        userId: input.userId ?? null,
+        digestRunId: input.digestRunId ?? null,
+        kind: "llm_call",
+        provider: "anthropic",
+        model: COMPOSER_MODEL_ID,
+        inputTokens: err.inputTokens,
+        outputTokens: err.outputTokens ?? 0,
+        costUsd: anthropicCostUsd(
+          COMPOSER_MODEL_ID,
+          err.inputTokens,
+          err.outputTokens ?? 0
+        ),
+      });
+    }
+    throw err;
+  }
 
   const markdown = renderBriefMarkdown(composed.brief);
 
@@ -296,7 +320,18 @@ export interface ComposeWithRepairResult {
  */
 export async function composeBriefWithRepair(
   callModel: (correctiveAddendum?: string) => Promise<ComposerModelAttempt>,
-  ctx: { modelId: string; digestRunId?: string | null }
+  ctx: {
+    modelId: string;
+    digestRunId?: string | null;
+    /**
+     * CAD-224 #4: epoch-ms deadline after which the corrective retry is
+     * SKIPPED (first defect throws immediately). Slow composers (the
+     * web-search stack's 120s calls) set this so a retry can't push one
+     * compose past the route's 300s Inngest budget. Unset = retry always
+     * allowed (haiku is fast; behavior unchanged).
+     */
+    retryDeadlineAtMs?: number;
+  }
 ): Promise<ComposeWithRepairResult> {
   const first = await callModel();
   let inputTokens = first.inputTokens;
@@ -311,6 +346,18 @@ export async function composeBriefWithRepair(
       outputTokens,
       repair: buildRepairInfo(firstOutcome.prunedUnused, 0),
     };
+  }
+
+  if (ctx.retryDeadlineAtMs !== undefined && Date.now() > ctx.retryDeadlineAtMs) {
+    log.warn("composer: output defect — corrective retry SKIPPED (compose deadline exceeded)", {
+      model: ctx.modelId,
+      digestRunId: ctx.digestRunId ?? null,
+      defect: firstOutcome.defect.kind,
+    });
+    throw new ComposerJsonError(
+      `${firstOutcome.message} (corrective retry skipped: compose deadline exceeded)`,
+      { inputTokens, outputTokens }
+    );
   }
 
   log.warn("composer: output defect — running one compose-only retry", {
@@ -336,8 +383,12 @@ export async function composeBriefWithRepair(
   }
 
   // Last resort — identical to pre-CAD-219 behavior: throw and let the
-  // digest pipeline's classify/retry machinery take over.
-  throw new ComposerJsonError(secondOutcome.message);
+  // digest pipeline's classify/retry machinery take over. Tokens ride the
+  // error so callers can record the failed spend (CAD-224 #2).
+  throw new ComposerJsonError(secondOutcome.message, {
+    inputTokens,
+    outputTokens,
+  });
 }
 
 function buildRepairInfo(

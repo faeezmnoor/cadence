@@ -62,6 +62,26 @@ describe("buildSearchQueries", () => {
     ).toEqual(["a1", "b2", "c3", "d4", "Lalamove"]);
   });
 
+  it("ms-language specs anchor topic queries with Malaysia (CAD-224 #3)", () => {
+    expect(
+      buildSearchQueries({
+        topics: ["Government contracts", "Malaysia palm oil"],
+        language: "ms",
+        entities: { companies: ["Lalamove"] },
+      })
+    ).toEqual([
+      "Government contracts Malaysia", // hint appended
+      "Malaysia palm oil", // already names it — untouched
+      "Lalamove", // company names stay untouched
+    ]);
+  });
+
+  it("non-ms languages get no locale hint", () => {
+    expect(
+      buildSearchQueries({ topics: ["Government contracts"], language: "en" })
+    ).toEqual(["Government contracts"]);
+  });
+
   it("empty spec yields no queries", () => {
     expect(buildSearchQueries({})).toEqual([]);
   });
