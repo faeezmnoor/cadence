@@ -92,7 +92,11 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
   });
   if (tight.length < 3) return { multiTopic: false, candidates: [] };
 
-  // Dedupe (case-insensitive) and cap at 4 chips for UI.
+  // Dedupe (case-insensitive). Sanity-bound at 6 — refusal chips echo the
+  // user's OWN list back, so dropping an item reads as data loss (dogfood
+  // 2026-06-11: "sleekflow" silently vanished from a 5-item list). The UI
+  // strip flex-wraps, so up to 6 chips render fine; past 6 the message is
+  // noise, not enumeration.
   const seen = new Set<string>();
   const candidates: string[] = [];
   for (const c of tight) {
@@ -100,11 +104,34 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
     if (seen.has(key)) continue;
     seen.add(key);
     candidates.push(c);
-    if (candidates.length >= 4) break;
+    if (candidates.length >= MAX_CANDIDATES) break;
   }
   if (candidates.length < 3) return { multiTopic: false, candidates: [] };
 
   return { multiTopic: true, candidates };
+}
+
+const MAX_CANDIDATES = 6;
+
+/**
+ * Conversation-position gate for the multi-topic refusal (dogfood
+ * 2026-06-11). Scope-creep is an INTAKE phenomenon — the detector's own
+ * design intent. Past the first user turn, the config agent solicits
+ * comma-separated lists by design (Phase 2: "Name 2-5 companies", day
+ * picks, keywords), so a list answer is an entity enumeration, not
+ * competing topics. Refusing it blocks the agent's own happy path.
+ *
+ * Both surfaces MUST call this wrapper (client `onSubmit`, server mirror
+ * in /api/chat) so the gate cannot drift between them:
+ *  - client: `priorUserTurns` = user-role messages already in the thread
+ *  - server: count of persisted user rows BEFORE the current one
+ */
+export function detectMultiTopicIntake(
+  text: string,
+  priorUserTurns: number
+): MultiTopicDetection {
+  if (priorUserTurns > 0) return { multiTopic: false, candidates: [] };
+  return detectMultiTopic(text);
 }
 
 /**
@@ -112,4 +139,4 @@ export function detectMultiTopic(text: string): MultiTopicDetection {
  * future server-side mirror all agree on the exact text.
  */
 export const MULTI_TOPIC_REFUSAL =
-  "One topic per brief works best — which one first? I'll focus on the one you pick.";
+  "One topic per brief works best — which one first?";

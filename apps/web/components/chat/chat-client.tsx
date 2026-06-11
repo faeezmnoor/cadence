@@ -16,7 +16,7 @@ import { usePinnedScroll } from "./use-pinned-scroll";
 import { groupMessages } from "@/lib/chat/group";
 import { trpc } from "@/lib/trpc/client";
 import {
-  detectMultiTopic,
+  detectMultiTopicIntake,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
 import {
@@ -184,8 +184,9 @@ export function ChatClient({
   }, [friendlyError, reload, autoRetriedRef]);
 
   /**
-   * MUST-SHIP #5: intercept submit. If the typed message looks like a
-   * multi-topic enumeration (3+ candidates), short-circuit the round-trip:
+   * MUST-SHIP #5: intercept submit. If the FIRST user message of the
+   * thread looks like a multi-topic enumeration (3+ candidates),
+   * short-circuit the round-trip:
    *  - clear the input
    *  - persist a user_text row (so resume-on-reload sees the typed message)
    *  - persist + render an assistant refusal bubble
@@ -196,7 +197,11 @@ export function ChatClient({
    */
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     const typed = input.trim();
-    const detection = detectMultiTopic(typed);
+    // Dogfood 2026-06-11: gate by conversation position. Past the first
+    // user turn the agent solicits lists by design ("Name 2-5 companies"),
+    // so only the intake message is screened for topic scope-creep.
+    const priorUserTurns = messages.filter((m) => m.role === "user").length;
+    const detection = detectMultiTopicIntake(typed, priorUserTurns);
     if (!detection.multiTopic) {
       handleSubmit(e);
       return;
@@ -213,20 +218,26 @@ export function ChatClient({
     ]);
     setInput("");
     setRefusalChips(detection.candidates);
-    void appendMsg.mutateAsync({
-      threadId,
-      role: "user",
-      content: { kind: "user_text", text: typed },
-    });
-    void appendMsg.mutateAsync({
-      threadId,
-      role: "assistant",
-      content: {
-        kind: "assistant_turn",
-        text: MULTI_TOPIC_REFUSAL,
-        toolResults: [],
-      },
-    });
+    // Persist sequentially — firing both mutateAsync calls in parallel let
+    // the refusal row land before the user row, so resume-on-reload showed
+    // them swapped. Best-effort like before: a failed write degrades to
+    // optimistic-only rendering.
+    void (async () => {
+      await appendMsg.mutateAsync({
+        threadId,
+        role: "user",
+        content: { kind: "user_text", text: typed },
+      });
+      await appendMsg.mutateAsync({
+        threadId,
+        role: "assistant",
+        content: {
+          kind: "assistant_turn",
+          text: MULTI_TOPIC_REFUSAL,
+          toolResults: [],
+        },
+      });
+    })().catch(() => {});
   };
 
   const handleRefusalChip = (chip: string) => {
