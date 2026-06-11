@@ -131,9 +131,16 @@ export default function PricingPage() {
             ? "Every brief uses standard research unless you say otherwise. Switch on advanced research where it's worth more — it digs deeper and uses 3 credits instead of 1."
             : "Every brief uses standard research — 1 credit each. Advanced research is temporarily unavailable while we improve it."}
         </p>
-        <div className="mt-6">
-          <TierExplainer />
-        </div>
+        {/* Design-review 2026-06-11 FINDING-002: while advanced research is
+            paused, TierExplainer renders the same unavailability line the
+            paragraph above already says — the sentence appeared twice in a
+            row on the money page. Render the explainer only when it has the
+            full comparison to add. */}
+        {isProTierAlpha() && (
+          <div className="mt-6">
+            <TierExplainer />
+          </div>
+        )}
       </section>
 
       <div className="mt-12 text-center">
