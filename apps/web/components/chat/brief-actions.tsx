@@ -25,6 +25,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Markdown } from "./markdown";
+import { briefActionsState } from "./brief-actions.helpers";
 
 type PreviewState =
   | { kind: "idle" }
@@ -43,6 +44,8 @@ type SendState =
 export function BriefActions({
   ready,
   savedSpecId,
+  onConfirm,
+  busy = false,
 }: {
   ready: boolean;
   /**
@@ -56,17 +59,64 @@ export function BriefActions({
    * so the server defends in depth.
    */
   savedSpecId: string | null;
+  /**
+   * FINDING-011 / audit B2: the explicit confirm action for the
+   * ready-but-unsaved state. Sends the confirmation into the chat (same
+   * informed-consent pattern as starter-card taps); the agent persists
+   * via confirm_and_save and `savedSpecId` flips this panel to "actions".
+   */
+  onConfirm: () => void;
+  /** True while the chat is streaming — the confirm button waits its turn. */
+  busy?: boolean;
 }) {
+  const saved = savedSpecId != null;
+  const state = briefActionsState({ ready, saved });
   const telegramStatus = trpc.telegram.status.useQuery(undefined, {
-    enabled: ready,
+    enabled: state === "actions",
     refetchOnWindowFocus: false,
   });
   const sampleMut = trpc.digest.sampleNow.useMutation();
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const [send, setSend] = useState<SendState>({ kind: "idle" });
 
-  if (!ready) return null;
-  const saved = savedSpecId != null;
+  if (state === "hidden") return null;
+
+  // FINDING-011: draft complete, not yet saved. ONE live action — confirm.
+  // No preview/send affordances here: they cannot work until the spec is
+  // saved, and rendering them disabled produced the contradictory
+  // "ready / can't click / finish setup first" stack the founder flagged.
+  if (state === "confirm") {
+    return (
+      <div
+        data-testid="brief-actions"
+        className="mx-auto flex w-full max-w-2xl flex-col gap-3 rounded-md border border-border bg-card/40 p-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold tracking-tight">
+            Happy with this draft?
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Confirm it and Cadence starts researching. You can change
+            anything later by chatting.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            data-testid="brief-actions-confirm"
+            onClick={onConfirm}
+            disabled={busy}
+            className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Looks good — save this brief
+          </button>
+          <span className="text-xs text-muted-foreground">
+            or tell Cadence what to change below
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const linked = telegramStatus.data?.linked ?? false;
 
@@ -152,15 +202,6 @@ export function BriefActions({
         </p>
       </div>
 
-      {!saved && (
-        <p
-          data-testid="brief-actions-needs-save"
-          className="text-xs text-muted-foreground"
-        >
-          Finish setting up your brief in chat first.
-        </p>
-      )}
-
       {/* dead-surface fix 2026-06-09: replaced the chat-client auto-redirect
           to /app/link with this inline CTA. Surfaces once the spec is saved
           AND Telegram isn't linked — the single most important next action
@@ -185,7 +226,7 @@ export function BriefActions({
           type="button"
           data-testid="brief-actions-preview"
           onClick={onPreview}
-          disabled={!saved || preview.kind === "loading"}
+          disabled={preview.kind === "loading"}
           className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           {preview.kind === "loading"
@@ -197,7 +238,7 @@ export function BriefActions({
             type="button"
             data-testid="brief-actions-send-now"
             onClick={onSendNow}
-            disabled={!saved || send.kind === "sending"}
+            disabled={send.kind === "sending"}
             className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
           >
             {send.kind === "sending" ? "Sending…" : "Send to Telegram now"}

@@ -741,10 +741,22 @@ export function ChatClient({
             {isStreaming && <TypingDots />}
             {/* MUST-SHIP #8 + #9: once the spec is ready, surface preview +
                 send-now actions inline so the user sees the payoff before
-                leaving the chat. */}
+                leaving the chat. FINDING-011: before the agent has saved,
+                the panel shows ONE live confirm action instead — tapping it
+                sends the confirmation as the user's message (same
+                informed-consent pattern as starter cards) and the agent's
+                confirm_and_save flips savedSpecId. */}
             <BriefActions
               ready={draftIsReady(draft)}
               savedSpecId={savedSpecId}
+              busy={isStreamingState}
+              onConfirm={() => {
+                if (isStreamingState) return;
+                void append({
+                  role: "user",
+                  content: "Looks good — save this brief.",
+                });
+              }}
             />
             {friendlyError && (
               <div
