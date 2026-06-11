@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
+import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
 import type { PersistedMessage } from "@/components/chat/types";
 import { AppNav } from "@/components/nav/app-nav";
 
@@ -17,12 +18,33 @@ import { AppNav } from "@/components/nav/app-nav";
  */
 export const dynamic = "force-dynamic";
 
-export default async function ChatPage() {
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ template?: string }>;
+}) {
+  // PR 3: /chat?template=<id> deep-link (landing-page ICP stripes).
+  // Server-validated: must be a known AND visible catalog row — retired or
+  // internal ids fall through to the normal blank chat, never an error.
+  const params = (await searchParams) ?? {};
+  const rawTemplate = typeof params.template === "string" ? params.template : null;
+  const deepLinkTemplate = DIGEST_TEMPLATES.find(
+    (t) => t.id === rawTemplate && t.visible
+  );
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/sign-in");
+  if (!user) {
+    // Preserve the deep-link through the auth wall: sign-in forwards
+    // `next` to /auth/callback, which redirects back here post-OAuth.
+    redirect(
+      deepLinkTemplate
+        ? `/auth/sign-in?next=${encodeURIComponent(`/chat?template=${deepLinkTemplate.id}`)}`
+        : "/auth/sign-in"
+    );
+  }
 
   // Find or create an active thread.
   let thread = (
@@ -98,6 +120,7 @@ export default async function ChatPage() {
         initialMessages={initialMessages}
         initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
         sessionEmail={user.email ?? null}
+        initialTemplateId={deepLinkTemplate?.id ?? null}
       />
     </div>
   );
