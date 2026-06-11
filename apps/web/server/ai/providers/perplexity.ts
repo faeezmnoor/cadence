@@ -51,16 +51,19 @@ const DEFAULT_COUNT = 10;
 /**
  * Per-request timeout for the Perplexity API (CAD-97).
  *
- * Sonar Reasoning Pro performs LLM-driven web research and can legitimately
- * take 25–40s on broad queries before responding — the old 30s ceiling was
- * tripping otherwise-successful searches. 45s gives the slow tail headroom
- * without letting a hung connection hold the digest pipeline open
- * indefinitely (the pipeline's own retry/timeout budget is the outer guard).
+ * Sonar Reasoning Pro performs LLM-driven web research and its legitimate
+ * slow tail is 60–120s on broad queries — the CAD-222 bake-off run of
+ * 2026-06-11 measured 4/5 specs timing out at the old 45s ceiling while
+ * the searches themselves were succeeding. 120s matches the rationale of
+ * WEBSEARCH_COMPOSER_TIMEOUT_MS (anthropic-websearch.ts): research happens
+ * INSIDE the call, so the ceiling must cover research + synthesis; beyond
+ * 120s it's a stuck connection. The pipeline's own retry/timeout budget
+ * (Inngest maxDuration 300s) remains the outer guard.
  *
  * NOTE: providers MUST NOT retry on timeout — the digest pipeline owns
  * retry orchestration. See `types.ts` for the no-retry contract.
  */
-export const REQUEST_TIMEOUT_MS = 45_000;
+export const REQUEST_TIMEOUT_MS = 120_000;
 
 // ---------------------------------------------------------------------------
 // Errors
