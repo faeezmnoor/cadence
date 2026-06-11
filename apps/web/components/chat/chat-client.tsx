@@ -61,6 +61,7 @@ export function ChatClient({
   const router = useRouter();
   const utils = trpc.useUtils();
   const [resetting, setResetting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const hydrated: Message[] = initialMessages
     .map((m): Message | null => {
@@ -404,10 +405,6 @@ export function ChatClient({
 
   const handleReset = async () => {
     if (isStreamingState || resetting) return;
-    const ok = window.confirm(
-      "Reset this conversation? Captured details will be cleared. This cannot be undone."
-    );
-    if (!ok) return;
     setResetting(true);
     try {
       await resetMut.mutateAsync({ threadId });
@@ -418,6 +415,7 @@ export function ChatClient({
       router.refresh();
     } finally {
       setResetting(false);
+      setConfirmingReset(false);
     }
   };
 
@@ -483,36 +481,61 @@ export function ChatClient({
       <div className="flex flex-1 flex-col min-h-0">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
           <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
-            Configure your brief
+            Set up your brief
           </h1>
           <div className="flex shrink-0 items-center gap-2">
             <CreditPill />
-            <button
-              type="button"
-              onClick={handleReset}
-            disabled={isStreaming || resetting}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Reset conversation"
-            title="Reset conversation"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5"
-              aria-hidden="true"
-            >
-              <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-              <path d="M3 21v-5h5" />
-            </svg>
-            {resetting ? "Resetting…" : "Reset"}
-            </button>
+            {confirmingReset ? (
+              <span
+                data-testid="chat-reset-confirm"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
+                Start over?
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={resetting}
+                  className="inline-flex h-9 items-center rounded-md bg-destructive px-2.5 text-xs font-medium text-destructive-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resetting ? "Resetting…" : "Yes, start over"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(false)}
+                  disabled={resetting}
+                  className="inline-flex h-9 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingReset(true)}
+                disabled={isStreaming || resetting}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Start over"
+                title="Start over"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+                Start over
+              </button>
+            )}
           </div>
         </header>
 
@@ -527,6 +550,17 @@ export function ChatClient({
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
             {!hasMessages && (
               <div data-testid="chat-welcome" className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-brand-foreground"
+                  >
+                    C
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    Cadence
+                  </span>
+                </div>
                 <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground">
                   I research your industry and send you a brief, on your
                   schedule.
@@ -735,7 +769,11 @@ export function ChatClient({
               value={input}
               onChange={handleInputChange}
               disabled={isStreaming}
-              placeholder="Type your reply…"
+              placeholder={
+                hasMessages
+                  ? "Type your reply…"
+                  : "Describe what to watch — e.g. palm oil prices"
+              }
               autoFocus
               className="block h-11 flex-1 rounded-md border border-input bg-background px-4 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
             />
