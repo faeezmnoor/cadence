@@ -3,6 +3,8 @@
 **Date:** 2026-06-11 · **Lens:** senior UX writer / content designer.
 **The brief's question:** *"Evaluate whether 'brief'/'briefs' is the right word… Evaluate our overall terminology."*
 
+> **DECISION (founder, 2026-06-11): §1 ratified — "brief" stays. §3's rename REJECTED** — "watch" reads alert/monitoring (the banned mental model) and is a downgrade from "brief." Resolution: keep "brief" for both layers like "newsletter" (*my brief* / *today's brief*); the counting collision is solved by copy, not a rename — the list counts **briefs**, billing counts **credits**, and "1 credit = 1 brief" is the only meeting point. Recorded as binding in `COPY_GUIDE §4b`. §§3's analysis is retained below for the record; do not re-open.
+
 **TL;DR:**
 1. **"Brief" beats "digest" and every other candidate for the delivered artifact. Keep it.** This is already settled correctly in `COPY_GUIDE §4`; we ratify it with reasoning below.
 2. **The real, unsolved problem isn't brief-vs-digest — it's that "brief" is overloaded across three distinct concepts.** Today the 1-brief cap hides the collision. Multi-brief will expose it as a counting/trust bug.

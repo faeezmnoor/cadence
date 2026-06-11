@@ -63,9 +63,9 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 
 The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_runs`, `lib/digest-spec/`, `runDigestPipeline`). That is **internal vocabulary only** — telemetry-load-bearing, don't rename. In **every user-facing string it is a "brief."** Never surface `digest`/`spec`/`DigestSpec` to a user. (UX audit v3, doc 03.)
 
-### 4b. Open decision — the "brief" overload (decide before multi-brief GA)
+### 4b. DECIDED (founder, 2026-06-11) — the "brief" overload: keep "brief" for both layers, no rename
 
-"Brief" is correct for the **delivered artifact** and is locked by "1 credit = 1 brief." But it is currently also used for the **standing, pausable configuration** (the `/briefs` cards you create / pause / resume). With the 1-brief cap this collision is invisible; at multi-brief it isn't ("5 briefs" configs vs "73 briefs" credits). **Recommended:** keep "brief" = the delivered artifact; give the standing configuration its own noun — lead candidate **"watch"** (already used in template names: "Competitor watch", "Tax and LHDN watch"). **Founder + UX-writer decision, to be ratified before multi-brief ships** — it amends this §4 and renames the `/briefs` surface; it touches "1 credit = 1 brief" zero times. Until ratified, do not rename. (UX audit v3, doc 03 §3.)
+"Brief" names both the **delivered artifact** (locked by "1 credit = 1 brief") and the **standing, pausable configuration** (the `/briefs` cards). The audit's proposed rename of the standing layer ("watch") was **rejected by the founder** — "watch" drags in the alert/monitoring mental model §4 bans, and "brief" works like "newsletter": *my brief* (standing) vs *today's brief* (delivered), disambiguated by context. **The binding rule that replaces the rename:** the brief list counts in **briefs** ("3 active briefs"); billing counts in **credits** only — never "73 briefs" as a balance. "1 credit = 1 brief" is the only sentence where the two meet. Enforce this before multi-brief GA. (UX audit v3, doc 03 §3; founder ruling 2026-06-11.)
 
 ## 5. Honesty boundaries
 
