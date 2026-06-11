@@ -62,6 +62,14 @@ export const users = pgTable(
     autoTopupThresholdCredits: integer("auto_topup_threshold_credits"),
     /** T-501a: set when 3-credit trial grant fires. Prevents re-grant on re-signup. */
     trialCreditsGrantedAt: timestamp("trial_credits_granted_at", { withTimezone: true }),
+    /**
+     * Brief manage mode (migration 0029, exec RC6): atomic claim timestamp
+     * for the 60s chat-origin dry-run sample throttle. Claimed via a single
+     * conditional UPDATE ... RETURNING in server/digest/sample.ts — dry-runs
+     * bypass both the delivery cooldown and the credit gate, so this is the
+     * only bound on agent-loopable zero-credit composes. tRPC origin exempt.
+     */
+    lastSampleDryRunAt: timestamp("last_sample_dry_run_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -182,25 +190,47 @@ export const digestSpecs = pgTable(
 // ---------------------------------------------------------------------------
 // chat_threads
 // ---------------------------------------------------------------------------
-export const chatThreads = pgTable("chat_threads", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  purpose: text("purpose").notNull(), // initial_config | reconfigure
-  status: text("status").notNull().default("active"), // active | completed
-  // T-408: in-progress DigestSpecDraft so multi-turn edits compose. NULL
-  // until first write; cleared back to NULL on successful confirm_and_save.
-  draftSpec: jsonb("draft_spec"),
-  // Brief-creation revamp PR 1 (migration 0026): provenance — which catalog
-  // template (lib/digest-spec/templates.ts id) started this thread via a
-  // starter card / gallery tap / ?template= deep-link. NULL = freehand.
-  // Stamped once at first template submission; never overwritten, so the
-  // freehand-vs-template share metric stays honest.
-  templateId: text("template_id"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const chatThreads = pgTable(
+  "chat_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull(), // initial_config | reconfigure
+    status: text("status").notNull().default("active"), // active | completed
+    // T-408: in-progress DigestSpecDraft so multi-turn edits compose. NULL
+    // until first write; cleared back to NULL on successful confirm_and_save.
+    draftSpec: jsonb("draft_spec"),
+    // Brief-creation revamp PR 1 (migration 0026): provenance — which catalog
+    // template (lib/digest-spec/templates.ts id) started this thread via a
+    // starter card / gallery tap / ?template= deep-link. NULL = freehand.
+    // Stamped once at first template submission; never overwritten, so the
+    // freehand-vs-template share metric stays honest.
+    templateId: text("template_id"),
+    // Brief manage mode (migration 0029): binding to the digest_specs row this
+    // thread manages. NULL = setup thread. Mode is DERIVED from this column
+    // (specId != null => manage), never stored. ON DELETE SET NULL: specs are
+    // archive-only today; a future hard-delete would silently degrade a manage
+    // thread to setup carrying full manage history (documented tripwire).
+    specId: uuid("spec_id").references(() => digestSpecs.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // Migration 0029: /chat?brief=<id> resolution lookup.
+    specIdx: index("idx_chat_threads_spec")
+      .on(t.specId)
+      .where(sql`${t.specId} IS NOT NULL`),
+    // Migration 0029: at most ONE live manage thread per brief (lazy-create
+    // race guard). Safe at backfill time because phase 1 binds at most one
+    // thread per spec AND leaves every bound thread status='completed'
+    // (reactivation is phase 2) — see 0029_chat_thread_spec_binding.sql.
+    specActiveUq: uniqueIndex("chat_threads_spec_active_uq")
+      .on(t.specId)
+      .where(sql`${t.specId} IS NOT NULL AND ${t.status} = 'active'`),
+  })
+);
 
 // ---------------------------------------------------------------------------
 // chat_messages
