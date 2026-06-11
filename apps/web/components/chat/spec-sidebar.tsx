@@ -1,12 +1,16 @@
 "use client";
 
 /**
- * T-415 / CAD-75: Spec sidebar.
+ * T-415 / CAD-75: Spec sidebar — "Your brief so far".
  *
- * Shows the live `chat_threads.draft_spec` as a 6-row card. Desktop: right
- * rail. Mobile: a <details> disclosure above the input. Pure helpers live
- * in a sibling .ts file so vitest can import them without dragging the
- * React TSX through vite's transformer.
+ * Shows the live `chat_threads.draft_spec` as Cadence's running notes.
+ * Desktop: right rail. Mobile: a <details> disclosure above the input.
+ *
+ * UX audit v3 (Wave B / §3): reframed from an engineer's field inspector
+ * (mono values, "DRAFT", "— not set") into plain-language notes — the
+ * surface where the user watches their researcher understand them, so it
+ * reads like a person taking notes, not a JSON debugger. The pure row
+ * builder lives in a sibling .ts file (vitest imports it without React).
  */
 import { useMemo } from "react";
 import { buildRows, isReady, type DraftLike } from "./spec-sidebar.helpers";
@@ -30,18 +34,18 @@ export function SpecSidebar({
           key={r.label}
           className="flex items-baseline justify-between gap-3"
         >
-          <dt className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-xs text-muted-foreground">
             {r.label}
           </dt>
           <dd
             className={
               r.value
-                ? "max-w-[60%] truncate text-right font-mono text-xs"
-                : "text-right font-mono text-xs text-muted-foreground/70"
+                ? "max-w-[60%] truncate text-right text-sm text-foreground"
+                : "text-right text-sm text-muted-foreground/50"
             }
             title={r.value ?? undefined}
           >
-            {r.value ?? "— not set"}
+            {r.value ?? "—"}
           </dd>
         </div>
       ))}
@@ -51,8 +55,8 @@ export function SpecSidebar({
   if (variant === "mobile") {
     return (
       <details className="mx-auto w-full max-w-2xl rounded-md border border-border bg-card px-3 py-2 text-sm lg:hidden">
-        <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {ready ? "Captured · ✓ ready to confirm" : "Captured so far"}
+        <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
+          {ready ? "Your brief — ready to confirm ✓" : "Your brief so far"}
         </summary>
         <div className="mt-3">{list}</div>
       </details>
@@ -62,10 +66,10 @@ export function SpecSidebar({
   return (
     <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-card/30 lg:flex">
       <div className="border-b border-border px-5 py-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          Draft
+        <h2 className="text-sm font-semibold tracking-tight">Your brief so far</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          I&rsquo;ll fill this in as we chat.
         </p>
-        <h2 className="text-sm font-semibold tracking-tight">Captured so far</h2>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">{list}</div>
       <div className="border-t border-border px-5 py-3">
@@ -75,7 +79,7 @@ export function SpecSidebar({
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
-            Filling in…
+            Still listening…
           </span>
         )}
       </div>

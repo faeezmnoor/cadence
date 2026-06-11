@@ -24,6 +24,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { Markdown } from "./markdown";
 
 type PreviewState =
   | { kind: "idle" }
@@ -231,9 +232,9 @@ export function BriefActions({
       {preview.kind === "ready" && (
         <div
           data-testid="brief-actions-preview-body"
-          className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 text-[13px] leading-relaxed"
+          className="mt-1 break-words rounded-md border border-border bg-background p-4 text-[13px] leading-relaxed"
         >
-          {preview.markdown}
+          <Markdown>{preview.markdown}</Markdown>
         </div>
       )}
       {preview.kind === "error" && (
