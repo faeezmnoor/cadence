@@ -32,8 +32,11 @@ import { TierExplainer } from "@/components/billing/tier-explainer";
 import {
   STACK_COSTS,
   STACK_DESCRIPTIONS,
+  STACK_ORDER,
+  STACK_SUMMARIES,
   monthlyCreditEstimate,
   nextDeliveryCost,
+  normalizeStack,
   stackLabel,
   type ResearchStack,
 } from "@/lib/research-stack";
@@ -262,7 +265,7 @@ function AdvancedTab({
       onSaved();
     },
   });
-  const tier = (brief.tier === "pro" ? "pro" : "default") as "default" | "pro";
+  const tier = normalizeStack(brief.tier);
 
   const [draft, setDraft] = useState<string>(() =>
     JSON.stringify(brief.spec ?? {}, null, 2)
@@ -540,10 +543,7 @@ function ConfigurableStackSettings({
   }, [tier]);
 
   const nextCost = nextDeliveryCost(draftStack);
-  const monthlyEstStandard = monthlyCreditEstimate(brief.scheduling, "default");
-  const monthlyEstAdvanced = monthlyCreditEstimate(brief.scheduling, "pro");
-  const monthlyEstDraft =
-    draftStack === "pro" ? monthlyEstAdvanced : monthlyEstStandard;
+  const monthlyEstDraft = monthlyCreditEstimate(brief.scheduling, draftStack);
   const dirty = draftStack !== tier;
 
   const currentLabel = stackLabel(tier);
@@ -576,40 +576,45 @@ function ConfigurableStackSettings({
         nothing else changes about how you&apos;re billed.
       </p>
 
-      {/* Toggle */}
+      {/* Option picker — data-driven from the stack registry so adding a
+          stack is a lib/research-stack.ts change, not UI surgery
+          (founder ruling 2026-06-11: flexibility over fixed tiers). */}
       <div
-        className="mt-4 inline-flex rounded-md border border-border"
+        className="mt-4 grid gap-2 sm:grid-cols-3"
         role="radiogroup"
         aria-label="Choose research depth"
       >
-        <button
-          type="button"
-          role="radio"
-          aria-checked={draftStack === "default"}
-          onClick={() => setDraftStack("default")}
-          disabled={setTier.isPending}
-          className={`px-3 py-1.5 text-sm transition ${
-            draftStack === "default"
-              ? "bg-foreground text-background"
-              : "bg-transparent text-foreground hover:bg-muted"
-          }`}
-        >
-          Standard · 1 credit
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={draftStack === "pro"}
-          onClick={() => setDraftStack("pro")}
-          disabled={setTier.isPending}
-          className={`px-3 py-1.5 text-sm transition ${
-            draftStack === "pro"
-              ? "bg-foreground text-background"
-              : "bg-transparent text-foreground hover:bg-muted"
-          }`}
-        >
-          🔬 Advanced · 3 credits
-        </button>
+        {STACK_ORDER.map((stack) => {
+          const cost = STACK_COSTS[stack];
+          const selected = draftStack === stack;
+          return (
+            <button
+              key={stack}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setDraftStack(stack)}
+              disabled={setTier.isPending}
+              data-testid={`stack-option-${stack}`}
+              className={`rounded-md border p-3 text-left transition ${
+                selected
+                  ? "border-foreground bg-foreground/5 ring-1 ring-foreground"
+                  : "border-border bg-transparent hover:bg-muted"
+              }`}
+            >
+              <span className="block text-sm font-medium text-foreground">
+                {stack === "default" ? "" : "🔬 "}
+                {stackLabel(stack)}
+              </span>
+              <span className="mt-0.5 block text-xs font-semibold text-foreground">
+                {cost} credit{cost === 1 ? "" : "s"} per brief
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {STACK_SUMMARIES[stack]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Live cost preview */}
@@ -627,16 +632,12 @@ function ConfigurableStackSettings({
         {monthlyEstDraft > 0 ? (
           <p className="mt-1 text-xs text-muted-foreground">
             Run-rate at this depth: ~{monthlyEstDraft} credit
-            {monthlyEstDraft === 1 ? "" : "s"} per month for this brief
-            {monthlyEstStandard > 0 && monthlyEstAdvanced > 0 ? (
-              <>
-                {" "}
-                (~{monthlyEstStandard} at standard, ~{monthlyEstAdvanced} at
-                advanced).
-              </>
-            ) : (
-              "."
-            )}
+            {monthlyEstDraft === 1 ? "" : "s"} per month for this brief (
+            {STACK_ORDER.map(
+              (s, i) =>
+                `${i > 0 ? " · " : ""}~${monthlyCreditEstimate(brief.scheduling, s)} at ${STACK_COSTS[s]} credit${STACK_COSTS[s] === 1 ? "" : "s"}/brief`
+            ).join("")}
+            ).
           </p>
         ) : (
           <p className="mt-1 text-xs text-muted-foreground">
@@ -690,7 +691,8 @@ function ConfigurableStackSettings({
             <tr className="text-muted-foreground">
               <th className="pb-2 pr-2 font-medium"></th>
               <th className="pb-2 pr-2 font-medium">Standard</th>
-              <th className="pb-2 font-medium">🔬 Advanced</th>
+              <th className="pb-2 pr-2 font-medium">🔬 Advanced · deeper digging</th>
+              <th className="pb-2 font-medium">🔬 Advanced · live web search</th>
             </tr>
           </thead>
           <tbody>
@@ -708,7 +710,10 @@ function ConfigurableStackSettings({
                 <td className="py-2 pr-2 text-muted-foreground">
                   {row.default}
                 </td>
-                <td className="py-2 text-muted-foreground">{row.pro}</td>
+                <td className="py-2 pr-2 text-muted-foreground">{row.pro}</td>
+                <td className="py-2 text-muted-foreground">
+                  {row.pro_websearch}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -113,7 +113,7 @@ export const digestSpecRouter = router({
         // "default" so callers that don't pass this field don't
         // accidentally flip a Pro spec back to default; the spec-client
         // always passes the current tier explicitly.
-        tier: z.enum(["default", "pro"]).default("default"),
+        tier: z.enum(["default", "pro", "pro_websearch"]).default("default"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -199,7 +199,7 @@ export const digestSpecRouter = router({
    * compose time. We treat tier as preference + capability gate.
    */
   setTier: protectedProcedure
-    .input(z.object({ tier: z.enum(["default", "pro"]) }))
+    .input(z.object({ tier: z.enum(["default", "pro", "pro_websearch"]) }))
     .mutation(async ({ ctx, input }) => {
       const updated = await db
         .update(digestSpecs)

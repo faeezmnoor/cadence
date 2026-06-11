@@ -1,13 +1,16 @@
 # Pro integrity bake-off (CAD-222)
 
-The advanced tier is product-paused. Two research stacks compete for it;
-this runbook drives the 10-briefs × 2-contenders × 5-specs bake-off
-(~$20 budget). The loser gets **deleted** from the codebase.
+The advanced tier is product-paused. Two research stacks compete for
+the **default Advanced slot**; this runbook drives the 10-briefs ×
+2-contenders × 5-specs bake-off (~$20 budget).
 
-## Pre-registered decision criterion (verbatim)
+## Decision criterion (founder-amended 2026-06-11)
 
-> A3 wins ties; ≥0.5 composite lift at ≤$0.10/brief un-pauses the tier;
-> loser gets DELETED.
+> Quality only: higher mean composite wins the default Advanced slot;
+> A3 wins ties. There is NO cost ceiling — measured $/brief is the
+> input to per-stack credit pricing. Stacks become configurable
+> settings options (standard / advanced as defaults), each with an
+> estimated cost; the loser is not auto-deleted.
 
 Notes on how that maps to tooling:
 
@@ -19,8 +22,14 @@ Notes on how that maps to tooling:
   (`server/evals/pro-eval-gate.ts`, `MIN_LEAD = 0.5`) — the founder
   rates briefs in /admin; this report's Haiku-judge scores are the
   cheap pre-filter, not the un-pause authority.
-- **≤$0.10/brief**: the report flags whether the winner's mean
-  cost-per-brief clears the ceiling (`winnerMeetsCostCeiling`).
+- **$/brief**: reported per contender (`winnerMeanCostUsd` on the
+  verdict) and used to set each stack option's credit charge so the
+  charge covers the cost. Not a gate.
+
+> Historical note: the original pre-registered criterion (PR #27)
+> included a ≤$0.10/brief ceiling and loser-deletion. The founder
+> rescinded both on 2026-06-11 in favor of configurable stack options
+> priced by their measured cost.
 
 ## The contenders
 
@@ -100,10 +109,10 @@ Two files per run in `--out`, timestamped:
 - `pro-bakeoff-<ts>.md` — summary tables: per-contender aggregates,
   verdict block, per-run scores.
 
-Read order: verdict block → per-contender `Mean $/brief` vs the $0.10
-ceiling → spot-read the 2-3 lowest-grounding briefs in the JSON to
-check the judge isn't being gamed (memo-only claims for A2, invented
-URLs for A3).
+Read order: verdict block → per-contender `Mean $/brief` (feeds each
+stack option's credit price) → spot-read the 2-3 lowest-grounding
+briefs in the JSON to check the judge isn't being gamed (memo-only
+claims for A2, invented URLs for A3).
 
 Then: founder-rate the winner's briefs in /admin (that populates the
 real eval gate), and apply the criterion above.

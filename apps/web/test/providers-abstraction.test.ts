@@ -79,3 +79,25 @@ describe("CAD-85 provider abstraction", () => {
     });
   });
 });
+
+describe("CAD-222 — pro_websearch stack routing", () => {
+  it("alpha flag OFF falls back to default (same gate as pro)", () => {
+    withEnv("PRO_TIER_ALPHA", undefined, () => {
+      const bundle = getProviders("pro_websearch");
+      expect(bundle.tier).toBe("default");
+      expect(bundle.composer.id).toBe("anthropic-haiku");
+    });
+  });
+
+  it("alpha flag ON returns the web-search composer with Brave search", () => {
+    withEnv("PRO_TIER_ALPHA", "1", () => {
+      const bundle = getProviders("pro_websearch");
+      expect(bundle.tier).toBe("pro_websearch");
+      // No separate research step — the composer searches inline; the
+      // bundle's search slot is the default (Brave) provider the pipeline
+      // already runs for every tier.
+      expect(bundle.search.id).toBe("brave");
+      expect(bundle.composer.id).toBe("anthropic-sonnet-websearch");
+    });
+  });
+});

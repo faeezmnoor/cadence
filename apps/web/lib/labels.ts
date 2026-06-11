@@ -143,7 +143,8 @@ export function formatUserState(raw: string): string {
  */
 const TIERS: Record<string, string> = {
   default: "Standard research",
-  pro: "Advanced research",
+  pro: "Advanced research · deeper digging",
+  pro_websearch: "Advanced research · live web search",
 };
 export function formatTier(raw: string): string {
   return TIERS[raw] ?? prettify(raw);

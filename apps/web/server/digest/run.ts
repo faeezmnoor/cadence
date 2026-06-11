@@ -26,6 +26,7 @@ import { db } from "@/server/db/client";
 import { costEvents, digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
 import { classifyTopic } from "@/lib/digest-spec/templates";
+import { normalizeStack, isAdvancedStack } from "@/lib/research-stack";
 import { buildSampleBanner } from "./sample-banner";
 import { generateBriefShortId, getBriefShareUrl } from "./share";
 
@@ -202,9 +203,13 @@ export function buildSearchQueries(spec: {
  * "advanced research", never "Pro".)
  */
 export const PRO_BADGE_FOOTER = "🔬 Advanced research — deeper digging, 3 credits.";
+export const WEBSEARCH_BADGE_FOOTER =
+  "🔬 Advanced research — live web search, 5 credits.";
 
-export function appendProBadge(markdown: string): string {
-  return markdown + "\n\n" + PRO_BADGE_FOOTER;
+export function appendProBadge(markdown: string, tier: Tier = "pro"): string {
+  const footer =
+    tier === "pro_websearch" ? WEBSEARCH_BADGE_FOOTER : PRO_BADGE_FOOTER;
+  return markdown + "\n\n" + footer;
 }
 
 export async function runDigestPipeline(params: RunDigestParams): Promise<RunDigestResult> {
@@ -516,32 +521,36 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     // differ from the spec's `tier` when PRO_TIER_ALPHA is off — the
     // provider layer falls back to default and we record the *resolved*
     // tier on metadata so admins can see which stack actually ran.
-    const requestedTier = (specRow.tier as Tier | undefined) ?? "default";
+    // CAD-222: normalizeStack maps unknown/legacy strings to "default";
+    // "pro" and "pro_websearch" pass through. The downgrade ladder below
+    // treats BOTH advanced stacks identically (alpha flag, balance,
+    // cost cap) — only the provider pair and credit price differ.
+    const requestedTier = normalizeStack(specRow.tier) as Tier;
+    const requestedAdvanced = isAdvancedStack(requestedTier);
 
     // CAD-101: alpha-flag safety net. If PRO_TIER_ALPHA is off but a spec
-    // still has tier="pro" persisted from a prior window when the flag
-    // was on, downgrade silently to default. Belt-and-braces: getProviders
-    // already does the same fallback, but doing it here means metadata
-    // records the reason and the credit-cost lookup below sees "default".
-    // Without this, flipping the flag back off could strand the alpha
-    // cohort on a Pro-priced credit cost serving a default brief.
+    // still has an advanced tier persisted from a prior window when the
+    // flag was on, downgrade silently to default. Belt-and-braces:
+    // getProviders already does the same fallback, but doing it here means
+    // metadata records the reason and the credit-cost lookup below sees
+    // "default". Without this, flipping the flag back off could strand the
+    // alpha cohort on an advanced-priced credit cost serving a default brief.
     let alphaSafetyDowngrade = false;
-    if (requestedTier === "pro" && !isProTierAlphaEnabled()) {
+    if (requestedAdvanced && !isProTierAlphaEnabled()) {
       alphaSafetyDowngrade = true;
       console.warn(
-        `[digest:tier] user=${userId} spec=${specRow.id} requested=pro ` +
+        `[digest:tier] user=${userId} spec=${specRow.id} requested=${requestedTier} ` +
           `but PRO_TIER_ALPHA is off — downgrading to default`
       );
     }
 
-    // CAD-89: pragmatic downgrade. If a Pro brief costs 3 credits but the
-    // user only has 1 or 2 (positive balance, not broke), don't fail —
+    // CAD-89: pragmatic downgrade. If an advanced brief costs 3-5 credits
+    // but the user has fewer (positive balance, not broke), don't fail —
     // serve them via the default stack and debit 1. Skip-when-broke
     // (balance ≤ -1) already returned above; the grace credit (balance=0)
-    // is handled here too — Pro at balance=0 downgrades to default since
-    // 0 < 3.
+    // is handled here too — advanced at balance=0 downgrades to default.
     //
-    // dryRun bypasses (no debit on previews; Faeez should see the Pro
+    // dryRun bypasses (no debit on previews; Faeez should see the advanced
     // output regardless of the user's balance).
     let effectiveTier: Tier = requestedTier;
     let downgradeReason: string | null = null;
@@ -550,16 +559,16 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       downgradeReason = "alpha_flag_off";
     } else if (
       !dryRun &&
-      requestedTier === "pro" &&
-      user.creditsBalance < creditCostForTier("pro")
+      requestedAdvanced &&
+      user.creditsBalance < creditCostForTier(requestedTier)
     ) {
       effectiveTier = "default";
       downgradeReason = "insufficient_credits";
       console.warn(
         `[digest:downgrade] user=${userId} balance=${user.creditsBalance} ` +
-          `requested=pro effective=default reason=${downgradeReason}`
+          `requested=${requestedTier} effective=default reason=${downgradeReason}`
       );
-    } else if (requestedTier === "pro") {
+    } else if (requestedAdvanced) {
       // CAD-102 (T4): cost-overrun circuit breaker. If today's Pro spend
       // is above PRO_TIER_DAILY_USD_CAP, downgrade to default to stop the
       // bleeding. Sentry-alerts once per UTC day so we get paged on the
@@ -641,32 +650,33 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     try {
       out = await providers.composer.compose(composerInput);
     } catch (composerErr) {
-      // CAD-102 (T3): Pro composer failure → fallback to the default
-      // composer so a flaky Sonar/Sonnet call doesn't deny the user their
-      // brief entirely. Only catches Pro→default; a default composer
-      // failure re-throws and lands in the outer catch below so the
-      // pipeline can retry or escalate to delivery_broken.
+      // CAD-102 (T3): advanced composer failure → fallback to the default
+      // composer so a flaky Sonar/Sonnet/web-search call doesn't deny the
+      // user their brief entirely. Only catches advanced→default; a default
+      // composer failure re-throws and lands in the outer catch below so
+      // the pipeline can retry or escalate to delivery_broken.
       //
       // The user gets a default brief (no 🔬 footer, debited at 1 credit
       // via the resolved=default tier downstream), and the failure is
       // captured in Sentry + stamped on runMetadata.fallback so admins
-      // can see the rate of Pro→default fallbacks without trawling logs.
-      if (providers.tier !== "pro") {
+      // can see the rate of advanced→default fallbacks without trawling logs.
+      if (!isAdvancedStack(providers.tier)) {
         throw composerErr;
       }
+      const failedTier = providers.tier;
       const Sentry = await import("@sentry/nextjs");
       Sentry.captureException(composerErr, {
-        tags: { route: "digest.compose", tier: "pro" },
+        tags: { route: "digest.compose", tier: failedTier },
         extra: { userId, digestRunId: runRowId },
       });
       const reason = sanitizeError(composerErr);
       console.warn(
-        `[digest:fallback] user=${userId} pro composer failed, retrying on default — ${reason}`
+        `[digest:fallback] user=${userId} ${failedTier} composer failed, retrying on default — ${reason}`
       );
       providers = getProviders("default");
       out = await providers.composer.compose(composerInput);
       runMetadata.fallback = {
-        from: "pro",
+        from: failedTier,
         to: "default",
         reason,
       };
@@ -687,10 +697,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     }
     if (downgradeReason) {
       // CAD-89: per spec, downgrade reason lands on digestRuns.metadata
-      // so the admin run viewer can surface "downgraded from Pro" without
-      // joining transactions.
+      // so the admin run viewer can surface "downgraded from advanced"
+      // without joining transactions.
       runMetadata.downgrade = {
-        from: "pro",
+        from: requestedTier,
         to: "default",
         reason: downgradeReason,
         balanceAtDispatch: user.creditsBalance,
@@ -886,15 +896,14 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     if (footer) markdown = markdown + footer;
   }
 
-  // CAD-91: 🔬 Pro tier badge. Only emitted when the brief was actually
-  // composed on the Pro stack (resolved tier === "pro"). Surfaced to the
-  // user so they can see which stack served them and tie it back to the
-  // 3-credit charge. Reads tier from runMetadata.tier.resolved which is
-  // populated post-CAD-89 (the resolved tier, not the requested tier —
-  // downgraded briefs MUST NOT carry the Pro badge).
+  // CAD-91: 🔬 advanced badge. Only emitted when the brief was actually
+  // composed on an advanced stack (resolved tier, not requested —
+  // downgraded briefs MUST NOT carry the badge). The footer names the
+  // stack's own credit price so the user can tie the brief back to the
+  // exact charge.
   const resolvedTier = (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved;
-  if (resolvedTier === "pro") {
-    markdown = appendProBadge(markdown);
+  if (resolvedTier && isAdvancedStack(resolvedTier)) {
+    markdown = appendProBadge(markdown, resolvedTier);
   }
 
   // UX P0 #2: prepend sample-brief banner (sample trigger only). Cron path

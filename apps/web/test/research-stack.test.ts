@@ -17,6 +17,10 @@ import {
   monthlyCreditEstimate,
   nextDeliveryCost,
   stackLabel,
+  STACK_ORDER,
+  STACK_SUMMARIES,
+  normalizeStack,
+  isAdvancedStack,
 } from "@/lib/research-stack";
 
 function rule(
@@ -123,11 +127,20 @@ describe("stackLabel — no plan-tier nouns per project_cadence_no_tier_plans", 
   it("default → 'Standard research'", () => {
     expect(stackLabel("default")).toBe("Standard research");
   });
-  it("pro → 'Advanced research'", () => {
-    expect(stackLabel("pro")).toBe("Advanced research");
+  it("pro → 'Advanced research · deeper digging' (vendor-free per COPY_GUIDE)", () => {
+    expect(stackLabel("pro")).toBe("Advanced research · deeper digging");
+  });
+  it("pro_websearch → 'Advanced research · live web search'", () => {
+    expect(stackLabel("pro_websearch")).toBe(
+      "Advanced research · live web search"
+    );
   });
   it("never returns 'Pro plan' / 'Pro tier' / 'Default tier' / 'upgrade'", () => {
-    for (const label of [stackLabel("default"), stackLabel("pro")]) {
+    for (const label of [
+      stackLabel("default"),
+      stackLabel("pro"),
+      stackLabel("pro_websearch"),
+    ]) {
       expect(label).not.toMatch(/Pro plan|Pro tier|Default tier|upgrade/i);
     }
   });
@@ -143,15 +156,54 @@ describe("STACK_DESCRIPTIONS — transparency table content", () => {
     expect(labels).toContain("Typical latency");
     expect(labels).toContain("Credit cost per brief");
   });
-  it("each row has both stack columns populated", () => {
+  it("each row has all three stack columns populated", () => {
     for (const row of STACK_DESCRIPTIONS) {
       expect(row.default.length).toBeGreaterThan(0);
       expect(row.pro.length).toBeGreaterThan(0);
+      expect(row.pro_websearch.length).toBeGreaterThan(0);
     }
   });
   it("no row leaks a plan-tier noun", () => {
     for (const row of STACK_DESCRIPTIONS) {
-      expect(`${row.default} ${row.pro}`).not.toMatch(/Pro plan|Pro tier|Default tier|upgrade to Pro/i);
+      expect(
+        `${row.default} ${row.pro} ${row.pro_websearch}`
+      ).not.toMatch(/Pro plan|Pro tier|Default tier|upgrade to Pro/i);
+    }
+  });
+});
+
+describe("CAD-222 — three-stack registry (founder ruling 2026-06-11)", () => {
+  it("STACK_ORDER lists all stacks cheapest-first", () => {
+    expect(STACK_ORDER).toEqual(["default", "pro", "pro_websearch"]);
+    const costs = STACK_ORDER.map((s) => STACK_COSTS[s]);
+    expect([...costs].sort((a, b) => a - b)).toEqual(costs);
+  });
+
+  it("per-stack credit prices: 1 / 3 / 5", () => {
+    expect(STACK_COSTS.default).toBe(1);
+    expect(STACK_COSTS.pro).toBe(3);
+    expect(STACK_COSTS.pro_websearch).toBe(5);
+  });
+
+  it("normalizeStack passes known stacks through and defaults the rest", () => {
+    expect(normalizeStack("pro")).toBe("pro");
+    expect(normalizeStack("pro_websearch")).toBe("pro_websearch");
+    expect(normalizeStack("default")).toBe("default");
+    expect(normalizeStack("legacy-garbage")).toBe("default");
+    expect(normalizeStack(null)).toBe("default");
+    expect(normalizeStack(undefined)).toBe("default");
+  });
+
+  it("isAdvancedStack: everything above 1 credit is advanced (alpha-gated)", () => {
+    expect(isAdvancedStack("default")).toBe(false);
+    expect(isAdvancedStack("pro")).toBe(true);
+    expect(isAdvancedStack("pro_websearch")).toBe(true);
+  });
+
+  it("every stack has a summary for the option picker", () => {
+    for (const s of STACK_ORDER) {
+      expect(STACK_SUMMARIES[s].length).toBeGreaterThan(0);
+      expect(STACK_SUMMARIES[s]).not.toMatch(/Pro plan|Pro tier|upgrade/i);
     }
   });
 });

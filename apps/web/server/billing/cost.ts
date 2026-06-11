@@ -27,26 +27,32 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { costEvents } from "@/server/db/schema";
 import { COST_TO_US_MICRO_PER_CREDIT_V1 } from "./packs";
+import { STACK_COSTS, normalizeStack } from "@/lib/research-stack";
 
 /** Conversion: 1 USD = 1_000_000 micro-USD. */
 export const USD_TO_MICRO = 1_000_000;
 
 /**
- * CAD-89: per-brief credit cost by tier.
- *
- * Pro briefs cost 3 credits to reflect the higher COGS (Sonar Reasoning
- * Pro search + Sonnet 4.6 composer vs Haiku + Brave). Default stays at 1.
+ * CAD-89 / CAD-222: per-brief credit cost by research stack.
  *
  * Single source of truth — every debit + refund path MUST read through
  * here so the multiplier can never drift between charge and reversal.
+ * Values delegate to `STACK_COSTS` in `lib/research-stack.ts` (the
+ * user-facing registry the /briefs/[id] picker renders from), so the
+ * price a user is shown and the price the ledger debits cannot diverge.
  *
- * The multiplier (3) is the PRD-locked Phase 5.1 number; revisit only after
- * eval data shows actual cost ratio is materially different.
+ * Pricing rationale (founder ruling 2026-06-11, no cost ceiling —
+ * credit price covers measured cost-to-us with margin; credits sell at
+ * $0.10–0.167 each depending on pack):
+ *   - default        1 credit — ~$0.04–0.08 COGS
+ *   - pro            3 credits — ~$0.09 COGS measured in the bake-off
+ *   - pro_websearch  5 credits — ~$0.18 COGS measured (max $0.37 with a
+ *                    repair retry); 5 keeps margin ≥ ~2.3× worst-pack
  */
-export type Tier = "default" | "pro";
+export type Tier = "default" | "pro" | "pro_websearch";
 
 export function creditCostForTier(tier: Tier | string | null | undefined): number {
-  return tier === "pro" ? 3 : 1;
+  return STACK_COSTS[normalizeStack(tier)];
 }
 
 /**

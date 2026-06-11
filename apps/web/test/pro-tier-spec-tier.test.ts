@@ -73,8 +73,11 @@ describe("CAD-88 — digest/run.ts wiring", () => {
     // because the resolved tier itself already encodes the flag state
     // (getProviders falls back to "default" when the flag is off). The
     // badge now appends iff the brief was actually composed on Pro.
-    expect(src).toMatch(/resolvedTier === "pro"/);
+    // CAD-222: badge predicate generalized to the registry helper so both
+    // advanced stacks carry their own footer (each naming its own price).
+    expect(src).toMatch(/resolvedTier && isAdvancedStack\(resolvedTier\)/);
     expect(src).toMatch(/🔬 Advanced research — deeper digging, 3 credits\./);
+    expect(src).toMatch(/🔬 Advanced research — live web search, 5 credits\./);
   });
 });
 
@@ -92,7 +95,10 @@ describe("CAD-88 — /briefs/[id] page UI gating (ported from /spec, Wave 6 Bug 
     // CAD-202 copy refresh: "Research tier" → "Research depth";
     // "🔬 Pro · 3 credits" → "🔬 Advanced · 3 credits".
     expect(client).toMatch(/Research depth/);
-    expect(client).toMatch(/🔬 Advanced · 3 credits/);
+    // CAD-222: the picker is data-driven from STACK_ORDER — assert the
+    // registry wiring rather than hardcoded option strings.
+    expect(client).toMatch(/STACK_ORDER\.map/);
+    expect(client).toMatch(/stack-option-\$\{stack\}/);
   });
 
   it("setTier mutation wired through briefs router (per-brief tier)", () => {
