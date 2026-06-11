@@ -93,6 +93,17 @@ export interface SearchResponse {
   /** USD cost of THIS search call (0 when cached). Useful for Pro tier
    *  metadata where per-brief cost matters. */
   costUsd: number;
+  /**
+   * CAD-222 (bake-off contender A2): the provider's own synthesized
+   * research answer, when it produces one (Perplexity Sonar emits a full
+   * researched write-up alongside its citations — previously discarded).
+   * Bounded by the provider (~4000 chars). Consumers pass it to the
+   * composer as `ComposerInput.researchMemo`, where it is SECONDARY
+   * material: the composer must verify every claim against the numbered
+   * sources and may never cite the memo itself. Absent for providers
+   * that return bare results (Brave).
+   */
+  memo?: string;
 }
 
 export interface SearchProvider {

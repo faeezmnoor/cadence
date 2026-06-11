@@ -30,8 +30,9 @@
  */
 import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
 import type { NormalizedSourceItem } from "./types";
-import { aggregateRss } from "./rss/aggregate";
+import { aggregateRss, applyFreshnessCut } from "./rss/aggregate";
 import { CURATED_FEEDS, feedsForTopics, type CuratedFeed } from "./rss/feeds";
+import { buildGnewsFeeds } from "./rss/gnews";
 
 /* -------------------------------------------------------------------------- */
 /* Tunables (exported for tests)                                              */
@@ -43,6 +44,11 @@ export const MAX_GATHERED_ITEMS = 10;
 export const BODY_EXCERPT_CHARS = 500;
 /** Hard cap on RSS feeds we fan out to per brief. Prevents 17-feed bursts. */
 export const MAX_RSS_FEEDS_PER_CALL = 5;
+/**
+ * CAD-221: separate budget for dynamic Google News entity/keyword feeds so
+ * neither pool starves the other — curated keeps its 5, gnews gets its own 4.
+ */
+export const MAX_GNEWS_FEEDS_PER_CALL = 4;
 /** Hard cap on Yahoo Finance ticker scrapes per brief. */
 export const MAX_YAHOO_SCRAPES_PER_CALL = 2;
 
@@ -153,6 +159,14 @@ export interface GatheredSourcesTelemetry {
   bucketsMatched: string[];
   feedsFanout: number;
   scrapersFanout: number;
+  /** CAD-221: dynamic Google News entity/keyword feeds fanned out. */
+  gnewsFeeds: number;
+  /** CAD-221: gnews-originated items that survived into the final result. */
+  gnewsItems: number;
+  /** CAD-221: items removed by URL-level dedup (pre-cap). */
+  dedupedCount: number;
+  /** CAD-221: dated RSS items dropped by the 48h freshness cut. */
+  freshnessDropped: number;
 }
 
 export interface GatherResult {
@@ -187,37 +201,65 @@ export async function gatherSources(
     topics?: readonly string[];
     topicHint?: string | null;
     entities?: Partial<DigestSpecV1["entities"]>;
+    /** CAD-221: spec.keywords_include — drives dynamic Google News feeds. */
+    keywords?: readonly string[];
   },
   deps: GatherSourcesDeps = {}
 ): Promise<GatherResult> {
   const buckets = bucketsForSpec(spec);
-  const items: NormalizedSourceItem[] = [];
-  let feedsFanout = 0;
+  const agg = deps.aggregateRss ?? aggregateRss;
   let scrapersFanout = 0;
 
-  // -- Pattern C: RSS ------------------------------------------------------
-  try {
-    const feeds = buckets.length === 0
+  // -- Pattern C: curated RSS + CAD-221 dynamic Google News entity feeds ---
+  const wanted = new Set(buckets.map((b) => b.toLowerCase()));
+  const curatedFeeds =
+    buckets.length === 0
       ? []
-      : feedsForTopics(buckets).slice(0, MAX_RSS_FEEDS_PER_CALL);
-    feedsFanout = feeds.length;
-    if (feeds.length > 0) {
-      const agg = deps.aggregateRss ?? aggregateRss;
-      const rssItems = await agg(feeds.map((f) => f.url));
-      items.push(...rssItems);
+      : (deps.curatedFeeds
+          ? deps.curatedFeeds.filter((f) =>
+              f.topics.some((t) => wanted.has(t.toLowerCase()))
+            )
+          : [...feedsForTopics(buckets)]
+        ).slice(0, MAX_RSS_FEEDS_PER_CALL);
+  // Gnews feeds are bucket-independent on purpose: the competitor-watch
+  // ICP names companies/keywords that may match no topic bucket at all —
+  // that recall gap is exactly what CAD-221 closes.
+  const gnewsFeeds = buildGnewsFeeds({
+    companies: spec.entities?.companies ?? [],
+    keywords: spec.keywords ?? [],
+  }).slice(0, MAX_GNEWS_FEEDS_PER_CALL);
+  const feedsFanout = curatedFeeds.length;
+
+  const fetchPool = async (
+    feeds: readonly CuratedFeed[],
+    tag: string
+  ): Promise<NormalizedSourceItem[]> => {
+    if (feeds.length === 0) return [];
+    try {
+      return await agg(
+        feeds.map((f) => f.url),
+        { sourceIdByUrl: Object.fromEntries(feeds.map((f) => [f.url, f.id])) }
+      );
+    } catch (err) {
+      console.warn(`[gatherSources/${tag}] swallowed:`, errMsg(err));
+      return [];
     }
-  } catch (err) {
-    console.warn("[gatherSources/rss] swallowed:", errMsg(err));
-  }
+  };
+
+  const [curatedItems, gnewsRaw] = await Promise.all([
+    fetchPool(curatedFeeds, "rss"),
+    fetchPool(gnewsFeeds, "gnews"),
+  ]);
 
   // -- Pattern A: scrapers (topic-conditional) -----------------------------
   // Palm-oil ICP → MPOB + Bursa CPO.
+  const scrapeItems: NormalizedSourceItem[] = [];
   if (buckets.includes("palm_oil")) {
     if (deps.scrapeMpobStocks) {
       try {
         scrapersFanout++;
         const it = await deps.scrapeMpobStocks();
-        if (it) items.push(it);
+        if (it) scrapeItems.push(it);
       } catch (err) {
         console.warn("[gatherSources/mpob] swallowed:", errMsg(err));
       }
@@ -226,7 +268,7 @@ export async function gatherSources(
       try {
         scrapersFanout++;
         const it = await deps.scrapeBursaCpo();
-        if (it) items.push(it);
+        if (it) scrapeItems.push(it);
       } catch (err) {
         console.warn("[gatherSources/bursa] swallowed:", errMsg(err));
       }
@@ -240,15 +282,30 @@ export async function gatherSources(
       try {
         scrapersFanout++;
         const it = await deps.scrapeYahooQuote(ticker);
-        if (it) items.push(it);
+        if (it) scrapeItems.push(it);
       } catch (err) {
         console.warn(`[gatherSources/yahoo:${ticker}] swallowed:`, errMsg(err));
       }
     }
   }
 
+  // -- Assembly (CAD-221) ---------------------------------------------------
+  // 1. 48h freshness cut on the RSS pools (gnews + curated merged; the
+  //    cut sorts dated items newest-first and keeps undated items last,
+  //    so the two pools interleave by recency). Scrapes are exempt —
+  //    price snapshots are the freshest data we have and usually undated.
+  const fresh = applyFreshnessCut([...gnewsRaw, ...curatedItems]);
+  // 2. Scrape items FIRST so price data (MPOB/Bursa/Yahoo — the anchor
+  //    ICP's most valuable items) survives a busy RSS day, then RSS in
+  //    recency order. 3. URL-level dedup — first occurrence wins, which
+  //    encodes the same priority order.
+  const deduped = dedupeByUrl([...scrapeItems, ...fresh.items]);
+
   // Cap + truncate excerpts so the composer prompt budget is bounded.
-  const capped = items.slice(0, MAX_GATHERED_ITEMS).map((it) => ({
+  const cappedRaw = deduped.items.slice(0, MAX_GATHERED_ITEMS);
+  const gnewsSet = new Set(gnewsRaw);
+  const gnewsInResult = cappedRaw.filter((i) => gnewsSet.has(i)).length;
+  const capped = cappedRaw.map((it) => ({
     ...it,
     body_excerpt: (it.body_excerpt ?? "").slice(0, BODY_EXCERPT_CHARS),
   }));
@@ -264,8 +321,62 @@ export async function gatherSources(
       bucketsMatched: buckets,
       feedsFanout,
       scrapersFanout,
+      gnewsFeeds: gnewsFeeds.length,
+      gnewsItems: gnewsInResult,
+      dedupedCount: deduped.removed,
+      freshnessDropped: fresh.dropped,
     },
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* URL normalization + dedup (CAD-221)                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Canonical URL key for cross-source dedup: lowercase host (URL parser
+ * does this), utm_* tracking params stripped, trailing slash(es) stripped.
+ * Unparseable input is returned trimmed-as-is so it still dedups exact
+ * duplicates. Exported for server/digest/run.ts to dedup the legacy
+ * spec-bound RSS block against the gathered set.
+ */
+export function normalizeSourceUrl(url: string): string {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return url.trim();
+  }
+  const params = new URLSearchParams();
+  for (const [k, v] of u.searchParams) {
+    if (!/^utm_/i.test(k)) params.append(k, v);
+  }
+  const qs = params.toString();
+  u.search = qs ? `?${qs}` : "";
+  u.pathname = u.pathname.replace(/\/+$/, "") || "/";
+  return u.toString();
+}
+
+/**
+ * Drop items whose normalized URL was already seen; FIRST occurrence wins,
+ * so callers encode priority by input order (scrape > fresh RSS here).
+ */
+export function dedupeByUrl(
+  items: readonly NormalizedSourceItem[]
+): { items: NormalizedSourceItem[]; removed: number } {
+  const seen = new Set<string>();
+  const out: NormalizedSourceItem[] = [];
+  let removed = 0;
+  for (const it of items) {
+    const key = normalizeSourceUrl(it.url);
+    if (seen.has(key)) {
+      removed++;
+      continue;
+    }
+    seen.add(key);
+    out.push(it);
+  }
+  return { items: out, removed };
 }
 
 function errMsg(err: unknown): string {

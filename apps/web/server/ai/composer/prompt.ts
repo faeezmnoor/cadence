@@ -286,6 +286,32 @@ const FEWSHOT_HALAL_FNB: string = JSON.stringify(
 /* System prompt builder                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * CAD-222 (bake-off contender A2): research memo block. Rendered AFTER
+ * the SOURCES block, clearly bounded, and explicitly NON-citable — the
+ * memo is an upstream model's synthesis, not a numbered source. Header
+ * text is pinned by test/composer-prompt.test.ts.
+ */
+const RESEARCH_MEMO_HEADER =
+  "RESEARCH MEMO (secondary — verify every claim against the SOURCES above; cite only numbered sources)";
+
+function researchMemoBlock(researchMemo: string | undefined): string[] {
+  const memo = researchMemo?.trim();
+  if (!memo) return [];
+  return [
+    "",
+    RESEARCH_MEMO_HEADER,
+    "The memo below was written by an upstream research model. It is NOT a",
+    "citable source and has no [n] marker. Use it only as a synthesis aid:",
+    "every claim you take from it MUST be re-verified against the numbered",
+    "SOURCES block above and cited with the matching [n]. If a memo claim",
+    "has no supporting numbered source, leave that claim out of the brief.",
+    "<research_memo>",
+    memo,
+    "</research_memo>",
+  ];
+}
+
 export function buildComposerSystemPrompt(input: ComposerInput): string {
   const { spec, sources, distilledPrefs, recentRawNotes } = input;
   const distilled =
@@ -429,9 +455,12 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
     "",
     "SOURCES (already fetched and deduped — cite only these)",
     summarizeSources(sources),
+    ...researchMemoBlock(input.researchMemo),
     "",
     "Emit the JSON brief now.",
   ].join("\n");
 }
+
+export { RESEARCH_MEMO_HEADER };
 
 export const COMPOSER_HARD_CHAR_CAP = HARD_CHAR_CAP;
