@@ -43,8 +43,20 @@ export function getProviders(tier: Tier): ProviderBundle {
       composer: proComposerProvider,
     };
   }
-  // Default fallback — including "pro" requests when the alpha flag is
-  // off. Callers can detect this via the returned `tier` field.
+  // CAD-222 (founder ruling 2026-06-11): bake-off winner promoted to a
+  // selectable stack. No separate search step — the composer researches
+  // inline via the Anthropic web-search server tool; the bundle's
+  // `search` is the default (Brave) provider, which the pipeline already
+  // runs for every tier in its sources step.
+  if (tier === "pro_websearch" && isProTierAlphaEnabled()) {
+    return {
+      tier: "pro_websearch",
+      search: defaultSearchProvider,
+      composer: webSearchComposerProvider,
+    };
+  }
+  // Default fallback — including advanced requests when the alpha flag
+  // is off. Callers can detect this via the returned `tier` field.
   return {
     tier: "default",
     search: defaultSearchProvider,

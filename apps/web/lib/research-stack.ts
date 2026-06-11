@@ -21,17 +21,52 @@
  */
 import type { SchedulingRuleV1 } from "./scheduling/rule";
 
-export type ResearchStack = "default" | "pro";
+/**
+ * CAD-222 / founder ruling 2026-06-11: the per-brief research-depth
+ * surface is a REGISTRY of stacks, not a binary toggle. Three options
+ * ship at launch; adding a fourth is a data change here (+ provider
+ * wiring), not UI surgery. Persistence values stay backward-compatible
+ * with the live `digest_specs.tier` column:
+ *   - "default"        → Standard (Brave + Haiku), 1 credit
+ *   - "pro"            → Advanced · Sonar research (Perplexity Sonar
+ *                        Reasoning Pro research memo + Sonnet), 3 credits
+ *   - "pro_websearch"  → Advanced · live web search (Sonnet with the
+ *                        Anthropic web-search server tool — bake-off
+ *                        winner 2026-06-11, composite 4.13 vs 3.47), 5 credits
+ * There is NO cost ceiling on any stack; each stack's credit price is
+ * set to cover its measured cost-to-us with margin (founder ruling).
+ */
+export type ResearchStack = "default" | "pro" | "pro_websearch";
+
+/** Stable display + iteration order: cheapest first. */
+export const STACK_ORDER: readonly ResearchStack[] = [
+  "default",
+  "pro",
+  "pro_websearch",
+];
 
 export const STACK_COSTS: Record<ResearchStack, number> = {
   default: 1,
   pro: 3,
+  pro_websearch: 5,
 };
+
+/** Coerce a persisted tier string (or anything) to a known stack. */
+export function normalizeStack(raw: unknown): ResearchStack {
+  return raw === "pro" || raw === "pro_websearch" ? raw : "default";
+}
+
+/** True for every stack that is gated behind the advanced alpha flag
+ *  and billed above 1 credit. */
+export function isAdvancedStack(stack: ResearchStack): boolean {
+  return stack !== "default";
+}
 
 export interface StackDescriptionRow {
   label: string;
   default: string;
   pro: string;
+  pro_websearch: string;
 }
 
 /**
@@ -47,33 +82,54 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
     label: "Search provider",
     default: "Brave Search + curated RSS packs + Playwright scrapers",
     pro: "Perplexity Sonar Reasoning Pro (LLM-driven multi-step web research)",
+    pro_websearch:
+      "Live web search by the composer itself (Anthropic web-search tool, up to 3 targeted searches)",
   },
   {
     label: "Composer model",
     default: "Claude Haiku 4.5 — fast, lightweight",
     pro: "Claude Sonnet 4.6 — sharper analysis, 1M context",
+    pro_websearch: "Claude Sonnet 4.6 — sharper analysis, 1M context",
   },
   {
     label: "Research depth",
     default: "Single-pass synthesis over retrieved sources",
     pro: "Multi-step reasoning with follow-up source-gathering",
+    pro_websearch:
+      "The composer searches the live web mid-write and folds findings into its sources",
   },
   {
     label: "Citation density",
     default: "Sources cited per section",
     pro: "Stronger inline citations + cross-source corroboration",
+    pro_websearch:
+      "Strongest fit-to-brief in our evals — searched pages cited like any other source",
   },
   {
     label: "Typical latency",
     default: "~30–60 seconds end-to-end",
     pro: "~60–120 seconds end-to-end",
+    pro_websearch: "~60–120 seconds end-to-end",
   },
   {
     label: "Credit cost per brief",
     default: `${STACK_COSTS.default} credit`,
     pro: `${STACK_COSTS.pro} credits`,
+    pro_websearch: `${STACK_COSTS.pro_websearch} credits`,
   },
 ];
+
+/**
+ * One-line summary per stack for the option picker (label + price live
+ * separately — this is the "what am I buying" sentence).
+ */
+export const STACK_SUMMARIES: Record<ResearchStack, string> = {
+  default:
+    "Fast daily signal from curated feeds and search. The right default for most briefs.",
+  pro: "A research pass reads the web first and hands the writer a memo. Deeper digging on broad topics.",
+  pro_websearch:
+    "The writer searches the live web itself while composing. Sharpest fit to your exact brief.",
+};
 
 /**
  * Expected briefs-per-day for a scheduling rule. Mirror of
@@ -140,5 +196,14 @@ export function monthlyCreditEstimate(
  * per project_cadence_no_tier_plans + CAD-202 copy discipline.
  */
 export function stackLabel(stack: ResearchStack): string {
-  return stack === "pro" ? "Advanced research" : "Standard research";
+  // Vendor-free per COPY_GUIDE ("vendor names in user copy — fine-print
+  // only"). The variant qualifiers reuse the badge-footer phrases.
+  switch (stack) {
+    case "pro":
+      return "Advanced research · deeper digging";
+    case "pro_websearch":
+      return "Advanced research · live web search";
+    default:
+      return "Standard research";
+  }
 }

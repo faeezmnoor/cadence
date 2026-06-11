@@ -68,10 +68,13 @@ describe("CAD-101 — digest/run.ts alpha-flag safety net", () => {
     "utf8"
   );
 
-  it("downgrades pro→default when alpha flag is off", () => {
+  it("downgrades advanced→default when alpha flag is off (CAD-222: both advanced stacks)", () => {
     expect(src).toMatch(
-      /requestedTier === "pro" && !isProTierAlphaEnabled\(\)/
+      /requestedAdvanced && !isProTierAlphaEnabled\(\)/
     );
+    // requestedAdvanced must come from the shared registry helper so a
+    // future stack can't dodge the gate.
+    expect(src).toMatch(/isAdvancedStack\(requestedTier\)/);
   });
 
   it("stamps alpha_flag_off as the downgrade reason", () => {

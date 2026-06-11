@@ -11,8 +11,10 @@
 export const CONTENDERS = ["perplexity_sonnet", "sonnet_websearch"] as const;
 export type ContenderId = (typeof CONTENDERS)[number];
 
-/** Per-brief cost ceiling from the pre-registered criterion (USD). */
-export const COST_CEILING_PER_BRIEF_USD = 0.1;
+// Founder ruling 2026-06-11: there is NO per-brief cost ceiling. Quality
+// decides the head-to-head; measured $/brief is informational and feeds
+// per-stack credit pricing (each stack option charges credits that cover
+// its own cost). The earlier $0.10 pre-registered ceiling is rescinded.
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -228,19 +230,22 @@ export interface BakeoffVerdict {
   winner: ContenderId | null;
   /** winner meanComposite − loser meanComposite (head-to-head). */
   headToHeadDelta: number | null;
-  /** Winner mean cost vs the ≤$0.10/brief pre-registered ceiling. */
-  winnerMeetsCostCeiling: boolean | null;
+  /** Winner's mean $/brief — INFORMATIONAL (feeds per-stack credit
+   *  pricing; founder ruling 2026-06-11: no cost ceiling). */
+  winnerMeanCostUsd: number | null;
   note: string;
 }
 
 /**
- * Pre-registered criterion (CAD-222), applied verbatim:
- *   - between the two contenders, higher mean composite wins;
+ * Head-to-head criterion (CAD-222, founder-amended 2026-06-11):
+ *   - between the two contenders, higher mean composite wins — QUALITY
+ *     ONLY, no cost gate;
  *   - A3 (sonnet_websearch) wins ties;
- *   - the ≥0.5 composite lift that un-pauses the tier is measured against
- *     the DEFAULT-tier baseline via the existing manual-rating gate
- *     (server/evals/pro-eval-gate.ts), NOT inside this report — this
- *     report only flags the head-to-head winner and the cost ceiling.
+ *   - measured $/brief is reported as the input to per-stack credit
+ *     pricing, not as a pass/fail;
+ *   - the ≥0.5 composite lift over the DEFAULT-tier baseline is measured
+ *     via the existing manual-rating gate (server/evals/pro-eval-gate.ts),
+ *     NOT inside this report.
  */
 export function decideWinner(
   a2: ContenderAggregate | null,
@@ -251,25 +256,23 @@ export function decideWinner(
     return {
       winner: null,
       headToHeadDelta: null,
-      winnerMeetsCostCeiling: only
-        ? only.meanCostUsd <= COST_CEILING_PER_BRIEF_USD
-        : null,
+      winnerMeanCostUsd: only ? only.meanCostUsd : null,
       note: only
         ? `only ${only.contender} ran — no head-to-head verdict`
         : "no rows — nothing to decide",
     };
   }
-  // A3 wins ties (pre-registered).
+  // A3 wins ties (pre-registered tiebreak, unchanged by the amendment).
   const winner = a3.meanComposite >= a2.meanComposite ? a3 : a2;
   const loser = winner === a3 ? a2 : a3;
   return {
     winner: winner.contender,
     headToHeadDelta: round3(winner.meanComposite - loser.meanComposite),
-    winnerMeetsCostCeiling: winner.meanCostUsd <= COST_CEILING_PER_BRIEF_USD,
+    winnerMeanCostUsd: winner.meanCostUsd,
     note:
       winner === a3 && a3.meanComposite === a2.meanComposite
-        ? "tie on mean composite — sonnet_websearch wins ties per the pre-registered criterion"
-        : "higher mean composite wins; sonnet_websearch wins ties",
+        ? "tie on mean composite — sonnet_websearch wins ties per the pre-registered tiebreak"
+        : "higher mean composite wins (quality only — cost is pricing input, not a gate)",
   };
 }
 
@@ -339,12 +342,10 @@ export function renderMarkdownSummary(report: BakeoffReport): string {
     "",
     `- Winner (head-to-head): **${report.verdict.winner ?? "n/a"}**`,
     `- Composite delta: ${report.verdict.headToHeadDelta ?? "n/a"}`,
-    `- Winner within $${COST_CEILING_PER_BRIEF_USD.toFixed(2)}/brief ceiling: ${
-      report.verdict.winnerMeetsCostCeiling === null
+    `- Winner mean $/brief (informational — feeds credit pricing, no ceiling): ${
+      report.verdict.winnerMeanCostUsd === null
         ? "n/a"
-        : report.verdict.winnerMeetsCostCeiling
-          ? "YES"
-          : "NO"
+        : `$${report.verdict.winnerMeanCostUsd.toFixed(3)}`
     }`,
     `- Note: ${report.verdict.note}`,
     `- Total spend this report: $${report.totalCostUsd.toFixed(3)}`,

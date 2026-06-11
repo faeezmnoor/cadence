@@ -50,8 +50,14 @@ import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
  * Tier label. Persisted on `digest_runs.tier` (CAD-89) and used to look
  * up the right provider pair. Keep this list closed — adding tiers is a
  * deliberate decision (pricing + eval gate impact).
+ *
+ * CAD-222 / founder ruling 2026-06-11: "pro_websearch" is the bake-off
+ * winner (Sonnet + Anthropic web-search server tool) promoted from
+ * contender to a third selectable stack. Mirrors `ResearchStack` in
+ * `lib/research-stack.ts` — the lib type is the user-facing registry,
+ * this one is provider routing; keep them in lockstep.
  */
-export type Tier = "default" | "pro";
+export type Tier = "default" | "pro" | "pro_websearch";
 
 // ---------------------------------------------------------------------------
 // Search provider

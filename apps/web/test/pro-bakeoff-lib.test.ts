@@ -18,7 +18,6 @@ import {
   parseJudgeScores,
   renderMarkdownSummary,
   shapeReport,
-  COST_CEILING_PER_BRIEF_USD,
   DEFAULT_ARGS,
   type BakeoffRow,
   type ContenderAggregate,
@@ -191,18 +190,16 @@ describe("decideWinner — pre-registered criterion", () => {
     expect(v.note).toMatch(/tie/);
   });
 
-  it("flags the $0.10/brief ceiling on the winner", () => {
-    expect(COST_CEILING_PER_BRIEF_USD).toBe(0.1);
-    const under = decideWinner(
-      agg("perplexity_sonnet", 3.0),
-      agg("sonnet_websearch", 4.0, 0.09)
-    );
-    expect(under.winnerMeetsCostCeiling).toBe(true);
-    const over = decideWinner(
+  it("reports the winner's mean $/brief informationally — no cost gate (founder ruling 2026-06-11)", () => {
+    // Quality decides; cost feeds per-stack credit pricing. A pricier
+    // winner is still the winner.
+    const v = decideWinner(
       agg("perplexity_sonnet", 3.0),
       agg("sonnet_websearch", 4.0, 0.31)
     );
-    expect(over.winnerMeetsCostCeiling).toBe(false);
+    expect(v.winner).toBe("sonnet_websearch");
+    expect(v.winnerMeanCostUsd).toBeCloseTo(0.31, 3);
+    expect(v).not.toHaveProperty("winnerMeetsCostCeiling");
   });
 
   it("no verdict when only one contender ran", () => {

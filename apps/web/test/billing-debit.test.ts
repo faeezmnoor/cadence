@@ -90,3 +90,17 @@ describe("T-505a — run.ts wiring guarantees", () => {
     expect(src).toMatch(/if \(!dryRun\)[\s\S]{0,200}shouldSkipForCredits/);
   });
 });
+
+describe("CAD-222 — per-stack credit pricing", () => {
+  it("creditCostForTier reads the registry: 1 / 3 / 5", async () => {
+    const { creditCostForTier } = await import("@/server/billing/cost");
+    expect(creditCostForTier("default")).toBe(1);
+    expect(creditCostForTier("pro")).toBe(3);
+    expect(creditCostForTier("pro_websearch")).toBe(5);
+    // Unknown / legacy / null all bill at the standard rate — a corrupt
+    // tier string must never over-charge.
+    expect(creditCostForTier("something-else")).toBe(1);
+    expect(creditCostForTier(null)).toBe(1);
+    expect(creditCostForTier(undefined)).toBe(1);
+  });
+});

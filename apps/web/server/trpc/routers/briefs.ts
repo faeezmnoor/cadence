@@ -718,7 +718,7 @@ export const briefsRouter = router({
    * a delivery-stack preference, not spec content.
    */
   setTier: protectedProcedure
-    .input(z.object({ id: z.string().uuid(), tier: z.enum(["default", "pro"]) }))
+    .input(z.object({ id: z.string().uuid(), tier: z.enum(["default", "pro", "pro_websearch"]) }))
     .mutation(async ({ ctx, input }) => {
       const updated = await db
         .update(digestSpecs)

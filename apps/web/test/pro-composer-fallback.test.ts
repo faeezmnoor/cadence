@@ -24,14 +24,18 @@ describe("CAD-102 — Pro composer fallback (source invariants)", () => {
     expect(src).toMatch(/try \{[\s\S]*?providers\.composer\.compose\(composerInput\)/);
   });
 
-  it("only Pro composer failures trigger fallback (default re-throws)", () => {
-    expect(src).toMatch(/if \(providers\.tier !== "pro"\) \{\s*throw composerErr/);
+  it("only advanced composer failures trigger fallback (default re-throws)", () => {
+    // CAD-222: the guard is the registry helper, not a string compare, so
+    // both advanced stacks (pro, pro_websearch) get the same safety net.
+    expect(src).toMatch(/if \(!isAdvancedStack\(providers\.tier\)\) \{\s*throw composerErr/);
   });
 
-  it("Sentry captures the Pro failure with route + tier tags", () => {
+  it("Sentry captures the advanced failure with route + tier tags", () => {
     expect(src).toMatch(/Sentry\.captureException/);
     expect(src).toMatch(/route:\s*"digest\.compose"/);
-    expect(src).toMatch(/tier:\s*"pro"/);
+    // Tier tag carries the FAILED stack id (pro or pro_websearch), not a
+    // hardcoded string — admins can split fallback rates per stack.
+    expect(src).toMatch(/tier: failedTier/);
   });
 
   it("falls back via getProviders(\"default\") and re-runs compose", () => {
@@ -40,7 +44,7 @@ describe("CAD-102 — Pro composer fallback (source invariants)", () => {
   });
 
   it("stamps runMetadata.fallback with from/to/reason", () => {
-    expect(src).toMatch(/runMetadata\.fallback = \{\s*from: "pro",\s*to: "default",\s*reason/);
+    expect(src).toMatch(/runMetadata\.fallback = \{\s*from: failedTier,\s*to: "default",\s*reason/);
   });
 
   it("debit reads resolved tier (already routes to 1-credit after fallback)", () => {
