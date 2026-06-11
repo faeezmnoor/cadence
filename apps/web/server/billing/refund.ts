@@ -54,6 +54,12 @@ export async function refundForFailedRun(params: {
       id: digestRuns.id,
       userId: digestRuns.userId,
       status: digestRuns.status,
+      // CAD-224 #1: tier AT RUN TIME, stamped by the pipeline on
+      // runMetadata.tier.requested — the spec's current tier can have
+      // changed since (e.g. default run, brief later switched to a
+      // 5-credit stack → spec-tier fallback would refund 5 for a run
+      // that charged 0/1).
+      runMetadata: digestRuns.metadata,
       specTier: digestSpecs.tier,
     })
     .from(digestRuns)
@@ -87,10 +93,15 @@ export async function refundForFailedRun(params: {
   // took money, so they have nothing to refund. Treat as no charge.
   const chargeAmount =
     charge && charge.creditsDelta < 0 ? Math.abs(charge.creditsDelta) : 0;
+  // CAD-224 #1 precedence for the no-charge fallback: tier the RUN was
+  // dispatched with (runMetadata.tier.requested) > spec's current tier >
+  // default. Mirroring a real charge row still wins outright above.
+  const runTier =
+    ((run.runMetadata as { tier?: { requested?: string } } | null)?.tier
+      ?.requested as Tier | undefined) ??
+    ((run.specTier as Tier | null) ?? "default");
   const refundAmount =
-    chargeAmount > 0
-      ? chargeAmount
-      : creditCostForTier((run.specTier as Tier | null) ?? "default");
+    chargeAmount > 0 ? chargeAmount : creditCostForTier(runTier);
 
   // Idempotency: existing refund row on this run?
   const existing = await db
@@ -142,7 +153,7 @@ export async function refundForFailedRun(params: {
           // charge row, or inferred from the spec's tier?
           tier:
             (charge?.metadata as { tier?: string } | undefined)?.tier ??
-            (run.specTier as string | null) ??
+            (runTier as string | null) ??
             "default",
           refundSource: chargeAmount > 0 ? "mirror_charge" : "spec_tier",
         },

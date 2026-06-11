@@ -256,7 +256,15 @@ export async function composeDigestWebSearch(
         };
       }
     },
-      { modelId: PRO_COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
+      {
+        modelId: PRO_COMPOSER_MODEL_ID,
+        digestRunId: input.digestRunId ?? null,
+        // CAD-224 #4: with 120s calls and up to 2 pause continuations per
+        // attempt, a corrective retry starting late can push one compose
+        // far past the route's 300s budget. Skip the retry once 150s of
+        // compose wall-clock is gone.
+        retryDeadlineAtMs: Date.now() + 150_000,
+      }
     );
   } catch (err) {
     // Review P1-5: the API calls succeeded and the web searches were

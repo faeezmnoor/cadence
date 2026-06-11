@@ -175,9 +175,20 @@ function todayIsoUtc(): string {
  */
 export function buildSearchQueries(spec: {
   topics?: string[];
+  language?: string;
   entities?: { companies?: string[] };
 }): string[] {
-  const topics = spec.topics ?? [];
+  // CAD-224 #3: locale context. The bake-off caught Sonar researching US
+  // federal procurement for a Malay-language "Government contracts" spec —
+  // bare topic strings carry no geography. A Malay-language spec is a
+  // Malaysian-market signal, so anchor topic queries with "Malaysia"
+  // unless the topic already names it. Company names stay untouched
+  // (already specific). Benefits Brave (standard) and Sonar (advanced)
+  // alike; A3's inline search reads the full spec and needs no hint.
+  const localeHint = spec.language === "ms" ? "Malaysia" : null;
+  const withLocale = (topic: string): string =>
+    localeHint && !/malaysia/i.test(topic) ? `${topic} ${localeHint}` : topic;
+  const topics = (spec.topics ?? []).map(withLocale);
   const companies = (spec.entities?.companies ?? []).filter(
     (c) => c.trim().length >= 3
   );
@@ -360,7 +371,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   // 2. Sources — Brave + RSS. yfinance/prices deferred.
   const sources: ComposerSourcesBundle = { search: [], rss: [] };
   const searchQueries = buildSearchQueries(
-    specRow.spec as { topics?: string[]; entities?: { companies?: string[] } }
+    specRow.spec as {
+      topics?: string[];
+      language?: string;
+      entities?: { companies?: string[] };
+    }
   );
   try {
     if (isBraveConfigured()) {
