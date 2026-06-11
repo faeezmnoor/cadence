@@ -45,6 +45,7 @@ export function BriefActions({
   ready,
   savedSpecId,
   onConfirm,
+  onTweak,
   busy = false,
 }: {
   ready: boolean;
@@ -66,6 +67,12 @@ export function BriefActions({
    * via confirm_and_save and `savedSpecId` flips this panel to "actions".
    */
   onConfirm: () => void;
+  /**
+   * Designer audit P2 (2026-06-12): the confirm panel's escape hatch
+   * focuses the composer so "tell Cadence what to change below" is an
+   * action, not a pointer.
+   */
+  onTweak: () => void;
   /** True while the chat is streaming — the confirm button waits its turn. */
   busy?: boolean;
 }) {
@@ -113,9 +120,16 @@ export function BriefActions({
           >
             Looks good — save this brief
           </button>
-          <span className="text-xs text-muted-foreground">
+          {/* Designer audit P2 (2026-06-12): the escape hatch is a real
+              action — it focuses the composer instead of pointing at it. */}
+          <button
+            type="button"
+            data-testid="brief-actions-tweak"
+            onClick={onTweak}
+            className="rounded-md text-xs text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          >
             or tell Cadence what to change below
-          </span>
+          </button>
         </div>
       </div>
     );
@@ -200,25 +214,27 @@ export function BriefActions({
           Your brief is ready. Want to see it?
         </h3>
         <p className="text-xs text-muted-foreground">
-          Preview a sample brief from this setup, or send one to your Telegram
-          right now.
+          {/* Designer audit P1 (2026-06-12): state-aware — never promise
+              "send to your Telegram right now" while sending is impossible. */}
+          {linked
+            ? "Preview a sample brief from this setup, or send one to your Telegram right now."
+            : "Preview a sample brief from this setup."}
         </p>
       </div>
 
-      {/* dead-surface fix 2026-06-09: replaced the chat-client auto-redirect
-          to /app/link with this inline CTA. Surfaces once the spec is saved
-          AND Telegram isn't linked — the single most important next action
-          for the user, made explicit instead of teleported-to. Once linked
-          this banner disappears and the BriefActions buttons become the
-          primary surface. */}
+      {/* dead-surface fix 2026-06-09 + designer audit P1 (2026-06-12): the
+          single Telegram affordance for the not-linked variant, styled as
+          THE primary action (it gates delivery). The duplicate outline
+          "Connect Telegram first →" in the button row is gone — one next
+          step, one visual primary. */}
       {saved && !linked && (
         <Link
           data-testid="brief-actions-link-telegram-cta"
           href="/app/link"
-          className="inline-flex items-center justify-between gap-3 rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          className="inline-flex items-center justify-between gap-3 rounded-md bg-brand px-3 py-2 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <span>
-            Your brief is saved. Connect Telegram so it has somewhere to land
+            Connect Telegram so your brief has somewhere to land
           </span>
           <span aria-hidden>&rarr;</span>
         </Link>
@@ -236,7 +252,7 @@ export function BriefActions({
             ? "Writing preview…"
             : "Preview a sample"}
         </button>
-        {linked ? (
+        {linked && (
           <button
             type="button"
             data-testid="brief-actions-send-now"
@@ -246,16 +262,6 @@ export function BriefActions({
           >
             {send.kind === "sending" ? "Sending…" : "Send to Telegram now"}
           </button>
-        ) : (
-          // dead-surface fix 2026-06-09: previously a disabled <span> badge.
-          // Converted to a real <Link> to /app/link so users can act on it.
-          <Link
-            data-testid="brief-actions-link-telegram"
-            href="/app/link"
-            className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-          >
-            Connect Telegram first &rarr;
-          </Link>
         )}
       </div>
 
