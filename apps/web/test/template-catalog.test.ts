@@ -113,6 +113,33 @@ describe("template catalog — card anatomy (UX-writer formula)", () => {
       expect(formatCadenceHint(t.seedHints?.cadence), t.id).not.toBe("");
     }
   });
+
+  it("every visible card has a forking question (chat voice, ≤12 words, exactly one ?)", () => {
+    // PR 2: the post-tap interview contract hangs off this — confirm the
+    // card's two slots, then ask exactly this one question. A trailing
+    // imperative ("Name 2-5 companies.") is allowed; a second question is not.
+    for (const t of VISIBLE_TEMPLATES) {
+      expect(t.forkingQuestion, t.id).toBeTruthy();
+      const words = t.forkingQuestion!.split(/\s+/).filter(Boolean);
+      expect(words.length, `${t.id}: "${t.forkingQuestion}"`).toBeLessThanOrEqual(12);
+      const questionMarks = (t.forkingQuestion!.match(/\?/g) ?? []).length;
+      expect(questionMarks, `${t.id}: "${t.forkingQuestion}"`).toBe(1);
+      expect(t.forkingQuestion, t.id).not.toMatch(BANNED_IN_UI);
+    }
+  });
+
+  it("visible exampleQueries state the cadence the card promises", () => {
+    // The query IS the user's first message — if it doesn't carry the
+    // cadence the card displayed, the agent re-asks schedule and the
+    // ≤3-questions contract dies on question one.
+    for (const t of VISIBLE_TEMPLATES) {
+      const freq = t.seedHints?.cadence?.frequency;
+      expect(freq, t.id).toBeTruthy();
+      expect(t.exampleQuery.toLowerCase(), `${t.id} should mention "${freq}"`).toContain(
+        freq!
+      );
+    }
+  });
 });
 
 describe("template catalog — seeding safety", () => {

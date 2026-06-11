@@ -52,6 +52,7 @@ import {
   type AppliedSlots,
 } from "@/server/ai/config-agent/slot-merge";
 import { buildPriorContextBlock } from "@/server/ai/config-agent/prior-context";
+import { buildTemplateSeedBlock } from "@/server/ai/config-agent/template-seed";
 import { count } from "drizzle-orm";
 
 const CHAT_RATE_LIMIT = 5;
@@ -241,6 +242,8 @@ export async function POST(req: Request) {
   let mergedDraft = hydratedDraft;
   let proposedSlots: AppliedSlots = {};
   let appliedSlots: AppliedSlots = {};
+  // Hoisted: also drives the template-seed overlay below (PR 2).
+  let turnIdx = 0;
   if (lastUserText) {
     // Build the last-4 turns context for the extractor.
     const recent = body.messages.slice(-5, -1).map((m) => ({
@@ -252,7 +255,7 @@ export async function POST(req: Request) {
       .select({ n: count() })
       .from(chatMessages)
       .where(eq(chatMessages.threadId, thread.id));
-    const turnIdx = (turnIdxRow[0]?.n ?? 0) as number;
+    turnIdx = (turnIdxRow[0]?.n ?? 0) as number;
 
     const extract = await extractSlots({
       latestUserMessage: lastUserText,
@@ -297,9 +300,16 @@ export async function POST(req: Request) {
   // slots and frames a confirm-style follow-up on proposals. The base
   // prompt stays canonical on disk — this is a per-turn overlay.
   const priorCtxBlock = buildPriorContextBlock(mergedDraft, appliedSlots, proposedSlots);
-  const systemPrompt = priorCtxBlock
-    ? `${loadConfigAgentSystemPrompt()}\n\n${priorCtxBlock}`
-    : loadConfigAgentSystemPrompt();
+  // TEMPLATE SEED block (PR 2): when the thread started from a catalog
+  // card, overlay the card's seed hints + the confirm-then-one-question
+  // reply contract for the first exchanges. Same overlay pattern as above.
+  const templateSeedBlock = buildTemplateSeedBlock({
+    templateId: thread.templateId,
+    turnIdx,
+  });
+  const systemPrompt = [loadConfigAgentSystemPrompt(), priorCtxBlock, templateSeedBlock]
+    .filter(Boolean)
+    .join("\n\n");
 
   try {
     const result = streamText({

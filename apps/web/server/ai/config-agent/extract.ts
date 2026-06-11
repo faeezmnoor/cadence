@@ -18,7 +18,10 @@ import type { DigestSpecDraft } from "@/lib/digest-spec/schema";
 import { extractorSchema, type ExtractedSlots } from "./extract-schema";
 import { log } from "@/lib/log";
 
-const EXTRACTOR_TIMEOUT_MS = 2000;
+// Env override exists for the live eval harness only (test/eval-template-
+// live.test.ts runs from a laptop where network RTT alone exceeds 2s).
+// Production keeps the 2s default — never set this on Vercel.
+const EXTRACTOR_TIMEOUT_MS = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 2000);
 const EXTRACTOR_MODEL = "gpt-4o-mini";
 
 let cachedPrompt: string | null = null;
