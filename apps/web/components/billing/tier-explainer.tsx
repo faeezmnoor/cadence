@@ -21,18 +21,49 @@
  *                  where vertical space is tight.
  *
  * Server component — no client interactivity needed.
+ *
+ * CAD-215: while advanced research is product-paused (PRO_TIER_ALPHA off),
+ * every render site swaps the comparison body for one quiet unavailability
+ * line — users must not see opt-in or upsell surfaces for a depth they
+ * can't get. The comparison copy below stays in the source; it returns
+ * unchanged when the tier un-pauses.
  */
 import * as React from "react";
+import { isProTierAlpha } from "@/lib/feature-flags";
 
 interface TierExplainerProps {
   variant?: "full" | "compact";
   className?: string;
+  /**
+   * CAD-215: server-resolved PRO_TIER_ALPHA state. Client components MUST
+   * pass this explicitly (their server shell reads the flag — env reads
+   * are meaningless in the browser bundle). Server consumers (/pricing)
+   * may omit it; we fall back to the canonical isProTierAlpha() helper,
+   * which only runs on the server in that case.
+   */
+  proTierAlphaEnabled?: boolean;
 }
 
 export function TierExplainer({
   variant = "full",
   className,
+  proTierAlphaEnabled,
 }: TierExplainerProps) {
+  const advancedAvailable = proTierAlphaEnabled ?? isProTierAlpha();
+
+  if (!advancedAvailable) {
+    return (
+      <p
+        className={
+          "text-sm leading-relaxed text-muted-foreground" +
+          (className ? ` ${className}` : "")
+        }
+      >
+        Advanced research is temporarily unavailable while we improve it.
+      </p>
+    );
+  }
+
   if (variant === "compact") {
     return (
       <div

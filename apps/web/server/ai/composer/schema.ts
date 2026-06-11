@@ -139,6 +139,92 @@ export function checkCitationParity(brief: BriefJson): CitationParityResult {
 }
 
 /**
+ * Rewrite every [n] citation marker in `text` through `renumber`.
+ * Markers not present in the map are left untouched. Pure, single pass —
+ * no sequential-replace collision hazards.
+ */
+export function renumberMarkersInText(
+  text: string,
+  renumber: Map<number, number>
+): string {
+  return text.replace(/\[(\d{1,2})\]/g, (full, digits: string) => {
+    const n = Number.parseInt(digits, 10);
+    const mapped = renumber.get(n);
+    return mapped === undefined ? full : `[${mapped}]`;
+  });
+}
+
+export interface PrunedBriefResult {
+  brief: BriefJson;
+  /** How many never-cited sources were dropped. */
+  prunedUnused: number;
+}
+
+/**
+ * CAD-219 deterministic repair ($0, pure code, no LLM call).
+ *
+ * When the ONLY citation-parity defect is `unusedSources` (the model
+ * declared sources it never cited — a cosmetic defect), drop the unused
+ * entries and renumber the remaining markers 1..k consistently across:
+ *   - `sources[].marker`
+ *   - inline [n] markers in `tldr`, `why_it_matters`, section headings,
+ *     and bullet text
+ *   - `bullets[].citation_markers`
+ *
+ * The repair NEVER invents or alters cited content — it only drops unused
+ * entries and renumbers. Renumbering is order-stable: kept sources keep
+ * their relative order (ascending old marker).
+ *
+ * Returns `null` when the brief is NOT repairable this way:
+ *   - parity already ok (nothing to do), or
+ *   - any `missingSources` exist (cited markers without sources — content
+ *     defect, needs the LLM retry path), or
+ *   - ALL sources are unused (the text cites nothing; schema requires ≥1
+ *     source, and a citation-free brief is a real quality defect), or
+ *   - duplicate markers in `sources` (pathological; fail closed).
+ *
+ * Input is never mutated.
+ */
+export function pruneUnusedSources(brief: BriefJson): PrunedBriefResult | null {
+  const parity = checkCitationParity(brief);
+  if (parity.ok) return null;
+  if (parity.missingSources.length > 0) return null;
+  if (parity.unusedSources.length >= brief.sources.length) return null;
+
+  const unused = new Set(parity.unusedSources);
+  const kept = [...brief.sources]
+    .filter((s) => !unused.has(s.marker))
+    .sort((a, b) => a.marker - b.marker);
+
+  // Duplicate markers make the renumber map ambiguous — fail closed and
+  // let the caller fall through to the retry/throw path.
+  if (new Set(kept.map((s) => s.marker)).size !== kept.length) return null;
+
+  const renumber = new Map<number, number>();
+  kept.forEach((s, i) => renumber.set(s.marker, i + 1));
+
+  const fix = (text: string) => renumberMarkersInText(text, renumber);
+
+  const repaired: BriefJson = {
+    ...brief,
+    tldr: fix(brief.tldr),
+    why_it_matters: fix(brief.why_it_matters),
+    sections: brief.sections.map((section) => ({
+      heading: fix(section.heading),
+      bullets: section.bullets.map((bullet) => ({
+        text: fix(bullet.text),
+        citation_markers: bullet.citation_markers.map(
+          (n) => renumber.get(n) ?? n
+        ),
+      })),
+    })),
+    sources: kept.map((s, i) => ({ ...s, marker: i + 1 })),
+  };
+
+  return { brief: repaired, prunedUnused: parity.unusedSources.length };
+}
+
+/**
  * Extract the first balanced JSON object from a messy LLM response.
  *
  * Handles: leading prose, ```json fences, trailing prose, unbalanced braces

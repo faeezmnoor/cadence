@@ -83,6 +83,15 @@ vi.mock("@/server/db/client", () => ({
 // Schema imports are read for column references inside the handler — we
 // don't need real values, but vitest will resolve them from the source.
 
+// CAD-220: a logged /tune also emits learning/signal.recorded. Mocked at
+// the module boundary so no test touches the Inngest client.
+const emitLearningSignal = vi.fn(async (_userId: string) => undefined);
+vi.mock("@/server/inngest/learning-signal", () => ({
+  LEARNING_SIGNAL_EVENT: "learning/signal.recorded",
+  emitLearningSignal: (...args: unknown[]) =>
+    emitLearningSignal(...(args as [string])),
+}));
+
 // link-token + feedback-callback aren't exercised by /tune but dispatch imports them.
 vi.mock("@/server/channels/telegram/inbound/link-token", () => ({
   resolveAndLinkToken: vi.fn(),
@@ -117,6 +126,7 @@ beforeEach(() => {
   selectChain.limit.mockClear();
   insertCall.mockClear();
   insertChain.values.mockClear();
+  emitLearningSignal.mockClear();
   sendMessage.mockClear();
 });
 
@@ -152,6 +162,9 @@ describe("dispatchTelegramUpdate(/tune …)", () => {
     const [, replyText] = sendMessage.mock.calls[0]!;
     expect(replyText).toMatch(/lean that way/i);
     expect(replyText).toMatch(/more on TikTok/);
+
+    // CAD-220: the write site nudges the event-triggered distill.
+    expect(emitLearningSignal).toHaveBeenCalledWith("user-uuid-1");
   });
 
   it("sends usage hint and does NOT write when /tune has no body", async () => {

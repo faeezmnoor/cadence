@@ -21,9 +21,9 @@
  *     scheduled idempotency slot for the same UTC date and doesn't
  *     leave ghost "composing" rows in history.
  */
-import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
+import { costEvents, digestRuns, digestSpecs, learningLog, users } from "@/server/db/schema";
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
 import { classifyTopic } from "@/lib/digest-spec/templates";
 import { buildSampleBanner } from "./sample-banner";
@@ -60,6 +60,7 @@ import type {
 } from "@/server/ai/composer/types";
 import {
   telegramAdapter,
+  formatPlainText,
   isTelegramConfigured,
   type TelegramTarget,
 } from "@/server/channels/telegram";
@@ -97,6 +98,13 @@ export interface RunDigestParams {
    * authoritative.
    */
   digestRunId?: string;
+  /**
+   * CAD-214 (P0-3): explicit spec target for manual/sample paths. When the
+   * dispatcher pre-claimed a row, the claimed row's spec_id wins; when a
+   * caller passes specId (e.g. per-brief sample), that spec is used; only
+   * with neither do we fall back to the legacy is_current resolution.
+   */
+  specId?: string;
   /** When true: skip Telegram send even if linked. */
   dryRun?: boolean;
   /** Skip source-fetching errors (Brave key missing etc) and continue with what we have. */
@@ -158,11 +166,12 @@ function todayIsoUtc(): string {
 }
 
 /**
- * CAD-91: Pro tier footer copy. Exported so tests can lock the exact
- * wording — the badge is user-visible and ties the 3-credit debit to
- * an explanation in the brief itself.
+ * CAD-91: advanced-research footer copy. Exported so tests can lock the
+ * exact wording — the badge is user-visible and ties the 3-credit debit
+ * to an explanation in the brief itself. (Copy guide vocabulary: depth is
+ * "advanced research", never "Pro".)
  */
-export const PRO_BADGE_FOOTER = "🔬 Pro brief — deeper research, 3 credits.";
+export const PRO_BADGE_FOOTER = "🔬 Advanced research — deeper digging, 3 credits.";
 
 export function appendProBadge(markdown: string): string {
   return markdown + "\n\n" + PRO_BADGE_FOOTER;
@@ -171,6 +180,9 @@ export function appendProBadge(markdown: string): string {
 export async function runDigestPipeline(params: RunDigestParams): Promise<RunDigestResult> {
   const { userId, dryRun = false, tolerateSourceFailures = true, digestRunId, trigger = "scheduled" } = params;
   const runDate = params.runDate ?? todayIsoUtc();
+  // CAD-213 (P0-2): wall-clock anchor for post-hoc cost-event attribution
+  // on the manual path (no pre-claimed run row exists at compose time).
+  const pipelineStartedAt = new Date();
 
   // 1. Load user + current spec
   const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -178,25 +190,71 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   if (!user) {
     return { status: "failed", digestRunId: null, markdown: null, partsSent: 0, telegramMessageId: null, error: "user not found" };
   }
+
+  // CAD-214 (P0-3): the dispatcher claims runs PER SPEC — composing "the
+  // current" spec instead delivers the wrong brief to any multi-brief user.
+  // Resolution order: claimed row's spec_id > explicit params.specId >
+  // legacy is_current fallback (single-brief manual/sample paths).
+  let targetSpecId: string | null = params.specId ?? null;
+  if (digestRunId) {
+    const claimedRows = await db
+      .select({ specId: digestRuns.specId })
+      .from(digestRuns)
+      .where(eq(digestRuns.id, digestRunId))
+      .limit(1);
+    if (claimedRows[0]?.specId) targetSpecId = claimedRows[0].specId;
+  }
+
   // Wave 5 Bug 10: archived briefs must not be sampled. `briefs.archive`
   // (and historical drift) leave `is_current=true` on archived rows; the
   // multi-brief migration introduced `status` as the source of truth.
-  // Belt-and-suspenders: require BOTH is_current AND status != archived
-  // so neither write path can resurrect an archived spec for delivery.
+  // Belt-and-suspenders: require status != archived on BOTH resolution
+  // paths so neither write path can resurrect an archived spec.
   const specRows = await db
     .select()
     .from(digestSpecs)
     .where(
-      and(
-        eq(digestSpecs.userId, userId),
-        eq(digestSpecs.isCurrent, true),
-        ne(digestSpecs.status, "archived")
-      )
+      targetSpecId
+        ? and(
+            eq(digestSpecs.id, targetSpecId),
+            eq(digestSpecs.userId, userId),
+            ne(digestSpecs.status, "archived")
+          )
+        : and(
+            eq(digestSpecs.userId, userId),
+            eq(digestSpecs.isCurrent, true),
+            ne(digestSpecs.status, "archived")
+          )
     )
     .limit(1);
   const specRow = specRows[0];
   if (!specRow) {
     return { status: "no_spec", digestRunId: null, markdown: null, partsSent: 0, telegramMessageId: null };
+  }
+
+  // CAD-220: manual/sample non-dry runs PRE-CLAIM their digest_runs row so
+  // (a) the feedback keyboard can attach (callbacks encode the run id —
+  // the sample brief must seed the vote habit), and (b) compose/search
+  // cost events attribute at write time. The cron path arrives pre-claimed
+  // by the dispatcher; dryRun stays rowless by design. Pre-claim failure
+  // is non-fatal — we fall back to the legacy insert-after path.
+  let runRowId: string | null = digestRunId ?? null;
+  if (!dryRun && runRowId == null) {
+    try {
+      const pre = await db
+        .insert(digestRuns)
+        .values({
+          userId,
+          specId: specRow.id,
+          status: "composing",
+          runDate,
+          attemptCount: 0,
+        })
+        .returning({ id: digestRuns.id });
+      runRowId = pre[0]?.id ?? null;
+    } catch (err) {
+      console.warn("[digest:preclaim]", sanitizeError(err));
+    }
   }
 
   // T-505a: skip-when-broke gate. Runs BEFORE Brave/RSS/composer so we
@@ -211,23 +269,49 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     if (decision.skip) {
       // Mark the claimed digest_runs row (if any) with the skip status so
       // the admin viewer sees it instead of an empty "composing" row.
-      if (digestRunId) {
+      if (runRowId) {
         await db
           .update(digestRuns)
           .set({
             status: "skipped_no_credits",
             updatedAt: new Date(),
           })
-          .where(eq(digestRuns.id, digestRunId));
+          .where(eq(digestRuns.id, runRowId));
         await recordSkipForCredits({
           userId,
-          digestRunId,
+          digestRunId: runRowId,
           balance: decision.balance,
         });
       }
+      // CAD-214: credit exhaustion pauses the SPEC (not the user) so the
+      // dispatcher stops firing dead runs, and the user is told instead of
+      // silently losing their brief. Resume is on /briefs after top-up;
+      // auto-resume-on-grant is Wave 2 polish. Notice is best-effort —
+      // never fail the skip path on a send error.
+      if (specRow.status === "active") {
+        await db
+          .update(digestSpecs)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(eq(digestSpecs.id, specRow.id));
+        if (isTelegramConfigured() && user.telegramChatId != null) {
+          try {
+            const notice =
+              "Your brief is paused — you're out of credits. " +
+              "Add credits, then resume it from your dashboard. Nothing is lost.";
+            for (const part of formatPlainText(notice)) {
+              await telegramAdapter.send(part, {
+                channel: "telegram",
+                chatId: Number(user.telegramChatId),
+              });
+            }
+          } catch (noticeErr) {
+            console.warn("[digest:pause-notice]", sanitizeError(noticeErr));
+          }
+        }
+      }
       return {
         status: "skipped_no_credits",
-        digestRunId: digestRunId ?? null,
+        digestRunId: runRowId ?? null,
         markdown: null,
         partsSent: 0,
         telegramMessageId: null,
@@ -243,7 +327,12 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       const spec = specRow.spec as { topics?: string[] };
       const topics = (spec.topics ?? []).slice(0, 5);
       for (const query of topics) {
-        const res = await braveSearch(query, { count: 10 });
+        // CAD-213 (P0-2): attribute search spend to this run + user.
+        const res = await braveSearch(query, {
+          count: 10,
+          userId,
+          digestRunId: runRowId,
+        });
         sources.search.push({ query, results: res.results });
       }
     }
@@ -366,7 +455,12 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         ? feedbackBlock.recentRawNotes
         : undefined,
       userId,
-      digestRunId: null, // updated below once row exists
+      // CAD-213 (P0-2): the dispatcher path HAS the claimed run id at
+      // compose time — pass it so composer cost_events attribute to the
+      // run (margin telemetry + the Pro circuit breaker both join on it).
+      // Manual path pre-claims above (CAD-220); only a failed pre-claim
+      // still relies on the post-insert back-fill below.
+      digestRunId: runRowId,
     };
     // CAD-88: route to the spec's tier. The bundle's resolved `tier` may
     // differ from the spec's `tier` when PRO_TIER_ALPHA is off — the
@@ -464,7 +558,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       const Sentry = await import("@sentry/nextjs");
       Sentry.captureException(composerErr, {
         tags: { route: "digest.compose", tier: "pro" },
-        extra: { userId, digestRunId: digestRunId ?? null },
+        extra: { userId, digestRunId: runRowId },
       });
       const reason = sanitizeError(composerErr);
       console.warn(
@@ -606,10 +700,21 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   } catch (err) {
     const error = sanitizeError(err);
     const errorClass = classifyError(err);
+    // CAD-217/218: the pipeline's failure path was Sentry-silent — the
+    // audit's silent-overnight-failure class. Best-effort capture.
+    try {
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureException(err, {
+        tags: { route: "digest.pipeline" },
+        extra: { userId, digestRunId: runRowId, errorClass },
+      });
+    } catch {
+      // Sentry-optional.
+    }
     // Persist failed run for visibility. T-302/T-303: prefer UPDATE on the
     // claimed row and atomically bump attempt_count via SQL so retries
     // never race-clobber the counter.
-    if (digestRunId) {
+    if (runRowId) {
       const updated = await db
         .update(digestRuns)
         .set({
@@ -619,11 +724,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
           attemptCount: sql`${digestRuns.attemptCount} + 1`,
           updatedAt: new Date(),
         })
-        .where(eq(digestRuns.id, digestRunId))
+        .where(eq(digestRuns.id, runRowId))
         .returning({ attemptCount: digestRuns.attemptCount });
       return {
         status: "failed",
-        digestRunId,
+        digestRunId: runRowId,
         markdown: null,
         partsSent: 0,
         telegramMessageId: null,
@@ -772,14 +877,15 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       // T-401 (CAD-42): attach inline-keyboard ONLY to the final part, and
       // ONLY when:
       //   - the spec has keyboard_enabled = true (per-spec opt-in), and
-      //   - we already have a digestRunId (cron path pre-claimed a row).
+      //   - we have a run row id (cron pre-claimed, or CAD-220 pre-claim
+      //     on the manual/sample path — samples seed the vote habit).
       // Manual sampleNow path (no pre-claimed id) skips the keyboard —
       // dev-time previews don't need feedback collection.
-      const keyboardOn = specRow.keyboardEnabled && digestRunId != null;
+      const keyboardOn = specRow.keyboardEnabled && runRowId != null;
       for (let i = 0; i < parts.length; i++) {
         const isLast = i === parts.length - 1;
         const replyMarkup =
-          keyboardOn && isLast ? buildFeedbackKeyboard(digestRunId!) : undefined;
+          keyboardOn && isLast ? buildFeedbackKeyboard(runRowId!) : undefined;
         // adapter.send carries the parse-mode fallback (CAD bug 2026-06-05):
         // if the composer emits malformed Markdown (unbalanced
         // `*`/`_`/`` ` ``/`[]()`), Telegram rejects with 400 "can't parse
@@ -802,7 +908,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       console.warn("[digest:send] sanitized:", error);
       // Failed delivery still records the run; T-303 retry decides if we
       // re-enqueue or escalate to delivery_broken.
-      if (digestRunId) {
+      if (runRowId) {
         const updated = await db
           .update(digestRuns)
           .set({
@@ -816,11 +922,11 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
             attemptCount: sql`${digestRuns.attemptCount} + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(digestRuns.id, digestRunId))
+          .where(eq(digestRuns.id, runRowId))
           .returning({ attemptCount: digestRuns.attemptCount });
         return {
           status: "failed",
-          digestRunId,
+          digestRunId: runRowId,
           markdown,
           partsSent,
           telegramMessageId,
@@ -876,7 +982,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   // 6. Persist
   //   - T-302 cron path: dispatcher pre-claimed a `pending` row; UPDATE it.
   //   - Legacy / manual path: INSERT a fresh row.
-  if (digestRunId) {
+  if (runRowId) {
     await db
       .update(digestRuns)
       .set({
@@ -894,7 +1000,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
         attemptCount: sql`${digestRuns.attemptCount} + 1`,
         updatedAt: new Date(),
       })
-      .where(eq(digestRuns.id, digestRunId));
+      .where(eq(digestRuns.id, runRowId));
 
     // T-304 bonus: auto-heal delivery_broken on success. No-op if active.
     // Future per-spec rows naturally start with attempt_count=0; we don't
@@ -905,24 +1011,30 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       // delivery so we never charge for a failed send. The 1-brief grace
       // rule means balance may go to −1 here; that's expected — the next
       // dispatch will hit the skip gate.
-      try {
-        await debitForDelivery({
-          userId,
-          digestRunId,
-          // CAD-89: debit by RESOLVED tier (post-downgrade).
-          tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
-        });
-      } catch (err) {
-        // Never break a successful delivery on debit failure. Log and
-        // accept that this brief flew free — preferable to telling Stripe
-        // / the user something inconsistent.
-        console.error("[digest:debit] failed for run", digestRunId, err);
+      //
+      // CAD-212: sample briefs are on us — they exist to seed the vote
+      // habit, not to spend the trial. Cron path never has trigger=sample,
+      // so scheduled economics are unchanged.
+      if (trigger !== "sample") {
+        try {
+          await debitForDelivery({
+            userId,
+            digestRunId: runRowId,
+            // CAD-89: debit by RESOLVED tier (post-downgrade).
+            tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
+          });
+        } catch (err) {
+          // Never break a successful delivery on debit failure. Log and
+          // accept that this brief flew free — preferable to telling Stripe
+          // / the user something inconsistent.
+          console.error("[digest:debit] failed for run", runRowId, err);
+        }
       }
     }
 
     return {
       status,
-      digestRunId,
+      digestRunId: runRowId,
       markdown,
       partsSent,
       telegramMessageId,
@@ -945,19 +1057,43 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
     })
     .returning({ id: digestRuns.id });
 
+  // CAD-213 (P0-2): the manual path has no run id at compose time, so the
+  // composer/Brave cost_events for THIS pipeline invocation were written
+  // with digest_run_id NULL. Back-fill them now that the row exists. The
+  // (userId, NULL, since-start) scope is safe at current concurrency — a
+  // user does not run two manual pipelines in the same instant; revisit
+  // with a pre-claimed row if that ever changes. Best-effort.
+  try {
+    await db
+      .update(costEvents)
+      .set({ digestRunId: inserted[0]!.id })
+      .where(
+        and(
+          eq(costEvents.userId, userId),
+          isNull(costEvents.digestRunId),
+          gte(costEvents.createdAt, pipelineStartedAt)
+        )
+      );
+  } catch (err) {
+    console.warn("[digest:cost-backfill] failed for run", inserted[0]!.id, err);
+  }
+
   // T-304 bonus: auto-heal on a successful manual / sampleNow delivery too.
   if (status === "delivered") {
     await autoHealDeliveryBroken(userId);
     // T-505a: debit even on the legacy / manual sampleNow path so the
     // ledger is consistent regardless of dispatch entry point. Best-effort.
-    try {
-      await debitForDelivery({
-        userId,
-        digestRunId: inserted[0]!.id,
-        tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
-      });
-    } catch (err) {
-      console.error("[digest:debit] failed for run", inserted[0]!.id, err);
+    // CAD-212: sample briefs are free — see the cron-path note above.
+    if (trigger !== "sample") {
+      try {
+        await debitForDelivery({
+          userId,
+          digestRunId: inserted[0]!.id,
+          tier: (runMetadata.tier as { resolved?: Tier } | undefined)?.resolved ?? "default",
+        });
+      } catch (err) {
+        console.error("[digest:debit] failed for run", inserted[0]!.id, err);
+      }
     }
   }
 

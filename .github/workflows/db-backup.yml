@@ -1,0 +1,77 @@
+# CAD-216 — nightly Postgres backup.
+#
+# Dumps the production database (secrets.DATABASE_URL) with pg_dump
+# --format=custom, gzips it, and uploads it as a GitHub Actions artifact
+# with 30-day retention. Deliberately boring: no buckets, no keys to
+# rotate, no extra vendors.
+#
+# Alerting: the job fails loudly (missing secret, dump error, or a dump
+# under 100KB) and the GitHub workflow-failure email IS the alert. Do not
+# add silent fallbacks here.
+#
+# Restore runbook: apps/web/README.md → "Ops: nightly database backups".
+name: DB backup
+
+on:
+  schedule:
+    # 20:00 UTC = 04:00 MYT — off-peak for a Malaysia/Singapore user base.
+    - cron: "0 20 * * *"
+  # Manual runs for testing the workflow or taking an ad-hoc pre-migration backup.
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # postgres:17 (Debian) so pg_dump is never older than the server —
+    # a newer client dumping an older server is supported; the reverse
+    # fails. Covers Supabase on PG 15/16/17.
+    container:
+      image: postgres:17
+    steps:
+      - name: Check secret is configured
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Add it in repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Run pg_dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%d)"
+          pg_dump "$DATABASE_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file="cadence-${STAMP}.dump"
+          gzip "cadence-${STAMP}.dump"
+          ls -la "cadence-${STAMP}.dump.gz"
+
+      - name: Verify dump is non-trivial
+        run: |
+          set -euo pipefail
+          FILE="$(ls cadence-*.dump.gz)"
+          gzip -t "$FILE"
+          SIZE="$(stat -c%s "$FILE")"
+          echo "Dump $FILE is $SIZE bytes"
+          if [ "$SIZE" -lt 102400 ]; then
+            echo "::error::Backup is suspiciously small (<100KB) — treating as failure."
+            exit 1
+          fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup
+          path: cadence-*.dump.gz
+          retention-days: 30
+          if-no-files-found: error

@@ -26,7 +26,10 @@ import { generateText } from "ai";
 import { anthropicCostUsd, recordCost } from "@/server/cost/record";
 import { buildProComposerSystemPrompt } from "./anthropic-pro-prompt";
 import { renderBriefMarkdown } from "@/server/ai/composer/render";
-import { parseAndValidateBrief } from "@/server/ai/composer/compose";
+import {
+  composeBriefWithRepair,
+  COMPOSE_USER_MESSAGE,
+} from "@/server/ai/composer/compose";
 import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
 import type { ComposerProvider } from "./types";
 
@@ -59,25 +62,40 @@ export async function composeDigestPro(
 ): Promise<ComposerOutput> {
   const systemPrompt = buildProComposerSystemPrompt(input);
 
-  const result = await generateText({
-    model: anthropic(PRO_COMPOSER_MODEL_ID),
-    system: systemPrompt,
-    prompt:
-      "Compose the brief now. Emit ONE JSON object matching the contract. No preamble, no fences, no commentary.",
-    temperature: 0.25,
-    maxTokens: PRO_MAX_OUTPUT_TOKENS,
-    abortSignal: AbortSignal.timeout(PRO_COMPOSER_TIMEOUT_MS),
-  });
+  // CAD-219: the Pro composer runs through the SAME shared repair/retry
+  // driver as the default Haiku composer (deterministic unused-source
+  // prune, then at most ONE compose-only corrective retry). Each attempt
+  // gets a fresh AbortSignal — the per-request timeout contract (CAD-97)
+  // applies per model call, and timeouts are never retried here.
+  const composed = await composeBriefWithRepair(
+    async (correctiveAddendum) => {
+      const result = await generateText({
+        model: anthropic(PRO_COMPOSER_MODEL_ID),
+        system: correctiveAddendum
+          ? `${systemPrompt}\n\n${correctiveAddendum}`
+          : systemPrompt,
+        prompt: COMPOSE_USER_MESSAGE,
+        temperature: 0.25,
+        maxTokens: PRO_MAX_OUTPUT_TOKENS,
+        abortSignal: AbortSignal.timeout(PRO_COMPOSER_TIMEOUT_MS),
+      });
+      return {
+        text: result.text,
+        inputTokens: result.usage?.promptTokens ?? 0,
+        outputTokens: result.usage?.completionTokens ?? 0,
+      };
+    },
+    { modelId: PRO_COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
+  );
 
-  const brief = parseAndValidateBrief(result.text);
-  const markdown = renderBriefMarkdown(brief);
+  const markdown = renderBriefMarkdown(composed.brief);
 
-  const inputTokens = result.usage?.promptTokens ?? 0;
-  const outputTokens = result.usage?.completionTokens ?? 0;
+  // Tokens summed across attempts (1 or 2 calls); pricing is linear in
+  // tokens, so one cost_events row with summed counts is dollar-exact.
   const costUsd = anthropicCostUsd(
     PRO_COMPOSER_MODEL_ID,
-    inputTokens,
-    outputTokens
+    composed.inputTokens,
+    composed.outputTokens
   );
 
   await recordCost({
@@ -86,18 +104,19 @@ export async function composeDigestPro(
     kind: "llm_call",
     provider: "anthropic",
     model: PRO_COMPOSER_MODEL_ID,
-    inputTokens,
-    outputTokens,
+    inputTokens: composed.inputTokens,
+    outputTokens: composed.outputTokens,
     costUsd,
   });
 
   return {
     markdown,
     modelId: PRO_COMPOSER_MODEL_ID,
-    inputTokens,
-    outputTokens,
+    inputTokens: composed.inputTokens,
+    outputTokens: composed.outputTokens,
     costUsd,
-    brief,
+    brief: composed.brief,
+    repair: composed.repair,
   };
 }
 

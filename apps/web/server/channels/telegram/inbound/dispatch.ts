@@ -9,9 +9,11 @@
  * Currently supports:
  *  - `/start <token>` -> link account (T-203)
  *  - `/start` (no arg) -> greet + instruct to link from web
+ *  - `/tune <freeform>` -> standing note (T-403 / CAD-44)
+ *  - free-text reply to a delivered brief -> confirm-then-save (CAD-220)
  *
  * Future:
- *  - `/status`, `/pause`, `/resume`, free-text feedback
+ *  - `/status`, `/pause`, `/resume`
  */
 import { resolveAndLinkToken } from "./link-token";
 import { getBot } from "../client";
@@ -24,6 +26,16 @@ import {
   buildAckReply,
   TUNE_REPLIES,
 } from "./tune-command";
+import {
+  buildConfirmText,
+  buildTuneNoteKeyboard,
+  extractSnippetFromConfirmText,
+  matchBriefReply,
+  parseTuneNoteCallback,
+  saveStandingNote,
+  REPLY_CAPTURE_COPY,
+  type TuneNoteDecision,
+} from "./reply-capture";
 
 interface TelegramUpdate {
   update_id: number;
@@ -32,6 +44,8 @@ interface TelegramUpdate {
     chat: { id: number; type: string };
     from?: { id: number; username?: string; first_name?: string };
     text?: string;
+    /** CAD-220: present when the user replied to an earlier message. */
+    reply_to_message?: { message_id: number };
   };
   callback_query?: {
     id: string;
@@ -40,6 +54,8 @@ interface TelegramUpdate {
     message?: {
       message_id: number;
       chat: { id: number; type: string };
+      /** CAD-220: the confirm message's own text carries the pending note. */
+      text?: string;
     };
   };
 }
@@ -47,7 +63,8 @@ interface TelegramUpdate {
 const MSG_LINKED = (firstName?: string) =>
   `Hey${firstName ? ` ${firstName}` : ""} — you're connected. ` +
   `Your first brief lands tomorrow morning. ` +
-  `Reply to any brief with feedback — Cadence learns from every nudge.`;
+  // CAD-211 wired reactions; CAD-220 added reply capture (with confirm).
+  `React 👍/👎 to any brief and I'll shape the next one around it.`;
 
 const MSG_TOKEN_INVALID =
   "That link expired (they only last 15 minutes). " +
@@ -59,8 +76,8 @@ const MSG_START_NO_TOKEN =
   "on the web and tap \"Connect Telegram\" — we'll bring you back here with one tap.";
 
 const MSG_UNKNOWN =
-  "I'm still learning — right now I deliver your briefs and listen for feedback. " +
-  "Try a thumbs up/down, or reply with what you'd change.";
+  "I deliver your briefs and read your reactions. " +
+  "Tap 👍/👎 on any brief, or reply directly to a brief to tell me what to change.";
 
 export async function dispatchTelegramUpdate(
   update: TelegramUpdate
@@ -135,13 +152,38 @@ export async function dispatchTelegramUpdate(
     return;
   }
 
-  // Free-text — future: write into feedback_events / learning_log
+  // CAD-220: free-text reply to one of THIS user's delivered briefs →
+  // confirm-before-save. Commands never reach here (handled above) and
+  // anything slash-prefixed is excluded — only genuine free text qualifies.
+  if (!text.startsWith("/") && msg.reply_to_message) {
+    const match = await matchBriefReply({
+      telegramChatId: chatId,
+      replyToMessageId: msg.reply_to_message.message_id,
+      text,
+    });
+    if (match.kind === "match") {
+      // Send the confirm prompt with the [💾 Save] [Ignore] keyboard.
+      // NOTHING is written to learning_log until the user taps Save.
+      await safeSendConfirm(chatId, match.snippet);
+      return;
+    }
+  }
+
+  // Non-reply free text (or a reply we can't tie to a brief).
   await safeSend(chatId, MSG_UNKNOWN);
 }
 
 type CallbackQuery = NonNullable<TelegramUpdate["callback_query"]>;
 
 async function dispatchCallbackQuery(cb: CallbackQuery): Promise<void> {
+  // CAD-220: tn:yes / tn:no — confirm-keyboard taps for reply capture.
+  // Parsed alongside the fb: votes; the two prefixes never overlap.
+  const tuneNoteDecision = parseTuneNoteCallback(cb.data);
+  if (tuneNoteDecision) {
+    await dispatchTuneNoteCallback(cb, tuneNoteDecision);
+    return;
+  }
+
   const parsed = parseCallbackData(cb.data);
   if (!parsed) {
     // Unknown callback shape — still answer Telegram so the spinner stops.
@@ -175,12 +217,109 @@ async function dispatchCallbackQuery(cb: CallbackQuery): Promise<void> {
   await safeAnswerCallback(cb.id, toast);
 }
 
+/**
+ * CAD-220: handle a [💾 Save] / [Ignore] tap on a reply-capture confirm
+ * message. The pending note lives in the confirm message's own text —
+ * Telegram is the storage, so the only DB touch is the final learning_log
+ * insert on Save.
+ */
+async function dispatchTuneNoteCallback(
+  cb: CallbackQuery,
+  decision: TuneNoteDecision
+): Promise<void> {
+  const chatId = cb.message?.chat.id;
+  const messageId = cb.message?.message_id;
+
+  // Telegram omits `message` from callbacks on messages older than ~48h —
+  // with it goes the candidate text, so there is nothing left to save.
+  if (chatId === undefined || messageId === undefined) {
+    await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastExpired);
+    return;
+  }
+
+  if (decision === "no") {
+    await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastIgnored);
+    // Editing without reply_markup also clears the keyboard.
+    await safeEditMessage(chatId, messageId, REPLY_CAPTURE_COPY.notSavedMessage);
+    return;
+  }
+
+  const snippet = extractSnippetFromConfirmText(cb.message?.text);
+  if (!snippet) {
+    // Not our confirm shape (already resolved, or text missing).
+    await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastExpired);
+    return;
+  }
+
+  const res = await saveStandingNote({
+    telegramChatId: chatId,
+    noteText: snippet,
+  });
+  switch (res.kind) {
+    case "saved":
+      await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastSaved);
+      await safeEditMessage(
+        chatId,
+        messageId,
+        REPLY_CAPTURE_COPY.savedMessage(snippet)
+      );
+      return;
+    case "unknown_user":
+      await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastUnlinked);
+      return;
+    case "empty":
+      await safeAnswerCallback(cb.id, REPLY_CAPTURE_COPY.toastExpired);
+      return;
+  }
+}
+
 async function safeAnswerCallback(callbackId: string, text: string): Promise<void> {
   try {
     const bot = getBot();
     await bot.api.answerCallbackQuery(callbackId, { text });
   } catch (err) {
     console.error("[telegram:answerCallbackQuery]", err);
+  }
+}
+
+/**
+ * CAD-220: best-effort edit of a confirm message into its resolved form
+ * (`💾 Saved: "…"` / `Not saved.`). Lives here because server/channels/
+ * telegram/ is the sanctioned dir for raw bot-api calls (CAD-207); the
+ * outbound-message guard targets sendMessage, and an edit is not a send.
+ */
+async function safeEditMessage(
+  chatId: number,
+  messageId: number,
+  text: string
+): Promise<void> {
+  try {
+    const bot = getBot();
+    await bot.api.editMessageText(chatId, messageId, text);
+  } catch (err) {
+    console.error("[telegram:editMessageText]", err);
+  }
+}
+
+/**
+ * CAD-220: send the reply-capture confirm prompt with its [💾 Save]
+ * [Ignore] inline keyboard. The confirm body (prompt + ≤180-char snippet)
+ * is always a single part, far below the Telegram cap, but we still route
+ * through the canonical splitter and attach the keyboard to the final part
+ * so the invariant holds structurally.
+ */
+async function safeSendConfirm(chatId: number, snippet: string): Promise<void> {
+  try {
+    const parts = formatPlainText(buildConfirmText(snippet));
+    for (let i = 0; i < parts.length; i++) {
+      const part =
+        i === parts.length - 1
+          ? { ...parts[i]!, replyMarkup: buildTuneNoteKeyboard() }
+          : parts[i]!;
+      await telegramAdapter.send(part, { channel: "telegram", chatId });
+    }
+  } catch (err) {
+    console.error("[telegram:sendMessage]", err);
   }
 }
 

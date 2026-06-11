@@ -50,7 +50,91 @@ function tierBadge(metadata: unknown): React.ReactNode {
   );
 }
 
-export function BillingClient() {
+/**
+ * CAD-215 — "Request credits" founder ping. Replaces the bare support-email
+ * line under the pack tiles. One click pings the founder on Telegram via
+ * billing.requestCredits; the server rate-limits to 1 request per 24h. If
+ * the admin chat isn't configured the mutation reports sent=false and we
+ * fall back to the support-email line — never a dead end on a money surface.
+ */
+function RequestCreditsBlock() {
+  const requestCredits = trpc.billing.requestCredits.useMutation();
+
+  const sent = requestCredits.isSuccess && requestCredits.data?.sent === true;
+  const emailFallback =
+    requestCredits.isSuccess && requestCredits.data?.sent === false;
+  const rateLimited =
+    requestCredits.isError &&
+    requestCredits.error?.data?.code === "TOO_MANY_REQUESTS";
+
+  if (sent) {
+    return (
+      <p className="mt-3 text-xs text-muted-foreground">
+        Request sent — we usually add credits within a day.
+      </p>
+    );
+  }
+
+  if (emailFallback) {
+    return <SupportEmailLine />;
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Card payments aren&apos;t switched on yet. Ask us and we&apos;ll add
+        credits to your account.
+      </p>
+      <button
+        type="button"
+        onClick={() => requestCredits.mutate()}
+        disabled={requestCredits.isPending}
+        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+      >
+        {requestCredits.isPending ? "Sending…" : "Request credits"}
+      </button>
+      {rateLimited && (
+        <p className="text-xs text-muted-foreground">
+          {requestCredits.error?.message}
+        </p>
+      )}
+      {requestCredits.isError && !rateLimited && (
+        <p className="text-xs text-muted-foreground">
+          That didn&apos;t go through. Email{" "}
+          <a
+            className="underline-offset-2 hover:underline"
+            href={`mailto:${SUPPORT_EMAIL}`}
+          >
+            {SUPPORT_EMAIL}
+          </a>{" "}
+          instead.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SupportEmailLine() {
+  return (
+    <p className="mt-3 text-xs text-muted-foreground">
+      Card payments aren&apos;t switched on yet. Email{" "}
+      <a
+        className="underline-offset-2 hover:underline"
+        href={`mailto:${SUPPORT_EMAIL}`}
+      >
+        {SUPPORT_EMAIL}
+      </a>{" "}
+      and we&apos;ll add credits to your account.
+    </p>
+  );
+}
+
+export function BillingClient({
+  proTierAlphaEnabled = false,
+}: {
+  /** CAD-215: server-resolved PRO_TIER_ALPHA — passed down from page.tsx. */
+  proTierAlphaEnabled?: boolean;
+}) {
   const balance = trpc.billing.getBalance.useQuery();
   const ledger = trpc.billing.getLedger.useQuery();
 
@@ -112,13 +196,7 @@ export function BillingClient() {
             </article>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Card payments aren&apos;t switched on yet. Email{" "}
-          <a className="underline-offset-2 hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
-            {SUPPORT_EMAIL}
-          </a>{" "}
-          and we&apos;ll add credits to your account.
-        </p>
+        <RequestCreditsBlock />
 
         {/* CAD-95 (CAD-202 copy refresh): research-depth explainer
             disclosure. Native <details> keeps this keyboard-accessible
@@ -135,7 +213,7 @@ export function BillingClient() {
             </span>
           </summary>
           <div className="mt-4">
-            <TierExplainer />
+            <TierExplainer proTierAlphaEnabled={proTierAlphaEnabled} />
           </div>
         </details>
       </section>

@@ -232,8 +232,8 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
           </p>
           <p className="mt-2 text-sm text-muted-foreground">{next}</p>
           <p className="mt-3 text-sm text-muted-foreground">
-            React 👍 / 👎 to anything, or tell us what to change &mdash; Cadence
-            learns from every nudge.
+            React 👍 / 👎 to anything &mdash; every reaction shapes your next
+            brief.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <a
@@ -393,8 +393,8 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
                       : ""
                   }.`
                 : "Your first brief arrives tomorrow morning."}{" "}
-              React 👍 / 👎 to anything, or tell us what to change — Cadence
-              learns from every nudge.
+              React 👍 / 👎 to anything — every reaction shapes your next
+              brief.
             </p>
           )}
         </div>
