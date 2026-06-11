@@ -66,7 +66,7 @@ export function GoogleSignInButton({ next }: { next?: string }) {
         <span>{loading ? "Redirecting…" : "Continue with Google"}</span>
       </button>
       {error && (
-        <p className="text-center text-sm text-red-500" role="alert">
+        <p className="text-center text-sm text-destructive" role="alert">
           {error}
         </p>
       )}
