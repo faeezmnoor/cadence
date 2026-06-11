@@ -77,9 +77,9 @@ export function TierExplainer({
           — generic web search + a fast composer. Smart enough for most briefs.
         </p>
         <p>
-          <span className="font-medium text-foreground">🔬 Advanced research · 3 credits</span>{" "}
+          <span className="font-medium text-foreground">🔬 Advanced research · 3 or 5 credits</span>{" "}
           — it reads more sources, cross-checks them, and writes a tighter
-          analysis.
+          analysis. Each option shows its price.
         </p>
       </div>
     );
@@ -102,7 +102,8 @@ export function TierExplainer({
 
       <div className="rounded-lg border border-brand/40 bg-brand/5 p-4">
         <p className="text-sm font-semibold">
-          🔬 Advanced research · 3 credits per brief
+          🔬 Advanced research · 3 or 5 credits per brief — each option
+          shows its price
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           It reads more sources, cross-checks them, and writes a tighter

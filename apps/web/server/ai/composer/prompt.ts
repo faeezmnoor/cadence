@@ -296,7 +296,10 @@ const RESEARCH_MEMO_HEADER =
   "RESEARCH MEMO (secondary — verify every claim against the SOURCES above; cite only numbered sources)";
 
 function researchMemoBlock(researchMemo: string | undefined): string[] {
-  const memo = researchMemo?.trim();
+  // Review P2-13: the memo is synthesized from arbitrary web content — a
+  // literal closing tag inside it would break out of the delimited block
+  // and let fetched text masquerade as prompt instructions. Strip it.
+  const memo = researchMemo?.trim().replaceAll("</research_memo>", "");
   if (!memo) return [];
   return [
     "",

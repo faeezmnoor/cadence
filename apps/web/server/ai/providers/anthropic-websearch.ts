@@ -166,9 +166,16 @@ export async function composeDigestWebSearch(
 
   const systemPrompt = buildWebSearchComposerSystemPrompt(input);
 
-  // Searches summed across every API call of this logical compose
-  // (pause_turn continuations + the bounded CAD-219 corrective retry).
+  // Searches + tokens summed across every API call of this logical
+  // compose (pause_turn continuations + the bounded CAD-219 corrective
+  // retry). Accumulated OUTSIDE the repair driver so a failed compose
+  // (both attempts bad JSON / parity) still records what it spent —
+  // review P1-5: the circuit breaker's stated runaway scenario is
+  // exactly "repeated Pro composer failures incurring full per-call
+  // cost", which writes no cost_events on the success-only path.
   let totalWebSearches = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   const callOnce = async (
     system: string,
@@ -207,7 +214,9 @@ export async function composeDigestWebSearch(
     return (await res.json()) as AnthropicMessageResponse;
   };
 
-  const composed = await composeBriefWithRepair(
+  let composed: Awaited<ReturnType<typeof composeBriefWithRepair>>;
+  try {
+    composed = await composeBriefWithRepair(
     async (correctiveAddendum) => {
       const system = correctiveAddendum
         ? `${systemPrompt}\n\n${correctiveAddendum}`
@@ -223,6 +232,8 @@ export async function composeDigestWebSearch(
         const json = await callOnce(system, messages);
         inputTokens += json.usage?.input_tokens ?? 0;
         outputTokens += json.usage?.output_tokens ?? 0;
+        totalInputTokens += json.usage?.input_tokens ?? 0;
+        totalOutputTokens += json.usage?.output_tokens ?? 0;
         totalWebSearches += countWebSearches(json.usage);
 
         if (
@@ -245,8 +256,30 @@ export async function composeDigestWebSearch(
         };
       }
     },
-    { modelId: PRO_COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
-  );
+      { modelId: PRO_COMPOSER_MODEL_ID, digestRunId: input.digestRunId ?? null }
+    );
+  } catch (err) {
+    // Review P1-5: the API calls succeeded and the web searches were
+    // billed even though the output never validated — record the spend
+    // before rethrowing so the cost cap and margin telemetry see it.
+    // recordCost itself never throws (best-effort by design).
+    await recordCost({
+      userId: input.userId ?? null,
+      digestRunId: input.digestRunId ?? null,
+      kind: "llm_call",
+      provider: "anthropic_websearch",
+      model: PRO_COMPOSER_MODEL_ID,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      costUsd: anthropicWebSearchCostUsd(
+        PRO_COMPOSER_MODEL_ID,
+        totalInputTokens,
+        totalOutputTokens,
+        totalWebSearches
+      ),
+    });
+    throw err;
+  }
 
   const markdown = renderBriefMarkdown(composed.brief);
 

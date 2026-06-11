@@ -51,6 +51,17 @@ describe("buildSearchQueries", () => {
     ).toEqual(["freight", "Ninja Van"]);
   });
 
+  it("topics fill the budget when companies are few (review P2-12)", () => {
+    // 1 company used to cap topics at 2 → only 3 queries. Topics now fill
+    // whatever the companies leave of the 5-query budget.
+    expect(
+      buildSearchQueries({
+        topics: ["a1", "b2", "c3", "d4", "e5"],
+        entities: { companies: ["Lalamove"] },
+      })
+    ).toEqual(["a1", "b2", "c3", "d4", "Lalamove"]);
+  });
+
   it("empty spec yields no queries", () => {
     expect(buildSearchQueries({})).toEqual([]);
   });

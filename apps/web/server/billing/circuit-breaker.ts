@@ -88,7 +88,10 @@ export async function isProTierCostSane(): Promise<ProTierCostSanityResult> {
     .where(
       and(
         gte(costEvents.createdAt, startOfDayUtc),
-        sql`${digestRuns.metadata} #>> '{tier,resolved}' = 'pro'`
+        // CAD-222 (review P1-3): both advanced stacks draw real provider
+        // spend — the cap must meter pro AND pro_websearch, or the most
+        // expensive stack runs away without ever tripping it.
+        sql`${digestRuns.metadata} #>> '{tier,resolved}' IN ('pro', 'pro_websearch')`
       )
     );
 

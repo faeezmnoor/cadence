@@ -43,7 +43,9 @@ describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
 
   it("names advanced research price + value prop", () => {
     expect(explainerSource).toMatch(/🔬 Advanced research/);
-    expect(explainerSource).toMatch(/3 credits/);
+    // Review P1-6 / founder per-stack pricing: the explainer names both
+    // advanced prices and points at the per-option display.
+    expect(explainerSource).toMatch(/3 or 5 credits/);
     // Plain-English value framing is the positioning hook — no vendor names
     // in user-facing copy.
     expect(explainerSource).toMatch(/reads more sources/);

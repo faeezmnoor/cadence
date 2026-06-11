@@ -431,7 +431,7 @@ function PortfolioBurnCard() {
           <Stat
             label="Credits / day"
             value={formatRate(data.creditsPerDay)}
-            sub="1 credit standard · 3 credits advanced"
+            sub="1 credit standard · 3–5 credits advanced"
           />
           <Stat
             label="Balance"
