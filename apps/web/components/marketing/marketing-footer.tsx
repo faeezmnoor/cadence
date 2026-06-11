@@ -23,31 +23,31 @@ export function MarketingFooter() {
         <nav className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <Link
             href={"/how-it-works" as Route}
-            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             How it works
           </Link>
           <Link
             href={"/pricing" as Route}
-            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Pricing
           </Link>
           <Link
             href={"/privacy" as Route}
-            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Privacy
           </Link>
           <Link
             href={"/terms" as Route}
-            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Terms
           </Link>
           <a
             href={SUPPORT_MAILTO}
-            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="-my-1.5 rounded-md px-1.5 py-2.5 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             {SUPPORT_EMAIL}
           </a>

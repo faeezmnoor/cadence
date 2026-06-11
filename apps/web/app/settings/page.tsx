@@ -46,14 +46,14 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active={null} />
-      <main className="safe-pb mx-auto max-w-3xl px-6 py-10">
+      <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Your account, your credits, and how to leave.{" "}
             <Link
               href={"/chat" as never}
-              className="underline-offset-4 hover:underline"
+              className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               Back to chat
             </Link>
@@ -68,8 +68,8 @@ export default async function SettingsPage() {
                 href={s.href as never}
                 className={
                   s.tone === "danger"
-                    ? "block rounded-xl border border-destructive/30 bg-destructive/5 p-5 transition hover:border-destructive/60 hover:bg-destructive/10"
-                    : "block rounded-xl border border-border bg-card p-5 transition hover:border-foreground/30 hover:bg-muted/40"
+                    ? "block rounded-xl border border-destructive/30 bg-destructive/5 p-5 transition hover:border-destructive/60 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                    : "block rounded-xl border border-border bg-card p-5 transition hover:border-foreground/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                 }
               >
                 <p

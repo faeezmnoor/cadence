@@ -22,12 +22,12 @@ export default async function DangerSettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active={null} />
-      <main className="safe-pb mx-auto max-w-2xl px-6 py-10">
+      <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-6">
           <p className="text-xs">
             <Link
               href={"/settings" as never}
-              className="text-muted-foreground underline-offset-4 hover:underline"
+              className="text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               ← Settings
             </Link>

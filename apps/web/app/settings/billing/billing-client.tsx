@@ -89,7 +89,7 @@ function RequestCreditsBlock() {
         type="button"
         onClick={() => requestCredits.mutate()}
         disabled={requestCredits.isPending}
-        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50"
       >
         {requestCredits.isPending ? "Sending…" : "Request credits"}
       </button>
@@ -102,7 +102,7 @@ function RequestCreditsBlock() {
         <p className="text-xs text-muted-foreground">
           That didn&apos;t go through. Email{" "}
           <a
-            className="underline-offset-2 hover:underline"
+            className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             href={`mailto:${SUPPORT_EMAIL}`}
           >
             {SUPPORT_EMAIL}
@@ -119,7 +119,7 @@ function SupportEmailLine() {
     <p className="mt-3 text-xs text-muted-foreground">
       Card payments aren&apos;t switched on yet. Email{" "}
       <a
-        className="underline-offset-2 hover:underline"
+        className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         href={`mailto:${SUPPORT_EMAIL}`}
       >
         {SUPPORT_EMAIL}
@@ -203,7 +203,7 @@ export function BillingClient({
             without a Dialog primitive — opens inline, doesn't trap focus,
             doesn't need an Escape handler. */}
         <details className="mt-6 rounded-lg border border-border bg-card/40 p-4 [&_summary::-webkit-details-marker]:hidden">
-          <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
+          <summary className="flex cursor-pointer items-center justify-between rounded-md text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background">
             <span>What&apos;s the difference between standard and advanced research?</span>
             <span
               aria-hidden

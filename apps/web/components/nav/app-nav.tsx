@@ -63,7 +63,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
       <div className="safe-px mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href={"/chat" as never}
-          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           aria-label="Cadence — chat"
         >
           <Wordmark asLink={false} className="text-sm" />
@@ -82,8 +82,8 @@ export function AppNav({ active }: { active: AppNavTab }) {
                 aria-current={isActive ? "page" : undefined}
                 className={
                   isActive
-                    ? "inline-flex h-9 items-center rounded-md bg-brand/15 px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    : "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    ? "inline-flex h-9 items-center rounded-md bg-brand/15 px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                    : "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                 }
               >
                 {t.label}
@@ -97,7 +97,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
           <form action="/auth/sign-out" method="post">
             <button
               type="submit"
-              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               Sign out
             </button>
@@ -123,8 +123,8 @@ export function AppNav({ active }: { active: AppNavTab }) {
                    every page; h-10 + focus rings to match the rest of the
                    component. */
                 isActive
-                  ? "inline-flex h-10 shrink-0 items-center rounded-md bg-brand/15 px-3 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  : "inline-flex h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  ? "inline-flex h-10 shrink-0 items-center rounded-md bg-brand/15 px-3 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                  : "inline-flex h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
               }
             >
               {t.label}
