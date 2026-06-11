@@ -22,7 +22,7 @@ export default async function DangerSettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active={null} />
-      <main className="safe-pb mx-auto max-w-2xl px-6 py-10">
+      <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-6">
           <p className="text-xs">
             <Link

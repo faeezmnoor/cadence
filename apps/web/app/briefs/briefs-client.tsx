@@ -120,7 +120,7 @@ export function BriefsClient({
   const isEmpty = sorted.length === 0;
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">

@@ -114,7 +114,7 @@ export function BriefDetailClient({
   }, [briefQuery.data, initialBrief]);
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
         <Link
           href={"/briefs" as never}

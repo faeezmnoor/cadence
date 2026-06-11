@@ -20,7 +20,7 @@ export default async function BillingPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active="billing" />
-      <main className="safe-pb mx-auto max-w-3xl px-6 py-10">
+      <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">Billing</h1>
           <p className="mt-2 text-sm text-muted-foreground">
