@@ -82,7 +82,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
                 aria-current={isActive ? "page" : undefined}
                 className={
                   isActive
-                    ? "inline-flex h-9 items-center rounded-md bg-muted px-3 text-sm font-medium text-foreground"
+                    ? "inline-flex h-9 items-center rounded-md bg-brand/15 px-3 text-sm font-semibold text-foreground"
                     : "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 }
               >
@@ -119,7 +119,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
               aria-current={isActive ? "page" : undefined}
               className={
                 isActive
-                  ? "inline-flex h-8 shrink-0 items-center rounded-md bg-muted px-3 text-xs font-medium text-foreground"
+                  ? "inline-flex h-8 shrink-0 items-center rounded-md bg-brand/15 px-3 text-xs font-semibold text-foreground"
                   : "inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
               }
             >

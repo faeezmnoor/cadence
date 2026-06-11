@@ -153,12 +153,12 @@ export function MessageBubble({
       </div>
 
       {proposedSpec?.state === "result" && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+        <div className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
           Brief drafted — review it and reply to confirm or tweak.
         </div>
       )}
       {savedSpec?.state === "result" && (
-        <div className="rounded-md border border-green-500/30 bg-green-500/5 px-3 py-2 text-xs text-green-600 dark:text-green-400">
+        <div className="rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs text-success">
           Brief saved.
         </div>
       )}
