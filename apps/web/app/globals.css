@@ -33,12 +33,10 @@
      * `text-success` etc. adapt automatically — callers no longer need
      * `dark:` colour variants. `--destructive` (above) is the danger token.
      * Values tuned to read as AA-safe text on the theme's background. */
-    --success: 158 64% 33%;
+    --success: 158 64% 26%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 90% 38%;
+    --warning: 32 90% 30%;
     --warning-foreground: 0 0% 100%;
-    --info: 211 80% 43%;
-    --info-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -59,14 +57,12 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --brand: 14 72% 48%;
+    --brand: 14 72% 44%;
     --brand-foreground: 0 0% 100%;
     --success: 158 55% 48%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 55%;
     --warning-foreground: 222.2 47.4% 11.2%;
-    --info: 211 85% 64%;
-    --info-foreground: 222.2 47.4% 11.2%;
   }
 }
 
