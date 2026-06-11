@@ -1,6 +1,7 @@
 # Cadence
 
-Periodical, self-learning market-research digests delivered to Telegram.
+Periodical, self-learning market-research briefs delivered to Telegram.
+(In code the entity is `digest_*`; in all user-facing copy it is **a brief** — see `apps/web/COPY_GUIDE.md` §4a.)
 Configured via web chat. One-person ops, multi-tenant.
 
 ## Stack
