@@ -70,6 +70,19 @@ export type SampleResult =
     };
 
 /**
+ * ACX.5 `sample_blocked` reason vocabulary — single-sourced here so every
+ * surface that logs sample analytics (chat tool `via:'chat_tool'`, panel
+ * button `via:'panel_button'`) emits the same reason strings and dashboards
+ * never fork (exec PR review round 1, CPO#1).
+ */
+export function sampleBlockedReason(code: string, scope?: string): string {
+  if (code === "cooldown") {
+    return scope === "dry_run" ? "dry_run_cooldown" : "cooldown";
+  }
+  return code;
+}
+
+/**
  * Pure retry math, exported for tests: how long until the window opened by
  * `claimedAt` (newest qualifying run / last dry-run claim) closes.
  */

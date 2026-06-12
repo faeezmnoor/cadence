@@ -21,6 +21,7 @@
  */
 import { z } from "zod";
 import { log } from "@/lib/log";
+import { sampleBlockedReason } from "@/server/digest/sample";
 import type { ToolDescriptor } from "../types";
 
 const sendSampleSchema = z.object({
@@ -53,14 +54,6 @@ export type SendSampleToolResult =
         | "duplicate"
         | "failed";
     };
-
-/** ACX.5 sample_blocked reason vocabulary. */
-function blockedReason(code: string, scope?: string): string {
-  if (code === "cooldown") {
-    return scope === "dry_run" ? "dry_run_cooldown" : "cooldown";
-  }
-  return code;
-}
 
 export const send_sample: ToolDescriptor<typeof sendSampleSchema> = {
   name: "send_sample",
@@ -95,7 +88,7 @@ export const send_sample: ToolDescriptor<typeof sendSampleSchema> = {
         specId,
         via: "chat_tool",
         dry_run: dryRun,
-        reason: blockedReason(
+        reason: sampleBlockedReason(
           result.code,
           "scope" in result ? result.scope : undefined
         ),

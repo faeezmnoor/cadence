@@ -15,12 +15,24 @@ const core = vi.hoisted(() => ({
   calls: [] as unknown[],
 }));
 
-vi.mock("@/server/digest/sample", () => ({
-  runSampleForUser: vi.fn(async (args: unknown) => {
-    core.calls.push(args);
-    return core.result;
-  }),
+const logMock = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
 }));
+
+vi.mock("@/server/digest/sample", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/digest/sample")>();
+  return {
+    ...actual,
+    runSampleForUser: vi.fn(async (args: unknown) => {
+      core.calls.push(args);
+      return core.result;
+    }),
+  };
+});
+
+vi.mock("@/lib/log", () => ({ log: logMock }));
 
 import { appRouter } from "@/server/trpc/root";
 
@@ -42,6 +54,7 @@ const DELIVERED = {
 beforeEach(() => {
   core.calls = [];
   core.result = { ok: true, run: DELIVERED, markdown: "ok" } as SampleResult;
+  logMock.info.mockClear();
 });
 
 describe("digest.sampleNow — thin wrapper over runSampleForUser", () => {
@@ -90,6 +103,45 @@ describe("digest.sampleNow — thin wrapper over runSampleForUser", () => {
       code: "PRECONDITION_FAILED",
       message:
         "Your spec hasn't been saved yet. Confirm it in chat first, then try again.",
+    });
+  });
+
+  it("ACX.5 (exec CPO#1): logs sample_requested {via:'panel_button'} with the tool's field shape", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.digest.sampleNow({
+      dryRun: true,
+      expectedSpecId: "11111111-1111-1111-1111-111111111111",
+    });
+    expect(logMock.info).toHaveBeenCalledWith("sample_requested", {
+      userId: "u-self",
+      specId: "11111111-1111-1111-1111-111111111111",
+      via: "panel_button",
+      dry_run: true,
+    });
+    // Success path: no blocked event.
+    const blocked = logMock.info.mock.calls.filter(
+      (c) => c[0] === "sample_blocked"
+    );
+    expect(blocked).toHaveLength(0);
+  });
+
+  it("ACX.5 (exec CPO#1): logs sample_blocked with the shared reason vocabulary on cooldown", async () => {
+    core.result = {
+      ok: false,
+      code: "cooldown",
+      scope: "delivery",
+      retryAfterMs: 120_000,
+    };
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.digest.sampleNow({ dryRun: false })).rejects.toMatchObject({
+      code: "TOO_MANY_REQUESTS",
+    });
+    expect(logMock.info).toHaveBeenCalledWith("sample_blocked", {
+      userId: "u-self",
+      specId: null,
+      via: "panel_button",
+      dry_run: false,
+      reason: "cooldown",
     });
   });
 

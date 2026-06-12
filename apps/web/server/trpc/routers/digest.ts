@@ -21,7 +21,8 @@ import { TRPCError } from "@trpc/server";
 import { db } from "@/server/db/client";
 import { digestRuns } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
-import { runSampleForUser } from "@/server/digest/sample";
+import { runSampleForUser, sampleBlockedReason } from "@/server/digest/sample";
+import { log } from "@/lib/log";
 
 export const digestRouter = router({
   /** Compose now. Sends to Telegram unless dryRun is true. */
@@ -46,14 +47,39 @@ export const digestRouter = router({
         .optional()
     )
     .mutation(async ({ ctx, input }) => {
+      const dryRun = input?.dryRun ?? false;
+      // ACX.5 analytics (exec PR review round 1, CPO#1): the panel path
+      // logs the SAME event/field shape as the chat tool (send_sample.ts,
+      // via:'chat_tool') so the sample funnel covers both surfaces. No
+      // thread on this surface; specId is the client-asserted
+      // expectedSpecId when present.
+      log.info("sample_requested", {
+        userId: ctx.user.id,
+        specId: input?.expectedSpecId ?? null,
+        via: "panel_button",
+        dry_run: dryRun,
+      });
+
       const result = await runSampleForUser({
         userId: ctx.user.id,
-        dryRun: input?.dryRun ?? false,
+        dryRun,
         origin: "trpc",
         expectedSpecId: input?.expectedSpecId,
       });
 
       if (!result.ok) {
+        // ACX.5: shared reason vocabulary — sampleBlockedReason keeps the
+        // panel and chat-tool reasons from forking.
+        log.info("sample_blocked", {
+          userId: ctx.user.id,
+          specId: input?.expectedSpecId ?? null,
+          via: "panel_button",
+          dry_run: dryRun,
+          reason: sampleBlockedReason(
+            result.code,
+            "scope" in result ? result.scope : undefined
+          ),
+        });
         // EXACT legacy codes/messages — brief-actions error handling
         // string-matches these (see components/chat/brief-actions.tsx).
         if (result.code === "stale_spec") {
