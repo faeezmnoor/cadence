@@ -11,6 +11,7 @@ import { AppNav } from "@/components/nav/app-nav";
 import { TimezoneGuard } from "@/components/settings/timezone-guard";
 import { isManageMode } from "@/lib/feature-flags";
 import { ensureManageThread } from "@/server/chat/manage-thread";
+import { log } from "@/lib/log";
 
 /**
  * /chat — server component. Auth-checks, resolves or creates a thread,
@@ -118,6 +119,13 @@ export default async function ChatPage({
     }
     const ensured = await ensureManageThread({ userId: user.id, spec });
     thread = ensured.thread;
+    // ACX.5 analytics: resuming (or lazily creating) a brief's chat.
+    log.info("manage_thread_resumed", {
+      userId: user.id,
+      threadId: ensured.thread.id,
+      specId: spec.id,
+      source: ensured.created ? "lazy_created" : "briefs_card",
+    });
   } else if (wantsNew) {
     // "New brief" (AC9.1): always lands on a FRESH setup thread. Reuse an
     // existing zero-message active setup thread (refresh-spam guard), else
@@ -199,6 +207,15 @@ export default async function ChatPage({
         .orderBy(desc(chatThreads.updatedAt))
         .limit(1)
     )[0];
+    if (thread?.specId) {
+      // ACX.5 analytics: bare /chat resumed a manage thread.
+      log.info("manage_thread_resumed", {
+        userId: user.id,
+        threadId: thread.id,
+        specId: thread.specId,
+        source: "bare_chat",
+      });
+    }
   }
 
   if (!thread) {

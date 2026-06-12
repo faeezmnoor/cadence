@@ -31,7 +31,16 @@ import { resolveThreadGate } from "@/server/chat/thread-gate";
 import { capManageTranscript } from "@/server/chat/manage-transcript";
 import { buildAiSdkTools } from "@/server/ai/config-agent/runtime";
 import { saveSpecForUser } from "@/server/ai/config-agent/save-spec";
-import { loadConfigAgentSystemPrompt } from "@/server/ai/config-agent/system-prompt";
+import { updateSpecInPlace } from "@/server/ai/config-agent/update-spec";
+import { runSampleForUser } from "@/server/digest/sample";
+import {
+  buildManageContextBlock,
+  specToDraft,
+} from "@/server/ai/config-agent/manage-context";
+import {
+  loadConfigAgentSystemPrompt,
+  loadManageAgentSystemPrompt,
+} from "@/server/ai/config-agent/system-prompt";
 import type {
   ConfigAgentContext,
   ConfigAgentSession,
@@ -268,7 +277,11 @@ export async function POST(req: Request) {
   // and refusing those answers blocked the happy path. The gate count
   // comes from persisted rows (authoritative), not the client-supplied
   // `body.messages`, because this mirror exists for tampered clients.
-  if (lastMsg?.role === "user") {
+  //
+  // Manage mode (plan §4.3.4): SKIPPED entirely — it's intake-tuned, and a
+  // manage thread has no intake turn ("drop corn and add soybeans" is an
+  // edit, not topic scope-creep).
+  if (mode === "setup" && lastMsg?.role === "user") {
     // The current message was inserted above, so >1 row = prior turns.
     // archivedAt filter: today messages are only archived via resetThread
     // (which also archives the thread, and non-active threads 409 above),
@@ -326,15 +339,27 @@ export async function POST(req: Request) {
     }
   }
 
+  // Manage mode (plan §4.3.4): with no staged edits on the thread, seed the
+  // working draft from the SAVED spec so update_spec_field patches layer
+  // onto reality. Staged edits (thread.draftSpec) survive reload and win.
+  if (mode === "manage" && hydratedDraft === undefined && boundSpec) {
+    hydratedDraft = specToDraft(boundSpec.spec);
+  }
+
   // Wave 3 / CAD-182: per-turn slot extraction. Runs in parallel with any
   // other prep work; soft-timeout at 2s; empty slots on error so the rest
   // of the pipeline degrades to the pre-Wave-3 flow.
+  //
+  // Manage mode (plan §4.3.4): extractSlots, slot-merge, and the
+  // template-seed overlay are SKIPPED — they're intake-tuned; running them
+  // here would pollute spec_extraction_event telemetry and the extractor
+  // eval baseline.
   let mergedDraft = hydratedDraft;
   let proposedSlots: AppliedSlots = {};
   let appliedSlots: AppliedSlots = {};
   // Hoisted: also drives the template-seed overlay below (PR 2).
   let turnIdx = 0;
-  if (lastUserText) {
+  if (mode === "setup" && lastUserText) {
     // Build the last-4 turns context for the extractor.
     const recent = body.messages.slice(-5, -1).map((m) => ({
       role: m.role,
@@ -375,7 +400,15 @@ export async function POST(req: Request) {
     userId: user.id,
     threadId: thread.id,
     draft: mergedDraft,
+    // Manage mode: the bound spec id is SERVER-derived from the thread row.
+    boundSpecId: mode === "manage" ? thread.specId ?? undefined : undefined,
   };
+  // TRUST NOTE (exec advisory 8): body.messages is client-supplied model
+  // history (pre-existing posture, see the file header). Manage-mode WRITES
+  // never derive from it — save_changes applies only the server-hydrated
+  // session.draft (thread.draftSpec / saved spec), targets only the
+  // server-derived boundSpecId, and the user_confirmed + draft-exists gates
+  // bound any model lapse to "nothing saved".
   const agentCtx: ConfigAgentContext = {
     session,
     // Brief-creation revamp PR 1: carry the thread's template provenance
@@ -383,6 +416,21 @@ export async function POST(req: Request) {
     // without widening the tool-facing saveSpec contract.
     saveSpec: (args) =>
       saveSpecForUser({ ...args, templateId: thread.templateId ?? null }),
+    // Manage mode (plan §4.3.3): injected side-effects, wired to the
+    // in-place updater (zero cap interaction) and the shared sample core
+    // (chat_tool origin → 60s dry-run throttle, typed results).
+    ...(mode === "manage"
+      ? {
+          updateSpec: updateSpecInPlace,
+          sendSample: (args: { dryRun: boolean; specId: string }) =>
+            runSampleForUser({
+              userId: user.id,
+              dryRun: args.dryRun,
+              origin: "chat_tool",
+              specId: args.specId,
+            }),
+        }
+      : {}),
   };
 
   // PRIOR CONTEXT block: if anything was applied or proposed this turn,
@@ -397,9 +445,23 @@ export async function POST(req: Request) {
     templateId: thread.templateId,
     turnIdx,
   });
-  const systemPrompt = [loadConfigAgentSystemPrompt(), priorCtxBlock, templateSeedBlock]
-    .filter(Boolean)
-    .join("\n\n");
+  // Manage mode (plan §4.3.4): separate prompt file + the per-turn CURRENT
+  // BRIEF overlay — the overlay, not the (capped) transcript, is the
+  // load-bearing state. Setup keeps its prompt + overlays byte-identical.
+  const systemPrompt =
+    mode === "manage" && boundSpec
+      ? [
+          loadManageAgentSystemPrompt(),
+          buildManageContextBlock({
+            name: boundSpec.name,
+            version: boundSpec.version,
+            status: boundSpec.status,
+            spec: boundSpec.spec,
+          }),
+        ].join("\n\n")
+      : [loadConfigAgentSystemPrompt(), priorCtxBlock, templateSeedBlock]
+          .filter(Boolean)
+          .join("\n\n");
 
   try {
     const result = streamText({
@@ -411,7 +473,7 @@ export async function POST(req: Request) {
       // truncation never loses the spec. Setup turns untouched.
       messages:
         mode === "manage" ? capManageTranscript(body.messages) : body.messages,
-      tools: buildAiSdkTools(agentCtx),
+      tools: buildAiSdkTools(agentCtx, mode),
       maxSteps: 6,
       temperature: 0.3,
       onError: ({ error }) => {
@@ -483,6 +545,16 @@ export async function POST(req: Request) {
                     }
               )
               .where(eq(chatThreads.id, thread.id));
+            // ACX.5: a setup save under the flag is the moment the thread
+            // BECOMES a manage thread, still in the same session.
+            if (manageOn && mode === "setup") {
+              log.info("manage_thread_resumed", {
+                userId: user.id,
+                threadId: thread.id,
+                specId: session.savedSpecId,
+                source: "post_save_same_session",
+              });
+            }
           } else if (session.draft) {
             await db
               .update(chatThreads)
