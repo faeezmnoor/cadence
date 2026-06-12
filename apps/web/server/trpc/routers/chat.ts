@@ -3,7 +3,7 @@
  *
  * Token-level streaming happens at /api/chat (Vercel AI SDK route handler),
  * not here — tRPC procedures are request/response. This router is the
- * boring side: create/list threads, list messages, mark complete.
+ * boring side: create/list threads, list messages, reset.
  *
  * Why both?
  *  - Streaming via tRPC means inventing our own SSE/Stream protocol that
@@ -260,30 +260,6 @@ export const chatRouter = router({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
       return rows[0].draftSpec ?? null;
-    }),
-
-  /**
-   * Mark a thread completed. Called by the client after the agent has
-   * successfully run `confirm_and_save` so subsequent /chat visits open
-   * a fresh thread instead of reviving a terminal one.
-   */
-  completeThread: protectedProcedure
-    .input(z.object({ threadId: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const [updated] = await db
-        .update(chatThreads)
-        .set({ status: "completed", updatedAt: new Date() })
-        .where(
-          and(
-            eq(chatThreads.id, input.threadId),
-            eq(chatThreads.userId, ctx.user.id)
-          )
-        )
-        .returning();
-      if (!updated) {
-        throw new TRPCError({ code: "NOT_FOUND" });
-      }
-      return updated;
     }),
 
   /**
