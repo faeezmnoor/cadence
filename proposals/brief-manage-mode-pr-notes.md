@@ -163,3 +163,113 @@ nothing structural.
   (`saveTransitionMessage`).
 - Docs (work item 8): ARCHITECTURE.md thread-lifecycle note still owed;
   COPY_FIXES_PROPOSED.md had no conflicts surface in this chunk.
+
+---
+
+## Chunk D — evals + docs (work items 7–8)
+
+### Eval summary (merge gate, plan §4.4)
+
+All four suites green. Full outputs committed for PR pasting:
+`proposals/eval-output-setup.txt`, `proposals/eval-output-manage.txt`.
+
+| Suite | Where | Result |
+|---|---|---|
+| `test/config-agent.eval.test.ts` (deterministic setup) | CI | 6/6 PASS — untouched, byte-frozen registry guard intact |
+| `test/config-agent-manage.eval.test.ts` (deterministic manage, NEW) | CI | 13/13 PASS — edit golden set fixtures 1–5 + behavioral fixtures 6–9 + registry guard |
+| `test/eval-template-live.test.ts` (live setup) | local | 10/10 PASS, **UNCHANGED** — extraction golden set + ≤3-question interview contract prove the setup surface untouched |
+| `test/eval-manage-live.test.ts` (live manage, NEW — 7 scenarios) | local | 8/8 PASS (scenarios 2 and 6 share the panel-confirmation run; 2 runs as 2a panel + 2b typed) |
+
+Live runs: `RUN_LIVE_EVALS=1 OPENAI_API_KEY=... EXTRACTOR_TIMEOUT_MS=20000`,
+gpt-4o-mini, ≈ $0.02 total. Manage suite passed twice consecutively
+(iteration-3 run + the verbose artifact run).
+
+**Prompt iterations (3, within the §4.4 budget)** — all on
+`prompts/config_agent_manage_v1.md`, agent-instruction lines only; every
+eval-asserted user-visible string stayed byte-identical (re-checked against
+COPY_GUIDE canon; the client confirmation token "Looks good — update this
+brief" untouched, no trailing period):
+
+1. **Scenario 5 lapse:** model answered "Out of credits — top up to send a
+   sample." WITHOUT calling `send_sample` (hallucinated a failure state).
+   Fix: sample-semantics hard rule — every sample request gets a
+   `send_sample` call first; never report an outcome you did not receive.
+2. **Scenario 5 again:** wrote bolded lowercase "connect Telegram". Fix:
+   the no_telegram phrasing now spells out the exact casing/no-markdown
+   requirement for the **Connect Telegram** link token. **Scenario 6:**
+   post-save next steps written as text bullets, no chips call — first
+   strengthening of confirm-contract step 5.
+3. **Scenario 6 again:** reordered the post-save procedure — FIRST call
+   `suggest_quick_replies`, THEN write the one post-save line; requirement
+   also pinned on the tool-list entry. gpt-4o-mini follows the procedural
+   ordering reliably (8/8 after this).
+
+**Deviation (trust-the-code):** plan fixture 6 assumed "invalid edit
+(empties topics) → `finalizeDraft` rejects". In reality the DRAFT schema
+already requires ≥1 topic, so the empty-topics edit is rejected at
+STAGING inside `update_spec_field` (stronger: the bad value can never
+even sit on the draft). The deterministic suite asserts the actual
+staging-time rejection AND keeps a finalizeDraft-level case (incomplete
+draft from degraded hydration) so both gates stay pinned.
+
+§6 rows owed by earlier chunks were verified already present: two-brief
+cross-surface cooldown fixture (`test/digest-sample-core.test.ts`),
+route-guard matrix incl. the flag-off RC5 row
+(`test/manage-thread-gate.test.ts`), `resetThread` specId carry-over
+transaction (`test/chat-reset-thread.test.ts`). No gaps remained.
+
+Full suite after chunk D: **117 files / 1119 tests passed** (baseline
+116/1106 — additions only); `tsc --noEmit` and `pnpm lint` clean.
+
+### Docs landed (work item 8)
+
+- `apps/web/server/ARCHITECTURE.md`: new `chat/` section — thread
+  lifecycle (mode DERIVED from `spec_id`, never stored; `completed` =
+  legacy-only; kill-switch fail-closed behavior) and the explicit
+  **ON DELETE SET NULL tripwire** (hard-deleting a spec would silently
+  degrade its manage thread to a setup thread carrying full manage
+  history — fine while specs are archive-only; any future hard-delete
+  feature must archive/delete the bound thread in the same transaction).
+  Plus a manage-mode pointer in the `ai/config-agent/` section.
+- COPY_GUIDE / COPY_FIXES_PROPOSED: **no conflicts surfaced** in chunk D —
+  the three prompt iterations changed agent-instruction lines only; all
+  COPY_GUIDE-canonical strings verified byte-identical post-iteration.
+
+### Ship-sequence checklist (§7.1, verbatim from the plan)
+
+1. Isolated worktree (`git worktree add` — parallel sessions share `~/code/cadence`, never assume sole tree ownership). Re-verify migration number first.
+2. Land commits per §5; CI green; live evals green locally (output in PR).
+3. Branch-DB rehearsal of **all three script phases** (schema, reactivate, rollback) incl. idempotency proofs.
+4. **Pre-merge prod apply: `apply-0028.mjs` (default `--phase=schema`) ONLY** — column, indexes, `spec_id` backfill, throttle column. **No status UPDATE runs pre-merge** (checkable: the schema phase contains none). Forward-safe with live legacy code: nullable column + partial indexes; legacy code never reads `spec_id`, and — the part that made the split necessary — no thread's `status` changes, so legacy `/chat` resolution behavior is byte-identical.
+5. PR with: eval outputs, backfill counts, CTO flag **and explicit ack** on the cost-events commit, founder sign-off confirmations (credit-line voice; "+ New brief" disabled placement), the post-ship PM query (§2 success trigger), and the **founder heads-up note**: the post-deploy reactivation step (7) revives old completed threads, so the first post-reactivation bare-`/chat` visit may land in an old conversation — intended per decision 3.
+6. Set `MANAGE_MODE` in Vercel env, then squash-merge after CPO+CTO approval; Vercel auto-deploy ships flag-on.
+7. **Post-deploy, after verifying the new code is serving:** run `apply-0028.mjs --phase=reactivate` against prod. The NOT-EXISTS guard skips any spec whose user already lazy-created an active manage thread between deploy and now; record reactivated/skipped counts in the PR thread.
+8. Post-deploy smoke: open a reactivated legacy thread via `/chat?brief=<id>`, send "show me a sample" → preview card; check `/briefs` Chat action; check one `manage_thread_resumed` and one chat-turn `cost_events` row landed; send two quick "preview" asks → second returns the dry-run wait line (throttle live).
+
+### Founder heads-up — reactivated threads
+
+The post-deploy reactivation step (§7.1 step 7) revives old `completed`
+setup threads as live manage threads. The first post-reactivation visit
+to bare `/chat` may therefore land a user in an OLD conversation (their
+brief's thread, with its history) instead of a fresh chat. This is
+intended per locked decision 3 (persistent per-brief threads; bare
+`/chat` resumes the most-recently-active thread) — not a bug. If it
+surprises in practice, the `/briefs` → Chat path remains the primary,
+unambiguous door; no code change needed to tolerate it.
+
+### Post-ship PM query (§2 success trigger — paste into the post-ship checklist)
+
+Owner: PM, at the +2-week review. If edit→applied conversion < ~60%
+after 2 weeks of real traffic, the manage prompt goes back through the
+eval loop before any other iteration. New-thread creations per user per
+week on `/chat` should drop to ~0 for users with saved briefs:
+
+```sql
+SELECT user_id, count(*)
+FROM chat_threads
+WHERE created_at > now() - interval '7 days'
+  AND purpose = 'initial_config'
+GROUP BY 1
+```
+
+joined against users with ≥1 non-archived spec.

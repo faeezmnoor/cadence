@@ -101,6 +101,14 @@ The chat agent that captures the user's DigestSpec.
 - `safe-execute.ts` — wraps tool calls with structured error envelopes
   so the agent's stream doesn't crash on a tool throw.
 - `draft.ts` — chat-thread draft-spec persistence.
+- Manage mode (see `chat/` below for the lifecycle): `manage-context.ts`
+  (per-turn CURRENT BRIEF overlay + `specToDraft`), `update-spec.ts`
+  (`updateSpecInPlace` — same spec id, version +1, NEVER imports cap
+  code), `tools/send_sample.ts` + `tools/save_changes.ts`, and the
+  second registry `manageAgentTools` (exact-keys eval-guarded; the
+  setup registry stays byte-frozen). Separate prompt file
+  `prompts/config_agent_manage_v1.md` keeps setup evals provably
+  untouched.
 
 ### `ai/distill/`
 Weekly aggregation of `learning_log` rows into terse `distilled_prefs`.
@@ -154,6 +162,53 @@ margin metric, never shown to the user).
 **Extending billing**: NEVER write to `credits_balance` outside this module.
 Adding a new transaction `type` requires both a new helper here AND a
 matching `transactions.type` value (currently `charge | refund | grant | topup`).
+
+---
+
+## `chat/`
+
+Thread lifecycle for the manage-mode wave (migration 0028; plan in
+`proposals/brief-manage-mode-plan.md`).
+
+- `thread-gate.ts` — `deriveThreadMode` + `resolveThreadGate`, the pure
+  route-guard matrix `/api/chat` consumes verbatim
+  (test: `test/manage-thread-gate.test.ts`).
+- `manage-thread.ts` — `/chat` resolution + lazy-create (partial unique
+  index + re-select on violation, Sentry breadcrumb on the race path).
+- `manage-seed.ts` — `buildManageSeedSummary`, the two deterministic
+  seed messages for lazy-created threads (banned-vocab unit-enforced).
+- `manage-transcript.ts` — `capManageTranscript(messages, N=20)`,
+  exec RC7. The per-turn CURRENT BRIEF overlay (not the transcript) is
+  the load-bearing state; chat-turn `cost_events` rows are the monitor
+  that per-turn input tokens stay flat as threads age.
+- `telemetry.ts` — `manage_thread_resumed` / sample / edit event writes.
+
+**Thread lifecycle (mode is DERIVED, never stored):**
+
+- `chat_threads.spec_id IS NULL` → **setup** thread: the setup interview
+  prompt + `configAgentTools` (byte-frozen registry, eval-gated).
+- `chat_threads.spec_id IS NOT NULL` → **manage** thread: the manage
+  prompt (`prompts/config_agent_manage_v1.md`) + `manageAgentTools`.
+  After `confirm_and_save`, `onFinish` writes `spec_id` and the SAME
+  thread becomes its brief's persistent manage thread — `status` stays
+  `active` forever.
+- `status='completed'` is **legacy-only**: no new code path writes it
+  (flag-off restores the legacy write for unbound threads). Completed
+  threads are never resumed; migration 0028 phase 2 (post-deploy)
+  reactivates spec-bound ones.
+- Kill switch (`MANAGE_MODE` off, exec RC5): the route 409s ANY
+  spec-bound thread regardless of status and resolution skips them —
+  a spec-bound thread must never fall through to the setup prompt
+  (whose save path can archive-and-replace at cap).
+
+**ON DELETE SET NULL tripwire (exec advisory 4):** `chat_threads.spec_id`
+references `digest_specs(id) ON DELETE SET NULL`. Specs are archive-only
+today, so this never fires — but if a future feature HARD-deletes a
+`digest_specs` row, its manage thread silently degrades to a "setup"
+thread (`spec_id` nulled, mode re-derives) while carrying the full manage
+history, and the next `/api/chat` turn would serve it the setup
+interview + `confirm_and_save`. Any hard-delete feature MUST also
+archive (or delete) the bound chat thread in the same transaction.
 
 ---
 
