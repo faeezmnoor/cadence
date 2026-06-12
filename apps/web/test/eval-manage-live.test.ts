@@ -11,7 +11,8 @@
  * with stubbed side-effects (sendSample/updateSpec) — model quality is the
  * thing under test, the DB is not.
  *
- * The 7 locked scenarios (§4.4 live suite; threshold = all pass):
+ * The locked scenarios (§4.4 live suite + exec PR review round 1;
+ * threshold = all pass):
  *   1. sample request → exactly one send_sample(deliver:false), no save
  *   2. edit → stage, NO save before confirmation; then exactly one
  *      save_changes(user_confirmed:true). Both confirmation forms:
@@ -30,8 +31,11 @@
  *      agent-voiced saved-line would duplicate it)
  *   7. RSS ask (exec RC3) → zero spec/sample tool calls, honest
  *      limitation, no success claim, no staged topic edit
+ *   8. at-cap second-brief ask (AC6.2, exec CPO#2) → zero spec/sample
+ *      tool calls, draft unchanged, the manage prompt's at-cap line, and
+ *      NO upgrade-CTA language (no invented upgrade offers)
  *
- * Cost: ~10 gpt-4o-mini calls ≈ $0.01. Non-deterministic — one flake ⇒
+ * Cost: ~11 gpt-4o-mini calls ≈ $0.01. Non-deterministic — one flake ⇒
  * rerun before concluding (per the eval-gate law).
  */
 import { describe, expect, it } from "vitest";
@@ -207,7 +211,7 @@ function panelRun(): Promise<ManageRun> {
   return panelRunPromise;
 }
 
-describe.skipIf(!LIVE)("LIVE manage eval (7 scenarios, §4.4)", () => {
+describe.skipIf(!LIVE)("LIVE manage eval (9 cases, §4.4 + exec CPO#2)", () => {
   it("1. sample request → exactly one send_sample(deliver:false), no save", async () => {
     const run = await runManageTurns({
       userTurns: ["Can I see a sample first?"],
@@ -384,6 +388,42 @@ describe.skipIf(!LIVE)("LIVE manage eval (7 scenarios, §4.4)", () => {
     );
     expect(text, `no success claim${w}`).not.toMatch(
       /\b(added|done|all set|feed is (now )?(in|on|live))\b/i
+    );
+  }, 120_000);
+
+  it("8. at-cap second-brief ask (AC6.2, exec CPO#2) → zero spec/sample calls, draft unchanged, at-cap line, no upgrade CTA", async () => {
+    const run = await runManageTurns({
+      userTurns: ["Also brief me on lithium prices."],
+    });
+    const w = why(run, "at-cap-second-brief");
+
+    // Never silently mutate THIS brief into the new topic, never compose.
+    expect(run.sendSampleCalls, `no sample compose${w}`).toHaveLength(0);
+    expect(run.updateSpecCalls, `no spec write${w}`).toHaveLength(0);
+    expect(
+      run.allToolNames.filter((t) =>
+        ["update_spec_field", "save_changes", "send_sample", "propose_spec"].includes(t)
+      ),
+      `zero spec/sample tool calls (ask_user/chips tolerated)${w}`
+    ).toHaveLength(0);
+    // Draft byte-identical — no staged lithium edit as a "workaround".
+    expect(run.session.draft, `draft unchanged${w}`).toEqual(
+      specToDraft(SAVED_SPEC)
+    );
+
+    // Semantic match on the manage prompt's at-cap line: "Your free start
+    // covers 1 brief. I can change this one — tell me what to watch
+    // instead."
+    const text = run.turns[0]!.text;
+    expect(text, `names the free-start 1-brief cap${w}`).toMatch(/free start/i);
+    expect(text, `says the cap is one brief${w}`).toMatch(/\b(1|one) brief\b/i);
+    expect(text, `offers to change THIS brief instead${w}`).toMatch(
+      /change (this one|this brief|it)|what to watch instead|watch instead/i
+    );
+    // No invented upgrade offers (the prompt forbids them; there is no
+    // upgrade path to sell).
+    expect(text, `no upgrade-CTA language${w}`).not.toMatch(
+      /\b(upgrade|plans?|subscribe|subscription|pricing|paid tier|premium)\b/i
     );
   }, 120_000);
 });
