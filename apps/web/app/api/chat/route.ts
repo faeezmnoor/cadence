@@ -29,6 +29,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { isManageMode } from "@/lib/feature-flags";
 import { resolveThreadGate } from "@/server/chat/thread-gate";
 import { capManageTranscript } from "@/server/chat/manage-transcript";
+import { onFinishThreadWrite } from "@/server/chat/on-finish-write";
 import { buildAiSdkTools } from "@/server/ai/config-agent/runtime";
 import { saveSpecForUser } from "@/server/ai/config-agent/save-spec";
 import { updateSpecInPlace } from "@/server/ai/config-agent/update-spec";
@@ -551,46 +552,28 @@ export async function POST(req: Request) {
           // contract). Either way draft_spec clears (the canonical record is
           // now in digest_specs) and updatedAt is touched EVERY turn so
           // bare-/chat recency ordering stays honest (exec advisory 10).
-          if (session.savedSpecId) {
-            await db
-              .update(chatThreads)
-              .set(
-                manageOn
-                  ? {
-                      specId: session.savedSpecId,
-                      draftSpec: null,
-                      updatedAt: new Date(),
-                    }
-                  : {
-                      status: "completed",
-                      draftSpec: null,
-                      updatedAt: new Date(),
-                    }
-              )
-              .where(eq(chatThreads.id, thread.id));
-            // ACX.5: a setup save under the flag is the moment the thread
-            // BECOMES a manage thread, still in the same session.
-            if (manageOn && mode === "setup") {
-              log.info("manage_thread_resumed", {
-                userId: user.id,
-                threadId: thread.id,
-                specId: session.savedSpecId,
-                source: "post_save_same_session",
-              });
-            }
-          } else if (session.draft) {
-            await db
-              .update(chatThreads)
-              .set({
-                draftSpec: session.draft,
-                updatedAt: new Date(),
-              })
-              .where(eq(chatThreads.id, thread.id));
-          } else {
-            await db
-              .update(chatThreads)
-              .set({ updatedAt: new Date() })
-              .where(eq(chatThreads.id, thread.id));
+          // The set-object choice is the pure helper onFinishThreadWrite
+          // (exec CTO R3) — unit-tested in test/chat-onfinish-write.test.ts.
+          await db
+            .update(chatThreads)
+            .set({
+              ...onFinishThreadWrite(
+                manageOn,
+                session.savedSpecId,
+                session.draft
+              ),
+              updatedAt: new Date(),
+            })
+            .where(eq(chatThreads.id, thread.id));
+          // ACX.5: a setup save under the flag is the moment the thread
+          // BECOMES a manage thread, still in the same session.
+          if (session.savedSpecId && manageOn && mode === "setup") {
+            log.info("manage_thread_resumed", {
+              userId: user.id,
+              threadId: thread.id,
+              specId: session.savedSpecId,
+              source: "post_save_same_session",
+            });
           }
         } catch (err) {
           log.error("chat onFinish persist failed", { err: String(err) });
