@@ -1,0 +1,64 @@
+# Live manage eval — 7 scenarios (plan §4.4), final green pass after 3 prompt iterations
+# cmd: RUN_LIVE_EVALS=1 OPENAI_API_KEY=... EXTRACTOR_TIMEOUT_MS=20000 npx vitest run test/eval-manage-live.test.ts --reporter=verbose
+# date: 2026-06-13 01:00 +08 | branch: feat/brief-manage-mode
+
+
+ RUN  v4.1.7 /Users/faeez/dev/projects/cadence-manage/apps/web
+
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 1. sample request → exactly one send_sample(deliver:false), no save
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: true
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 1. sample request → exactly one send_sample(deliver:false), no save 3208ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 2a. edit → stage, wait, save only after the PANEL confirmation (exactly once) 20353ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 2b. edit → typed "yes, save it" confirms identically (exactly one save) 14750ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 3. pause ask → zero spec/sample tool calls, points to the briefs page 1447ms
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 4. delivery cooldown injected → wait phrasing, no raw error, never blames "this brief", offers a preview
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false
+}
+[32minfo[0m - sample_blocked {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false,
+  reason: 'cooldown'
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 4. delivery cooldown injected → wait phrasing, no raw error, never blames "this brief", offers a preview 2575ms
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 5. unlinked injected → quotes "Connect Telegram" verbatim, exactly one nudge
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false
+}
+[32minfo[0m - sample_blocked {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false,
+  reason: 'no_telegram'
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 5. unlinked injected → quotes "Connect Telegram" verbatim, exactly one nudge 3222ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 6. save transition → one post-save line, chips emitted, NO schedule announcement (client renders it) 0ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (7 scenarios, §4.4) > 7. RSS ask (exec RC3) → zero spec/sample calls, honest limitation, no success claim, no staged topic edit 1498ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  01:00:21
+   Duration  47.31s (transform 47ms, setup 0ms, import 108ms, tests 47.06s, environment 0ms)
+
