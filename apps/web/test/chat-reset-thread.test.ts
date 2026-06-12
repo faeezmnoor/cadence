@@ -24,6 +24,7 @@ interface ThreadRow {
   purpose: string;
   status: string;
   draftSpec: unknown;
+  specId: string | null;
 }
 
 const PRIOR_THREAD_ID = "11111111-1111-1111-1111-111111111111";
@@ -43,6 +44,7 @@ function reset() {
     purpose: "initial_config",
     status: "active",
     draftSpec: { topics: ["palm oil"] },
+    specId: null,
   };
   messagesArchiveCalls.length = 0;
   threadUpdateCalls.length = 0;
@@ -68,7 +70,7 @@ function makeFakeDb() {
               const row = threadsStore[PRIOR_THREAD_ID];
               if (!row) return Promise.resolve([]);
               return Promise.resolve([
-                { id: row.id, purpose: row.purpose },
+                { id: row.id, purpose: row.purpose, specId: row.specId },
               ]);
             },
           };
@@ -118,6 +120,7 @@ function makeFakeDb() {
             purpose: v.purpose as string,
             status: v.status as string,
             draftSpec: null,
+            specId: (v.specId as string | null | undefined) ?? null,
           };
           threadsStore[NEW_THREAD_ID] = created;
           return Promise.resolve([created]);
@@ -209,6 +212,37 @@ describe("chat.resetThread — fresh-thread fix", () => {
     // pick on its next render (active + most recent).
     expect(threadsStore[NEW_THREAD_ID]!.status).toBe("active");
     expect(threadsStore[NEW_THREAD_ID]!.draftSpec).toBeNull();
+  });
+
+  it("carries the specId binding onto the replacement thread (manage mode, C6)", async () => {
+    // Re-seed the prior thread as a MANAGE thread (spec-bound).
+    const SPEC_ID = "55555555-5555-5555-5555-555555555555";
+    threadsStore[PRIOR_THREAD_ID]!.specId = SPEC_ID;
+    threadsStore[PRIOR_THREAD_ID]!.purpose = "reconfigure";
+
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.chat.resetThread({ threadId: PRIOR_THREAD_ID });
+    expect(result.ok).toBe(true);
+
+    // Archive-then-insert: prior thread leaves 'active' (unique-index safe)
+    // and the replacement keeps BOTH the purpose and the spec binding —
+    // a reset manage thread must never degrade into a setup thread.
+    expect(threadsStore[PRIOR_THREAD_ID]!.status).toBe("archived");
+    expect(threadInsertCalls).toHaveLength(1);
+    expect(threadInsertCalls[0]!.values).toMatchObject({
+      userId: USER_ID,
+      purpose: "reconfigure",
+      status: "active",
+      specId: SPEC_ID,
+    });
+    expect(threadsStore[NEW_THREAD_ID]!.specId).toBe(SPEC_ID);
+  });
+
+  it("setup threads keep a NULL specId on the replacement", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.chat.resetThread({ threadId: PRIOR_THREAD_ID });
+    expect(threadInsertCalls[0]!.values.specId).toBeNull();
+    expect(threadsStore[NEW_THREAD_ID]!.specId).toBeNull();
   });
 
   it("throws NOT_FOUND for a thread the user doesn't own", async () => {

@@ -24,8 +24,11 @@ import { streamText, type Message } from "ai";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { db } from "@/server/db/client";
-import { chatMessages, chatThreads } from "@/server/db/schema";
+import { chatMessages, chatThreads, digestSpecs } from "@/server/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
+import { isManageMode } from "@/lib/feature-flags";
+import { resolveThreadGate } from "@/server/chat/thread-gate";
+import { capManageTranscript } from "@/server/chat/manage-transcript";
 import { buildAiSdkTools } from "@/server/ai/config-agent/runtime";
 import { saveSpecForUser } from "@/server/ai/config-agent/save-spec";
 import { loadConfigAgentSystemPrompt } from "@/server/ai/config-agent/system-prompt";
@@ -129,12 +132,65 @@ export async function POST(req: Request) {
   if (!thread) {
     return NextResponse.json({ error: "thread not found" }, { status: 404 });
   }
-  if (thread.status !== "active") {
+
+  // Manage mode (plan §4.2): gate + mode derivation via the pure helper.
+  // The bound spec row is loaded only when the thread is spec-bound AND the
+  // flag is on (flag-off spec-bound threads fail closed without a spec read
+  // — exec RC5). The ownership filter on the spec query matters: a thread
+  // bound to someone else's spec (impossible today, defensive forever)
+  // reads as "missing" and fails closed as brief_archived.
+  const manageOn = isManageMode();
+  let boundSpec:
+    | {
+        id: string;
+        status: string;
+        name: string;
+        version: number;
+        spec: unknown;
+      }
+    | null = null;
+  if (manageOn && thread.specId != null) {
+    const specRows = await db
+      .select({
+        id: digestSpecs.id,
+        status: digestSpecs.status,
+        name: digestSpecs.name,
+        version: digestSpecs.version,
+        spec: digestSpecs.spec,
+      })
+      .from(digestSpecs)
+      .where(
+        and(eq(digestSpecs.id, thread.specId), eq(digestSpecs.userId, user.id))
+      )
+      .limit(1);
+    boundSpec = specRows[0] ?? null;
+  }
+  const gate = resolveThreadGate({
+    manageMode: manageOn,
+    thread: { status: thread.status, specId: thread.specId },
+    spec: boundSpec,
+  });
+  if (!gate.ok) {
+    if (gate.reason === "brief_archived") {
+      // AC8.1 / C3: server backstop for archived briefs — the client swaps
+      // to the archived banner state on this envelope; never a stale success.
+      return NextResponse.json(
+        {
+          error: "brief_archived",
+          message:
+            "This brief is archived, so this chat is closed. Your conversation is kept here.",
+        },
+        { status: 409 }
+      );
+    }
+    // not_active AND flag_off_spec_bound share the legacy generic envelope
+    // (exec RC5 asks for a generic 409; clients already handle this shape).
     return NextResponse.json(
       { error: "thread is not active" },
       { status: 409 }
     );
   }
+  const mode = gate.mode;
 
   // Persist the latest user message (the one the client just sent).
   const lastMsg = body.messages[body.messages.length - 1];
@@ -161,6 +217,14 @@ export async function POST(req: Request) {
       role: "user",
       charCount: text.length,
     });
+
+    // Manage mode (exec advisory 10): touch updatedAt on the user-message
+    // insert, not only in onFinish — an aborted stream must still update
+    // bare-/chat recency (resolution orders manage threads by updatedAt).
+    await db
+      .update(chatThreads)
+      .set({ updatedAt: new Date() })
+      .where(eq(chatThreads.id, thread.id));
 
     // Brief-creation revamp PR 1: template provenance. Stamp once — the
     // first template submission wins; later taps in the same thread don't
@@ -341,7 +405,12 @@ export async function POST(req: Request) {
     const result = streamText({
       model: openai("gpt-4o-mini"),
       system: systemPrompt,
-      messages: body.messages,
+      // Exec RC7 / ACX.6: manage threads grow without bound, so manage turns
+      // send a capped transcript (last N). The system prompt + per-turn spec
+      // overlay ride outside `messages` and are the load-bearing state —
+      // truncation never loses the spec. Setup turns untouched.
+      messages:
+        mode === "manage" ? capManageTranscript(body.messages) : body.messages,
       tools: buildAiSdkTools(agentCtx),
       maxSteps: 6,
       temperature: 0.3,
@@ -390,16 +459,29 @@ export async function POST(req: Request) {
           });
 
           // T-408: persist the working draft so the next turn sees it.
-          // On successful save we also clear draft_spec (the canonical
-          // record is now in digest_specs) and mark the thread completed.
+          // Manage mode (plan §4.2): on successful save, flag ON writes the
+          // spec binding and keeps the thread ALIVE (status stays 'active')
+          // — the thread becomes/remains a manage thread. Flag OFF preserves
+          // the legacy status='completed' terminal write (§7.2 rollback
+          // contract). Either way draft_spec clears (the canonical record is
+          // now in digest_specs) and updatedAt is touched EVERY turn so
+          // bare-/chat recency ordering stays honest (exec advisory 10).
           if (session.savedSpecId) {
             await db
               .update(chatThreads)
-              .set({
-                status: "completed",
-                draftSpec: null,
-                updatedAt: new Date(),
-              })
+              .set(
+                manageOn
+                  ? {
+                      specId: session.savedSpecId,
+                      draftSpec: null,
+                      updatedAt: new Date(),
+                    }
+                  : {
+                      status: "completed",
+                      draftSpec: null,
+                      updatedAt: new Date(),
+                    }
+              )
               .where(eq(chatThreads.id, thread.id));
           } else if (session.draft) {
             await db
@@ -408,6 +490,11 @@ export async function POST(req: Request) {
                 draftSpec: session.draft,
                 updatedAt: new Date(),
               })
+              .where(eq(chatThreads.id, thread.id));
+          } else {
+            await db
+              .update(chatThreads)
+              .set({ updatedAt: new Date() })
               .where(eq(chatThreads.id, thread.id));
           }
         } catch (err) {

@@ -28,3 +28,27 @@ export function isProTierAlpha(): boolean {
   const v = process.env.PRO_TIER_ALPHA;
   return v === "1" || v === "true";
 }
+
+/**
+ * Brief manage mode rollout flag (manage-mode plan §7.2, exec RC5).
+ *
+ * Accepts "1" or "true" (case-sensitive) as opt-in — same truth table as
+ * isProTierAlpha. Anything else — including unset, "", "0", "false" — is off.
+ *
+ * This is the primary kill switch and it FAILS CLOSED for spec-bound
+ * threads: with the flag off,
+ *   - /api/chat 409s ANY thread with spec_id != null regardless of status
+ *     (a spec-bound thread must never reach the setup prompt + registry,
+ *     whose confirm_and_save → saveSpecForUser can archive-and-replace the
+ *     user's live brief at cap),
+ *   - /chat resolution skips spec-bound threads entirely,
+ *   - ?brief=<id> redirects to /briefs,
+ *   - onFinish writes the legacy status='completed' transition.
+ *
+ * One canonical read site, mirroring isProTierAlpha — never read
+ * process.env.MANAGE_MODE directly.
+ */
+export function isManageMode(): boolean {
+  const v = process.env.MANAGE_MODE;
+  return v === "1" || v === "true";
+}
