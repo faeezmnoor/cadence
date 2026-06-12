@@ -18,18 +18,32 @@
  * stamps `new Date()` on EVERY turn (exec advisory 10) regardless of which
  * row this helper picks.
  */
+import { isDeepStrictEqual } from "node:util";
 import type { DigestSpecDraft } from "@/lib/digest-spec/schema";
 
 export type OnFinishThreadWrite =
   | { specId: string; draftSpec: null }
   | { status: "completed"; draftSpec: null }
-  | { draftSpec: DigestSpecDraft }
+  | { draftSpec: DigestSpecDraft | null }
   | Record<string, never>;
 
 export function onFinishThreadWrite(
   manageOn: boolean,
   savedSpecId: string | undefined,
-  draft: DigestSpecDraft | undefined
+  draft: DigestSpecDraft | undefined,
+  /**
+   * CTO A3 (exec PR review round 1): the bound SAVED spec rendered as a
+   * draft (manage turns pass specToDraft(boundSpec.spec); setup turns pass
+   * undefined). Manage turns seed the working draft from the saved spec, so
+   * without this check every manage turn persisted that seed to
+   * chat_threads.draft_spec — a stale-snapshot landmine: hydration prefers
+   * thread.draftSpec, so a later out-of-band spec change would be masked by
+   * the frozen copy. When the working draft still equals the saved spec
+   * there is nothing staged — clear draft_spec instead of persisting the
+   * redundant snapshot (clearing also heals threads that already carry one,
+   * and covers a staged edit the user reverted back to saved state).
+   */
+  boundSpecDraft?: DigestSpecDraft
 ): OnFinishThreadWrite {
   if (savedSpecId) {
     return manageOn
@@ -37,6 +51,9 @@ export function onFinishThreadWrite(
       : { status: "completed", draftSpec: null };
   }
   if (draft) {
+    if (boundSpecDraft && isDeepStrictEqual(draft, boundSpecDraft)) {
+      return { draftSpec: null };
+    }
     return { draftSpec: draft };
   }
   return {};

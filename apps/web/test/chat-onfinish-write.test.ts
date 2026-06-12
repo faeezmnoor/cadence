@@ -61,6 +61,29 @@ describe("onFinishThreadWrite — no save this turn", () => {
     expect(onFinishThreadWrite(false, undefined, undefined)).toEqual({});
   });
 
+  it("CTO A3: manage turn with draft === saved-spec snapshot → clears draft_spec instead of persisting the redundant copy", () => {
+    // Deep-equal but DIFFERENT object identity, like the route's fresh
+    // specToDraft(boundSpec.spec) vs the session's hydrated seed.
+    const snapshot: DigestSpecDraft = JSON.parse(JSON.stringify(DRAFT));
+    expect(onFinishThreadWrite(true, undefined, DRAFT, snapshot)).toEqual({
+      draftSpec: null,
+    });
+  });
+
+  it("CTO A3: a real staged edit still persists (draft diverged from the saved spec)", () => {
+    const staged: DigestSpecDraft = { ...DRAFT, topics: ["palm oil", "soy"] };
+    const snapshot: DigestSpecDraft = JSON.parse(JSON.stringify(DRAFT));
+    expect(onFinishThreadWrite(true, undefined, staged, snapshot)).toEqual({
+      draftSpec: staged,
+    });
+  });
+
+  it("CTO A3: setup turns (no bound-spec snapshot) keep persisting the draft unchanged", () => {
+    expect(onFinishThreadWrite(true, undefined, DRAFT, undefined)).toEqual({
+      draftSpec: DRAFT,
+    });
+  });
+
   it("never emits its own updatedAt (the route stamps it, exec advisory 10)", () => {
     for (const write of [
       onFinishThreadWrite(true, SPEC_ID, DRAFT),

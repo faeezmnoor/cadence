@@ -508,7 +508,12 @@ export async function POST(req: Request) {
           const outputTokens = Number.isFinite(usage?.completionTokens)
             ? usage.completionTokens
             : 0;
-          void recordCost({
+          // CTO A5 (exec PR review round 1): awaited, not fire-and-forget —
+          // recordCost never throws (it catches internally), but serverless
+          // can freeze/kill the instance once the response settles, silently
+          // dropping unawaited work. The await costs one insert of latency
+          // inside onFinish (post-stream) and guarantees the row lands.
+          await recordCost({
             userId: user.id,
             kind: "llm_call",
             provider: "openai",
@@ -560,7 +565,13 @@ export async function POST(req: Request) {
               ...onFinishThreadWrite(
                 manageOn,
                 session.savedSpecId,
-                session.draft
+                session.draft,
+                // CTO A3: manage turns seed the draft from the saved spec —
+                // when nothing diverged, clear draft_spec instead of
+                // persisting a redundant (and eventually stale) snapshot.
+                mode === "manage" && boundSpec
+                  ? specToDraft(boundSpec.spec)
+                  : undefined
               ),
               updatedAt: new Date(),
             })
