@@ -101,7 +101,12 @@ export function LinkTelegramClient({ userId, isAdmin = false }: Props) {
         scheduledNote:
           "Your 3 free briefs are used up. Email support@cadence.news to add credits — scheduled briefs are paused until then.",
       });
-    } else if (res.status === "no_telegram_link") {
+    } else if (
+      res.status === "no_telegram_link" ||
+      // Settings-surfacing v1 (gap 3): the pipeline now skips unlinked
+      // users before composing — same user-facing meaning here.
+      res.status === "skipped_unlinked"
+    ) {
       // shouldn't happen at this branch but handle gracefully
       setSampleStatus({
         kind: "error",

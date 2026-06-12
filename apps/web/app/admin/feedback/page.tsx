@@ -35,7 +35,7 @@ export default async function AdminFeedbackPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <FeedbackEvalClient adminEmail={user.email ?? ""} />
     </div>
   );

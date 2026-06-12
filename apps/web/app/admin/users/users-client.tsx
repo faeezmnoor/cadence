@@ -6,6 +6,85 @@ import { trpc } from "@/lib/trpc/client";
 import { formatUserState } from "@/lib/labels";
 
 /**
+ * Settings-surfacing v1 (gap 10): inline credit-grant per user row.
+ * The grantId (idempotency key) is generated ONCE when the form opens —
+ * a double-click or retried request reuses the same key, so the server
+ * (admin.grantCredits → server/billing/grant.ts) can only apply it once.
+ */
+function GrantCreditsCell({ userId }: { userId: string }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState<{ grantId: string } | null>(null);
+  const [amount, setAmount] = useState("10");
+  const [done, setDone] = useState<string | null>(null);
+  const grant = trpc.admin.grantCredits.useMutation({
+    onSuccess: async (res) => {
+      setOpen(null);
+      setDone(
+        res.duplicate
+          ? `Already granted (balance ${res.balanceAfter}).`
+          : `Granted. Balance ${res.balanceAfter}.`
+      );
+      await utils.admin.listUsers.invalidate();
+    },
+  });
+
+  if (open) {
+    const credits = Number.parseInt(amount, 10);
+    const valid = Number.isInteger(credits) && credits >= 1 && credits <= 1000;
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          aria-label="Credits to grant"
+          className="w-16 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-xs tabular-nums"
+        />
+        <button
+          type="button"
+          disabled={!valid || grant.isPending}
+          onClick={() =>
+            grant.mutate({ userId, credits, grantId: open.grantId })
+          }
+          className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+        >
+          {grant.isPending ? "Granting…" : "Grant"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(null)}
+          disabled={grant.isPending}
+          className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700 hover:bg-neutral-50"
+        >
+          Cancel
+        </button>
+        {grant.isError && (
+          <span className="text-xs text-red-600">{grant.error.message}</span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <button
+        type="button"
+        onClick={() => {
+          setDone(null);
+          setOpen({ grantId: crypto.randomUUID() });
+        }}
+        className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700 hover:bg-neutral-50"
+      >
+        Grant credits
+      </button>
+      {done && <span className="text-xs text-emerald-700">{done}</span>}
+    </span>
+  );
+}
+
+/**
  * /admin/users client — table view, sortable, "include deleted" toggle.
  *
  * Format: cost as $0.0000 (4 decimals — per-user lifetime is small).
@@ -189,6 +268,7 @@ export function UsersClient({ adminEmail }: { adminEmail: string }) {
                 <th className="px-3 py-2 font-medium text-right">Failed</th>
                 <th className="px-3 py-2 font-medium">Last run</th>
                 <th className="px-3 py-2 font-medium">Created</th>
+                <th className="px-3 py-2 font-medium">Grant</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100 bg-white">
@@ -229,6 +309,9 @@ export function UsersClient({ adminEmail }: { adminEmail: string }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-neutral-500">
                     {formatRelative(r.createdAt)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {!r.deletedAt && <GrantCreditsCell userId={r.id} />}
                   </td>
                 </tr>
               ))}

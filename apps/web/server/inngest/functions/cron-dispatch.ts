@@ -53,6 +53,14 @@ interface DispatcherSummary {
   claimed: number;
   collisions: number;
   ruleSkips: number;
+  /**
+   * Settings-surfacing v1 (gap 3): due specs whose owner has no Telegram
+   * link. Skipped WITHOUT claiming a run row (no debit, no failed row,
+   * no delivery_broken trip) but next_run_at still advances — mirroring
+   * rule-skip advance-on-skip so the schedule never wedges and delivery
+   * resumes at the next occurrence after relink.
+   */
+  unlinkedSkips: number;
   reconciled: number;
   errors: Array<{ specId: string; error: string }>;
   minuteUtcIso: string;
@@ -84,6 +92,7 @@ export async function dispatchDueSpecs(nowUtc: Date): Promise<DispatcherSummary>
         .select({
           userId: users.id,
           timezone: users.timezone,
+          telegramChatId: users.telegramChatId,
           specId: digestSpecs.id,
           scheduling: digestSpecs.scheduling,
           nextRunAt: digestSpecs.nextRunAt,
@@ -106,6 +115,7 @@ export async function dispatchDueSpecs(nowUtc: Date): Promise<DispatcherSummary>
         claimed: 0,
         collisions: 0,
         ruleSkips: 0,
+        unlinkedSkips: 0,
         reconciled: 0,
         errors: [],
         minuteUtcIso: minuteIso,
@@ -125,6 +135,22 @@ export async function dispatchDueSpecs(nowUtc: Date): Promise<DispatcherSummary>
         const advanceFrom = new Date(
           Math.max(nowUtc.getTime(), scheduledAt.getTime()) + 60_000
         );
+
+        // Settings-surfacing v1 (gap 3): unlinked owner — skip WITHOUT
+        // claiming (no run row → no debit, no failed row, no auto-heal
+        // noise) but ALWAYS advance, mirroring rule-skip advance-on-skip.
+        // Skipped occurrences are not back-filled on relink: delivery
+        // simply resumes at the next scheduled time.
+        if (row.telegramChatId == null) {
+          out.unlinkedSkips++;
+          try {
+            await advanceNextRunAt(row.specId, rule, advanceFrom);
+          } catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            out.errors.push({ specId: row.specId, error: `advance_on_unlinked_skip_failed: ${error}` });
+          }
+          continue;
+        }
 
         // 2. Validate the rule at the SCHEDULED instant. A rule edited
         // since next_run_at was computed may have invalidated this

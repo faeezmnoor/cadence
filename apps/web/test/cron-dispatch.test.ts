@@ -112,6 +112,11 @@ function dueSpecRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     userId: "user-1",
     timezone: "Asia/Kuala_Lumpur",
+    // Settings-surfacing v1 (gap 3): the dispatcher now selects the
+    // owner's telegramChatId and skips unlinked users without claiming
+    // (covered in test/unlink-skip.test.ts). The base fixture models a
+    // LINKED user so the CAD-217 invariants stay exercised end-to-end.
+    telegramChatId: 123456789,
     specId: "spec-1",
     scheduling: dailyRule(),
     // 08:00 MYT on 2026-06-11 == 00:00 UTC

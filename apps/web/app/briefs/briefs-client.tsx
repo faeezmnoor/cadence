@@ -20,6 +20,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import {
+  STACK_COSTS,
+  isAdvancedStack,
+  normalizeStack,
+} from "@/lib/research-stack";
 
 export type BriefRow = {
   id: string;
@@ -44,9 +49,17 @@ type CanCreate = { allowed: boolean; count: number; max: number };
 export function BriefsClient({
   initial,
   initialCanCreate,
+  proTierAlphaEnabled = false,
 }: {
   initial: BriefRow[];
   initialCanCreate: CanCreate;
+  /**
+   * Settings-surfacing v1 (PR-7): the depth badge is flag-gated — while
+   * advanced research is paused (CAD-215) every delivery is served and
+   * debited at standard depth, so badging a card "Advanced" would lie
+   * about cost. Server page passes isProTierAlphaEnabled().
+   */
+  proTierAlphaEnabled?: boolean;
 }) {
   const utils = trpc.useUtils();
   const listQuery = trpc.briefs.list.useQuery(undefined, {
@@ -155,6 +168,7 @@ export function BriefsClient({
               <BriefCard
                 key={b.id}
                 row={b}
+                proTierAlphaEnabled={proTierAlphaEnabled}
                 onPause={() => pause.mutate({ id: b.id })}
                 onResume={() => resume.mutate({ id: b.id })}
                 onArchive={() => archive.mutate({ id: b.id })}
@@ -212,12 +226,14 @@ function EmptyState({ canCreate }: { canCreate: CanCreate }) {
 
 function BriefCard({
   row,
+  proTierAlphaEnabled,
   onPause,
   onResume,
   onArchive,
   busy,
 }: {
   row: BriefRow;
+  proTierAlphaEnabled: boolean;
   onPause: () => void;
   onResume: () => void;
   onArchive: () => void;
@@ -225,6 +241,13 @@ function BriefCard({
 }) {
   const [archiving, setArchiving] = useState(false);
   const isPaused = row.status === "paused";
+  // Settings-surfacing v1 (PR-7): badge every advanced stack (the old
+  // `tier === "pro"` check missed pro_websearch) and show the per-brief
+  // credit cost — the list is where users reason about burn rate.
+  // Standard depth shows no badge (default is unmarked; badging it would
+  // manufacture a tier hierarchy COPY_GUIDE bans).
+  const stack = normalizeStack(row.tier);
+  const showDepthBadge = proTierAlphaEnabled && isAdvancedStack(stack);
 
   const topics = useMemo(() => extractTopics(row.spec), [row.spec]);
   const scheduleLabel = useMemo(
@@ -253,9 +276,9 @@ function BriefCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-medium text-foreground">{displayName}</h3>
             <StatusBadge status={row.status} />
-            {row.tier === "pro" ? (
+            {showDepthBadge ? (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                🔬 Advanced
+                🔬 Advanced · {STACK_COSTS[stack]} credits per brief
               </span>
             ) : null}
           </div>

@@ -43,7 +43,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <UsersClient adminEmail={user.email ?? ""} />
     </div>
   );

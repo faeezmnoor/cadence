@@ -39,7 +39,7 @@ export default async function AdminDispatchPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <DispatchClient />
     </div>
   );

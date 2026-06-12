@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { AppNav } from "@/components/nav/app-nav";
 import { LearningClient } from "./learning-client";
 
@@ -20,10 +22,20 @@ export default async function LearningPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="learning" />
+      {/* Settings-surfacing v1 §1: Learning left the top nav and lives as
+          a hub card — section tab stays lit, back-link returns to the hub. */}
+      <AppNav active="settings" isAdmin={isAdminEmail(user.email)} />
       <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <p className="text-xs">
+            <Link
+              href={"/settings" as never}
+              className="text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            >
+              ← Settings
+            </Link>
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             What Cadence learned about you
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">

@@ -27,14 +27,38 @@
  * to clear local cookies and redirect.
  */
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import * as Sentry from "@sentry/nextjs";
 import { db } from "@/server/db/client";
-import { accountDeletions, users } from "@/server/db/schema";
+import { accountDeletions, digestSpecs, users } from "@/server/db/schema";
 import { protectedProcedure, router } from "../trpc";
 import { sendEmail } from "@/server/email/send";
 import { SUPPORT_EMAIL } from "@/server/support/contact";
+import {
+  isValidIanaTimezone,
+  rederiveScheduleForTimezone,
+} from "@/lib/scheduling/retime";
+
+const timezoneInput = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isValidIanaTimezone, {
+    message: "Unknown timezone — pick one from the list.",
+  });
+
+type LegacyCadence = {
+  frequency?: string;
+  delivery_time_local?: string;
+  days_of_week?: number[];
+};
+
+function cadenceFromSpec(spec: unknown): LegacyCadence | undefined {
+  if (!spec || typeof spec !== "object") return undefined;
+  const c = (spec as { cadence?: unknown }).cadence;
+  return c && typeof c === "object" ? (c as LegacyCadence) : undefined;
+}
 
 async function deleteAuthUser(userId: string): Promise<{ deleted: boolean; reason?: string }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,6 +87,110 @@ async function deleteAuthUser(userId: string): Promise<{ deleted: boolean; reaso
 }
 
 export const accountRouter = router({
+  /**
+   * Settings-surfacing v1 (gap 1): set the user's timezone and re-derive
+   * `next_run_at` for ALL their active briefs in one transaction, so the
+   * very next dispatcher tick schedules against the new zone. Paused and
+   * archived briefs are untouched (resume re-derives on its own path).
+   *
+   * Re-derivation reuses the save-spec.ts scheduling path via
+   * `rederiveScheduleForTimezone` (pure; unit-tested for passed-today,
+   * weekly-boundary, and DST edges in test/timezone-rederive.test.ts).
+   */
+  updateTimezone: protectedProcedure
+    .input(z.object({ timezone: timezoneInput }))
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date();
+      return db.transaction(async (tx) => {
+        const updated = await tx
+          .update(users)
+          .set({ timezone: input.timezone, updatedAt: now })
+          .where(eq(users.id, ctx.user.id))
+          .returning({ id: users.id });
+        if (updated.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
+        }
+
+        const activeSpecs = await tx
+          .select({
+            id: digestSpecs.id,
+            spec: digestSpecs.spec,
+            scheduling: digestSpecs.scheduling,
+          })
+          .from(digestSpecs)
+          .where(
+            and(
+              eq(digestSpecs.userId, ctx.user.id),
+              eq(digestSpecs.status, "active")
+            )
+          );
+
+        let rescheduled = 0;
+        let soonest: Date | null = null;
+        for (const s of activeSpecs) {
+          const { scheduling, nextRunAt } = rederiveScheduleForTimezone({
+            cadence: cadenceFromSpec(s.spec),
+            existingScheduling: s.scheduling,
+            timezone: input.timezone,
+            now,
+          });
+          await tx
+            .update(digestSpecs)
+            .set({ scheduling, nextRunAt, updatedAt: now })
+            .where(eq(digestSpecs.id, s.id));
+          rescheduled++;
+          if (nextRunAt && (!soonest || nextRunAt < soonest)) {
+            soonest = nextRunAt;
+          }
+        }
+
+        return {
+          ok: true as const,
+          timezone: input.timezone,
+          rescheduled,
+          nextRunAt: soonest,
+        };
+      });
+    }),
+
+  /**
+   * Read-only preview for the confirm-before-commit row (design §5):
+   * "your next brief moves to {computed}". Computes what the soonest
+   * active brief's next delivery WOULD be in the candidate timezone,
+   * without writing anything.
+   */
+  timezonePreview: protectedProcedure
+    .input(z.object({ timezone: timezoneInput }))
+    .query(async ({ ctx, input }) => {
+      const now = new Date();
+      const activeSpecs = await db
+        .select({
+          spec: digestSpecs.spec,
+          scheduling: digestSpecs.scheduling,
+        })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.userId, ctx.user.id),
+            eq(digestSpecs.status, "active")
+          )
+        );
+
+      let soonest: Date | null = null;
+      for (const s of activeSpecs) {
+        const { nextRunAt } = rederiveScheduleForTimezone({
+          cadence: cadenceFromSpec(s.spec),
+          existingScheduling: s.scheduling,
+          timezone: input.timezone,
+          now,
+        });
+        if (nextRunAt && (!soonest || nextRunAt < soonest)) {
+          soonest = nextRunAt;
+        }
+      }
+      return { activeCount: activeSpecs.length, nextRunAt: soonest };
+    }),
+
   /**
    * Soft-delete the signed-in user. See module-level doc for cascade.
    * Returns { ok: true } on success so the client can call signOut() and

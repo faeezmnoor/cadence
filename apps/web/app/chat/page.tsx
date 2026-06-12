@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
@@ -103,7 +104,7 @@ export default async function ChatPage({
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      <AppNav active="chat" />
+      <AppNav active="chat" isAdmin={isAdminEmail(user.email)} />
       {/*
         key={thread.id} is load-bearing for the Reset flow (multi-brief
         techdesign §7). chat.resetThread archives the current thread and

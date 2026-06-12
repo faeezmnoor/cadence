@@ -30,6 +30,7 @@ import {
 import { inngest } from "@/server/inngest/client";
 import { adminProcedure, router } from "../trpc";
 import { refundForFailedRun } from "@/server/billing/refund";
+import { grantCredits } from "@/server/billing/grant";
 import { computeStreak } from "@/server/digest/streak";
 import { sendEmail } from "@/server/email/send";
 import { buildRefundEmail } from "@/server/email/refund-template";
@@ -39,6 +40,45 @@ const LIST_RUNS_MAX_LIMIT = 100;
 const LAST_ERROR_TRUNCATE = 200;
 
 export const adminRouter = router({
+  /**
+   * Settings-surfacing v1 (gap 10): grant credits through the ledger.
+   * Closes the loop `billing.requestCredits` pings reference ("grant via
+   * /admin") — until now that flow didn't exist and grants were raw SQL.
+   *
+   * Idempotent against duplicate submission via the client-generated
+   * `grantId` (checked-before-insert inside the grant transaction — see
+   * server/billing/grant.ts). Reachable from the /admin/users rows.
+   */
+  grantCredits: adminProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        credits: z.number().int().min(1).max(1000),
+        /** Client-generated idempotency key (one per grant form open). */
+        grantId: z.string().uuid(),
+        note: z.string().max(200).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify the target exists first for a clean 404 (grantCredits
+      // throws a generic Error mid-transaction otherwise).
+      const target = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (target.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      }
+      return grantCredits({
+        userId: input.userId,
+        credits: input.credits,
+        grantId: input.grantId,
+        grantedBy: ctx.user.email ?? "admin",
+        note: input.note,
+      });
+    }),
+
   /**
    * Paginated runs list, newest first.
    *
