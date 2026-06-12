@@ -60,6 +60,7 @@ import {
   recordChatTurn,
   recordExtractionEvent,
 } from "@/server/chat/telemetry";
+import { openaiCostUsd, recordCost } from "@/server/cost/record";
 import { extractSlots } from "@/server/ai/config-agent/extract";
 import { stripQuickReplyLeak } from "@/lib/chat/sanitize";
 import {
@@ -491,8 +492,30 @@ export async function POST(req: Request) {
           stack: error instanceof Error ? error.stack : undefined,
         });
       },
-      onFinish: async ({ text, toolCalls, toolResults }) => {
+      onFinish: async ({ text, toolCalls, toolResults, usage }) => {
         try {
+          // ACX.1 (manage-mode wave, CTO-flagged isolated commit): every
+          // chat-turn LLM call writes a cost_events row — closes a
+          // pre-existing gap for BOTH modes ("don't add an LLM path without
+          // wiring cost_events", CLAUDE.md rule 6). These rows are also the
+          // RC7 monitoring signal that capManageTranscript holds (flat
+          // per-turn input tokens as manage threads age). Best-effort:
+          // recordCost never throws.
+          const inputTokens = Number.isFinite(usage?.promptTokens)
+            ? usage.promptTokens
+            : 0;
+          const outputTokens = Number.isFinite(usage?.completionTokens)
+            ? usage.completionTokens
+            : 0;
+          void recordCost({
+            userId: user.id,
+            kind: "llm_call",
+            provider: "openai",
+            model: "gpt-4o-mini",
+            inputTokens,
+            outputTokens,
+            costUsd: openaiCostUsd("gpt-4o-mini", inputTokens, outputTokens),
+          });
           // Wave 5 Bug 12 (P0): scrub quick-reply chip JSON that gpt-4o-mini
           // sometimes embeds into its free-text turn. The chip strip below
           // the bubble is the only legit render surface; raw JSON in the
