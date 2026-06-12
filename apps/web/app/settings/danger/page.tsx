@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { AppNav } from "@/components/nav/app-nav";
 import { DangerZoneClient } from "./danger-client";
 
@@ -21,7 +22,7 @@ export default async function DangerSettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active={null} />
+      <AppNav active="settings" isAdmin={isAdminEmail(user.email)} />
       <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-6">
           <p className="text-xs">

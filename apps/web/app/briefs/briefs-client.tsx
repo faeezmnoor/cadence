@@ -20,6 +20,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import {
+  STACK_COSTS,
+  isAdvancedStack,
+  normalizeStack,
+} from "@/lib/research-stack";
 
 export type BriefRow = {
   id: string;
@@ -44,9 +49,24 @@ type CanCreate = { allowed: boolean; count: number; max: number };
 export function BriefsClient({
   initial,
   initialCanCreate,
+  proTierAlphaEnabled = false,
+  userTimezone,
 }: {
   initial: BriefRow[];
   initialCanCreate: CanCreate;
+  /**
+   * Settings-surfacing v1 (PR-7): the depth badge is flag-gated — while
+   * advanced research is paused (CAD-215) every delivery is served and
+   * debited at standard depth, so badging a card "Advanced" would lie
+   * about cost. Server page passes isProTierAlphaEnabled().
+   */
+  proTierAlphaEnabled?: boolean;
+  /**
+   * Review CPO MED-2: the user's STORED timezone (users.timezone) — next
+   * delivery renders in the zone briefs are actually scheduled in, with
+   * a short zone label, instead of the device zone unlabeled.
+   */
+  userTimezone: string;
 }) {
   const utils = trpc.useUtils();
   const listQuery = trpc.briefs.list.useQuery(undefined, {
@@ -155,6 +175,8 @@ export function BriefsClient({
               <BriefCard
                 key={b.id}
                 row={b}
+                proTierAlphaEnabled={proTierAlphaEnabled}
+                userTimezone={userTimezone}
                 onPause={() => pause.mutate({ id: b.id })}
                 onResume={() => resume.mutate({ id: b.id })}
                 onArchive={() => archive.mutate({ id: b.id })}
@@ -212,12 +234,16 @@ function EmptyState({ canCreate }: { canCreate: CanCreate }) {
 
 function BriefCard({
   row,
+  proTierAlphaEnabled,
+  userTimezone,
   onPause,
   onResume,
   onArchive,
   busy,
 }: {
   row: BriefRow;
+  proTierAlphaEnabled: boolean;
+  userTimezone: string;
   onPause: () => void;
   onResume: () => void;
   onArchive: () => void;
@@ -225,6 +251,13 @@ function BriefCard({
 }) {
   const [archiving, setArchiving] = useState(false);
   const isPaused = row.status === "paused";
+  // Settings-surfacing v1 (PR-7): badge every advanced stack (the old
+  // `tier === "pro"` check missed pro_websearch) and show the per-brief
+  // credit cost — the list is where users reason about burn rate.
+  // Standard depth shows no badge (default is unmarked; badging it would
+  // manufacture a tier hierarchy COPY_GUIDE bans).
+  const stack = normalizeStack(row.tier);
+  const showDepthBadge = proTierAlphaEnabled && isAdvancedStack(stack);
 
   const topics = useMemo(() => extractTopics(row.spec), [row.spec]);
   const scheduleLabel = useMemo(
@@ -232,8 +265,8 @@ function BriefCard({
     [row.scheduling]
   );
   const nextDelivery = useMemo(
-    () => (row.nextRunAt ? formatNext(row.nextRunAt) : null),
-    [row.nextRunAt]
+    () => (row.nextRunAt ? formatNext(row.nextRunAt, userTimezone) : null),
+    [row.nextRunAt, userTimezone]
   );
   const lastDelivery = useMemo(
     () => (row.lastRun ? formatLast(row.lastRun.runDate) : null),
@@ -253,9 +286,9 @@ function BriefCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-medium text-foreground">{displayName}</h3>
             <StatusBadge status={row.status} />
-            {row.tier === "pro" ? (
+            {showDepthBadge ? (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                🔬 Advanced
+                🔬 Advanced · {STACK_COSTS[stack]} credits per brief
               </span>
             ) : null}
           </div>
@@ -564,19 +597,37 @@ function humanizeSchedule(rule: unknown): string {
   return "Schedule not set";
 }
 
-function formatNext(iso: string): string {
+function formatNext(iso: string, timezone: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const now = Date.now();
   const diffMs = d.getTime() - now;
   const diffMin = Math.round(diffMs / 60_000);
-  const abs = d.toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Review CPO MED-2: render in the user's STORED timezone with a short
+  // zone label — the device zone silently disagreed with the schedule
+  // whenever the two differed (travel, VPN, shared machine).
+  let abs: string;
+  try {
+    abs = new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(d);
+  } catch {
+    // Unknown zone string — fall back to device-local rather than crash.
+    abs = d.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  }
   if (diffMin < 0) return `${abs} (overdue)`;
   if (diffMin < 60) return `in ${diffMin}m · ${abs}`;
   const diffH = Math.round(diffMin / 60);

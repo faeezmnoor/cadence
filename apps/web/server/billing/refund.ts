@@ -35,7 +35,11 @@ export interface RefundResult {
   refunded: boolean;
   balanceAfter?: number;
   transactionId?: string;
-  reason?: "already_refunded" | "run_delivered" | "run_not_found";
+  reason?:
+    | "already_refunded"
+    | "run_delivered"
+    | "run_not_found"
+    | "run_skipped";
 }
 
 export async function refundForFailedRun(params: {
@@ -70,6 +74,14 @@ export async function refundForFailedRun(params: {
   if (!run) return { refunded: false, reason: "run_not_found" };
   if (run.status === "delivered") {
     return { refunded: false, reason: "run_delivered" };
+  }
+  // Review CTO P2-3: skipped occurrences (skipped_no_credits,
+  // skipped_unlinked, future skipped_*) never charged the user — the
+  // pipeline writes a creditsDelta:0 marker row at most. Without this
+  // guard the spec-tier fallback below would "refund" money that was
+  // never taken, minting credits.
+  if (run.status.startsWith("skipped")) {
+    return { refunded: false, reason: "run_skipped" };
   }
 
   // CAD-89: discover refund amount. Prefer the actual prior `charge` row

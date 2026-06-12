@@ -10,8 +10,12 @@ export type AppNavTab =
   // §3 — "spec" becomes engineer-leakage and gets retired from the nav).
   | "spec"
   | "link"
+  // Legacy `learning`/`billing` values kept so older callers type-check
+  // during the settings-IA migration; those pages now pass "settings"
+  // (settings-surfacing v1 §1 — section = active convention).
   | "learning"
   | "billing"
+  | "settings"
   | "admin"
   | null;
 
@@ -38,10 +42,21 @@ const TABS: TabDef[] = [
   // legacy /spec page still renders an active tab when visited directly.
   { key: "briefs", label: "Briefs", href: "/briefs" },
   { key: "link", label: "Delivery", href: "/app/link" },
-  // Stream E #4 — "What I've learned about you" surface (PM audit G3).
-  { key: "learning", label: "Learning", href: "/settings/learning" },
-  { key: "billing", label: "Billing", href: "/settings/billing" },
+  // Settings-surfacing v1 §1 (design-audit §C1 ratified): Learning and
+  // Billing fold into the Settings hub as cards — the 4-tab row fits a
+  // 320px phone with margin where 6 tabs guaranteed horizontal scroll
+  // (and the clipped-off tab would have been Settings itself). Deep links
+  // into /settings/learning + /settings/billing keep working and render
+  // with the Settings tab active.
+  { key: "settings", label: "Settings", href: "/settings" },
 ];
+
+/**
+ * Founder-only 5th tab. Rendered only when the server page passes
+ * isAdmin=true (pages already compute `isAdminEmail` — /app/link pattern).
+ * Stays a plain server-rendered Link; zero-JS constraint preserved.
+ */
+const ADMIN_TAB: TabDef = { key: "admin", label: "Admin", href: "/admin" };
 
 /**
  * Persistent top nav for authed routes (Designer #4, audit §1).
@@ -57,7 +72,14 @@ const TABS: TabDef[] = [
  * that knows its own identity — keeps this a pure server component, zero
  * client JS for the shell.
  */
-export function AppNav({ active }: { active: AppNavTab }) {
+export function AppNav({
+  active,
+  isAdmin = false,
+}: {
+  active: AppNavTab;
+  isAdmin?: boolean;
+}) {
+  const tabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS;
   return (
     <header className="safe-pt sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="safe-px mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -73,7 +95,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
           aria-label="Primary"
           className="hidden flex-1 justify-center gap-1 sm:flex"
         >
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             const isActive = t.key === active;
             return (
               <Link
@@ -110,7 +132,7 @@ export function AppNav({ active }: { active: AppNavTab }) {
         aria-label="Primary (mobile)"
         className="safe-px flex gap-1 overflow-x-auto border-t border-border px-4 py-2 sm:hidden"
       >
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const isActive = t.key === active;
           return (
             <Link

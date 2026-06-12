@@ -15,6 +15,7 @@
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { db } from "@/server/db/client";
 import { digestSpecs } from "@/server/db/schema";
 import { AppNav } from "@/components/nav/app-nav";
@@ -86,7 +87,7 @@ export default async function BriefDetailPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="briefs" />
+      <AppNav active="briefs" isAdmin={isAdminEmail(user.email)} />
       <BriefDetailClient
         brief={briefRow}
         initialVersions={initialVersions}

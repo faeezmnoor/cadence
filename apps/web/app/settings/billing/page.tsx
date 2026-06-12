@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { isAdminEmail } from "@/server/auth/admin";
 import { AppNav } from "@/components/nav/app-nav";
 import { isProTierAlphaEnabled } from "@/server/ai/providers";
 import { BillingClient } from "./billing-client";
@@ -19,10 +21,21 @@ export default async function BillingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="billing" />
+      {/* Settings-surfacing v1 §1: Billing left the top nav and lives as a
+          hub card — the section tab stays lit (active="settings") and the
+          back-link mirrors the brief-detail "← All briefs" idiom. */}
+      <AppNav active="settings" isAdmin={isAdminEmail(user.email)} />
       <main className="safe-pb mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">Billing</h1>
+          <p className="text-xs">
+            <Link
+              href={"/settings" as never}
+              className="text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            >
+              ← Settings
+            </Link>
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Billing</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             One credit, one brief delivered. Pre-paid, no subscription, cancel by stopping.
           </p>

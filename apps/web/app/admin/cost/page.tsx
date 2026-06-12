@@ -185,7 +185,7 @@ export default async function AdminCostPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <CostClient
         adminEmail={user.email ?? ""}
         breaker={{
