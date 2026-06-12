@@ -1,17 +1,17 @@
-# Live setup eval — proves the setup interview contract UNTOUCHED by manage mode
+# Live setup eval — proves the setup interview contract UNTOUCHED by manage mode (rerun after exec PR review round 1 fixes)
 # cmd: RUN_LIVE_EVALS=1 OPENAI_API_KEY=... EXTRACTOR_TIMEOUT_MS=20000 npx vitest run test/eval-template-live.test.ts --reporter=verbose
-# date: 2026-06-13 00:59 +08 | branch: feat/brief-manage-mode
+# date: 2026-06-13 01:41 +08 | branch: feat/brief-manage-mode
 
 
  RUN  v4.1.7 /Users/faeez/dev/projects/cadence-manage/apps/web
 
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > palm_oil_mpob: exampleQuery yields topic + promised frequency 3242ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > multi_commodity_weekly: exampleQuery yields topic + promised frequency 2151ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > fnb_cost_watch: exampleQuery yields topic + promised frequency 1531ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > regulation_watch: exampleQuery yields topic + promised frequency 1942ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > lhdn_circulars: exampleQuery yields topic + promised frequency 1953ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > competitor_watch: exampleQuery yields topic + promised frequency 1534ms
- ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > target_account_watch: exampleQuery yields topic + promised frequency 1553ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > palm_oil_mpob: exampleQuery yields topic + promised frequency 3576ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > multi_commodity_weekly: exampleQuery yields topic + promised frequency 2907ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > fnb_cost_watch: exampleQuery yields topic + promised frequency 2152ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > regulation_watch: exampleQuery yields topic + promised frequency 2219ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > lhdn_circulars: exampleQuery yields topic + promised frequency 3376ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > competitor_watch: exampleQuery yields topic + promised frequency 1979ms
+ ✓ test/eval-template-live.test.ts > LIVE eval A — extraction golden set > target_account_watch: exampleQuery yields topic + promised frequency 2051ms
 stdout | test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > palm_oil_mpob: confirms, asks one question, saves within 3 turns
 [33mwarn[0m - config-agent tool recoverable failure {
   tool: 'update_spec_field',
@@ -26,12 +26,26 @@ stdout | test/eval-template-live.test.ts > LIVE eval B — post-tap interview co
   err: 'update would produce invalid draft: cadence.frequency: Required; cadence.delivery_time_local: Required'
 }
 
- ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > palm_oil_mpob: confirms, asks one question, saves within 3 turns 16168ms
- ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > lhdn_circulars: confirms, asks one question, saves within 3 turns 21355ms
- ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > competitor_watch: confirms, asks one question, saves within 3 turns 10269ms
+ ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > palm_oil_mpob: confirms, asks one question, saves within 3 turns 20723ms
+stdout | test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > lhdn_circulars: confirms, asks one question, saves within 3 turns
+[33mwarn[0m - config-agent tool recoverable failure {
+  tool: 'update_spec_field',
+  err: 'update would produce invalid draft: cadence.delivery_time_local: Required'
+}
+[33mwarn[0m - config-agent tool recoverable failure {
+  tool: 'update_spec_field',
+  err: 'update would produce invalid draft: cadence.frequency: Required'
+}
+[33mwarn[0m - config-agent tool recoverable failure {
+  tool: 'update_spec_field',
+  err: 'update would produce invalid draft: cadence.frequency: Required; cadence.delivery_time_local: Required'
+}
+
+ ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > lhdn_circulars: confirms, asks one question, saves within 3 turns 19725ms
+ ✓ test/eval-template-live.test.ts > LIVE eval B — post-tap interview contract > competitor_watch: confirms, asks one question, saves within 3 turns 9795ms
 
  Test Files  1 passed (1)
       Tests  10 passed (10)
-   Start at  00:59:05
-   Duration  61.96s (transform 54ms, setup 0ms, import 114ms, tests 61.70s, environment 0ms)
+   Start at  01:40:41
+   Duration  69.13s (transform 163ms, setup 0ms, import 479ms, tests 68.51s, environment 0ms)
 

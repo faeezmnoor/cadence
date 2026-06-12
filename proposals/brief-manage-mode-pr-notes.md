@@ -273,3 +273,50 @@ GROUP BY 1
 ```
 
 joined against users with ≥1 non-archived spec.
+
+## Exec PR review round 1 (2026-06-13)
+
+**Verdicts:** CPO — approve-with-changes. CTO — approve-with-changes,
+**including the explicit CTO ACK on the cost-events commit** (`fd2b160`,
+chat-turn `cost_events` rows, the §4.3.5 isolated/cherry-pickable commit) —
+the baseline shift is accepted.
+
+### Required changes — all four landed
+
+| # | Finding | Disposition |
+|---|---------|-------------|
+| CPO#1 | Panel path (tRPC `digest.sampleNow`) wrote no ACX.5 analytics while the chat tool wrote `sample_requested`/`sample_blocked` | **Fixed** (`d5aa0c0`). `sampleNow` now logs `sample_requested {via:'panel_button', dry_run}` and `sample_blocked` with the shared reason vocabulary; `sampleBlockedReason` single-sourced in `server/digest/sample.ts` (chat tool repointed); router test locks the event shape. Checkable: `grep -rn panel_button apps/web --include="*.ts"` → write site + test. |
+| CPO#2 | AC6.2 (at-cap "also brief me on X" inside a manage thread) had no live eval | **Fixed** (`a5dade5`). Live case 8: "Also brief me on lithium prices." → zero `update_spec_field`/`save_changes`/`send_sample`, draft byte-identical, semantic match on the manage prompt's at-cap line, negative regex on upgrade-CTA language. Suite now 9 cases. **Green on the FIRST live pass — zero prompt iterations needed** (then 9/9 again on the recorded verbose pass). |
+| CTO R1 | 0028b reactivation aborts post-rollback: two completed bound threads per spec both pass the snapshot-evaluated NOT EXISTS guard → `chat_threads_spec_active_uq` violation aborts the statement | **Fixed** (`dd9f081`). One-per-spec subselect (`ORDER BY t3.updated_at DESC, t3.id DESC LIMIT 1` — id tiebreak because rollback stamps one shared `now()`); structural test pins the subselect; REHEARSAL-0028 gains the two-completed-threads fixture (expect 1 reactivated + 1 skipped, converges) and a rollback→reactivate round-trip check. |
+| CTO R3 | `onFinish` flag-on→{specId, stays active} vs flag-off→{status:'completed'} write decision inline at route.ts with no test | **Fixed** (`83f8152`). Extracted to pure `onFinishThreadWrite(manageOn, savedSpecId, draft)` in `server/chat/on-finish-write.ts`; both rows + draft-persist + touch-only + no-updatedAt pinned in `test/chat-onfinish-write.test.ts`. Behavior byte-identical (extract + test only). |
+
+### Advisories — taken
+
+- **CTO A5** (`c7da726`): `void recordCost(...)` in `onFinish` → `await` —
+  recordCost never throws, but serverless can drop unawaited work.
+- **CTO A3** (`c7da726`): manage turns persisted `draftSpec =
+  specToDraft(savedSpec)` even when equal to the saved spec (stale-snapshot
+  landmine). Now: when the working draft hasn't diverged from the bound
+  spec, `draft_spec` is **cleared** rather than skipped — one deliberate
+  step past the advisory: clearing also heals threads already carrying a
+  redundant snapshot and covers a staged edit the user reverted. Real
+  staged edits persist exactly as before; setup turns untouched.
+
+### Advisories — consciously deferred (no code change this round)
+
+CTO **A1, A2, A4, A6, A7, A8** and **CPO's two advisories** — all
+non-blocking per both reviewers, deferred by the cost/benefit call in the
+exec session. Verbatim text lives in the exec review transcript (round 1);
+ship operator: pull the one-liners from there if this PR description needs
+them inline. None of them gates merge.
+
+### Post-fix verification (this round)
+
+- `npx tsc --noEmit` clean; `pnpm lint` clean.
+- Full `npx vitest run`: **118 files / 1131 tests passed** (round-0
+  baseline 117/1119 — additions only: +9 onFinish helper rows, +2 panel
+  analytics router rows, +1 0028b structural row).
+- Live evals (env via `vercel env pull`, deleted after the run along with
+  `.vercel/`): setup **10/10 unchanged**; manage **9/9** (new at-cap case
+  included) — first pass green, no prompt iterations, outputs refreshed in
+  `proposals/eval-output-manage.txt` + `proposals/eval-output-setup.txt`.
