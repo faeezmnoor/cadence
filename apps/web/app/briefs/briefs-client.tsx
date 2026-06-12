@@ -7,18 +7,26 @@
  *   - Card per brief (full bleed on mobile, two-up at sm+).
  *   - Sort: active by next delivery ascending; paused sinks to bottom.
  *   - Status badge (Active / Paused) — text + color, never color-only.
+ *   - Chat action FIRST in the card action row (manage-mode plan §3.3):
+ *     outline-secondary recipe matching Pause — NOT bg-brand, one CTA per
+ *     surface ("+ New brief" is this page's brand button). Hidden when the
+ *     MANAGE_MODE flag is off (server-passed prop, §7.2 rollback d).
+ *     Archived briefs never render cards (page query filters them), so
+ *     they can never get the action.
  *   - Pause / Resume toggle button per card.
  *   - Archive with confirm (inline reveal, NOT window.confirm — that
  *     pattern was flagged in design-audit v2).
- *   - "+ New brief" CTA at top, routing through /chat (the new-brief
- *     authoring path). Disabled with tooltip when canCreate.allowed=false.
- *   - Empty state with CTA → /chat.
+ *   - "+ New brief" CTA at top, routing through /chat?new=1 (the manage
+ *     wave's explicit new-setup-thread entry — AC9.1). Disabled with
+ *     tooltip when canCreate.allowed=false.
+ *   - Empty state with CTA → /chat?new=1.
  *
  * Design tokens only — no raw neutral or raw hex per UX audit lessons.
  * Mobile-first at 390x844; cards stack and the sticky top stays visible.
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import {
   STACK_COSTS,
@@ -53,6 +61,7 @@ export function BriefsClient({
   initialCanCreate,
   proTierAlphaEnabled = false,
   userTimezone,
+  manageMode = false,
 }: {
   initial: BriefRow[];
   initialCanCreate: CanCreate;
@@ -69,6 +78,12 @@ export function BriefsClient({
    * a short zone label, instead of the device zone unlabeled.
    */
   userTimezone: string;
+  /**
+   * MANAGE_MODE flag, read server-side (isManageMode). Off hides the card
+   * Chat action entirely — under flag-off, /chat?brief= just redirects
+   * back here (exec RC5 / §7.2 rollback contract d).
+   */
+  manageMode?: boolean;
 }) {
   const utils = trpc.useUtils();
   const listQuery = trpc.briefs.list.useQuery(undefined, {
@@ -179,6 +194,7 @@ export function BriefsClient({
                 row={b}
                 proTierAlphaEnabled={proTierAlphaEnabled}
                 userTimezone={userTimezone}
+                showChat={manageMode}
                 onPause={() => pause.mutate({ id: b.id })}
                 onResume={() => resume.mutate({ id: b.id })}
                 onArchive={() => archive.mutate({ id: b.id })}
@@ -212,7 +228,9 @@ function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
   }
   return (
     <Link
-      href={"/chat" as never}
+      // Manage wave (AC9.1): ?new=1 is the explicit "fresh setup thread"
+      // entry — bare /chat now resumes the most-recent thread instead.
+      href={"/chat?new=1" as never}
       className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
     >
       + New brief
@@ -238,6 +256,7 @@ function BriefCard({
   row,
   proTierAlphaEnabled,
   userTimezone,
+  showChat,
   onPause,
   onResume,
   onArchive,
@@ -246,6 +265,8 @@ function BriefCard({
   row: BriefRow;
   proTierAlphaEnabled: boolean;
   userTimezone: string;
+  /** MANAGE_MODE flag — false hides the Chat action (rollback contract). */
+  showChat: boolean;
   onPause: () => void;
   onResume: () => void;
   onArchive: () => void;
@@ -343,6 +364,21 @@ function BriefCard({
       </dl>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* Manage-mode plan §3.3: Chat is FIRST in the action row —
+            outline-secondary recipe matching Pause (same h-8 height, so
+            flag-off ⇒ flag-on causes no layout shift), never bg-brand
+            (one CTA per surface; this page's brand button is "+ New
+            brief"). Full focus-ring recipe per ACX.2. */}
+        {showChat && (
+          <Link
+            href={`/chat?brief=${row.id}` as never}
+            data-testid="brief-card-chat"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          >
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+            Chat
+          </Link>
+        )}
         {isPaused ? (
           <button
             type="button"

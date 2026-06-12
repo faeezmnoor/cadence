@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Message } from "ai";
 import { Markdown } from "./markdown";
+import { SamplePreviewCard } from "./sample-preview-card";
 import { Timestamp } from "./timestamp";
 import { formatChatTimeAbsolute } from "@/lib/chat/format-time";
 import { stripQuickReplyLeak } from "@/lib/chat/sanitize";
@@ -51,6 +52,26 @@ export function MessageBubble({
   const savedSpec = message.toolInvocations?.find(
     (t) => t.toolName === "confirm_and_save" && t.state === "result"
   );
+  // Manage mode: save_changes results hydrate on reload (savedSpecId scan,
+  // panel yield, transition anchor). No notice renders for them — the
+  // agent's own "Updated…" line is the surface — but a text-less turn
+  // carrying one must not paint an empty bubble shell.
+  const updatedSpec = message.toolInvocations?.find(
+    (t) => t.toolName === "save_changes" && t.state === "result"
+  );
+  // Manage mode (plan §3.2): a dry-run send_sample result carries markdown
+  // to render as an inline preview card. Delivered sends carry none.
+  const sampleTool = message.toolInvocations?.find(
+    (t) => t.toolName === "send_sample" && t.state === "result"
+  );
+  const sampleMarkdown =
+    sampleTool?.state === "result"
+      ? (sampleTool.result as { markdown?: unknown } | undefined)?.markdown
+      : undefined;
+  const sampleCard =
+    typeof sampleMarkdown === "string" && sampleMarkdown.length > 0
+      ? sampleMarkdown
+      : null;
 
   // Build a single text payload for the Copy button — prefer markdown
   // content, fall back to ask_user.question.
@@ -126,31 +147,41 @@ export function MessageBubble({
           Cadence
         </span>
       )}
-      <div
-        className={`max-w-[88%] border border-border bg-card px-4 py-3 text-sm sm:max-w-[85%] ${corners}`}
-      >
-        {/*
-         * Wave 4 Bug 3 fix (regression from PR#4 02f2fd2): assistant turns
-         * can carry BOTH free-text in message.content AND an ask_user tool
-         * call whose `question` field often paraphrases that same text.
-         * Pre-Wave-3 the in-bubble ask_user render was the only source of
-         * truth; Wave 3 added the markdown content render but kept the
-         * legacy ToolAskUser fallthrough — so users see the same question
-         * rendered twice (one markdown, one ToolAskUser). Render exactly
-         * one source: prefer the free-text content, fall back to the
-         * ask_user question only when content is empty (tool-only turns).
-         */}
-        {message.content ? (
-          // Wave 5 Bug 12 (P0): scrub embedded quick-reply chip JSON at
-          // render time so already-persisted messages render clean
-          // alongside the route.ts onFinish server-side scrub.
-          <Markdown>{stripQuickReplyLeak(message.content)}</Markdown>
-        ) : (
-          askQuestion?.state === "result" && (
-            <ToolAskUser invocation={askQuestion} />
-          )
-        )}
-      </div>
+      {/* Manage mode: a tool-result-only turn (no text, no ask_user) that
+          carries a sample card or a save result skips the empty bubble
+          shell — the card / soft notice / transition message is the
+          surface. Other turns keep the shipped shell behavior. */}
+      {(message.content ||
+        askQuestion?.state === "result" ||
+        (!sampleCard && !savedSpec && !updatedSpec)) && (
+        <div
+          className={`max-w-[88%] border border-border bg-card px-4 py-3 text-sm sm:max-w-[85%] ${corners}`}
+        >
+          {/*
+           * Wave 4 Bug 3 fix (regression from PR#4 02f2fd2): assistant turns
+           * can carry BOTH free-text in message.content AND an ask_user tool
+           * call whose `question` field often paraphrases that same text.
+           * Pre-Wave-3 the in-bubble ask_user render was the only source of
+           * truth; Wave 3 added the markdown content render but kept the
+           * legacy ToolAskUser fallthrough — so users see the same question
+           * rendered twice (one markdown, one ToolAskUser). Render exactly
+           * one source: prefer the free-text content, fall back to the
+           * ask_user question only when content is empty (tool-only turns).
+           */}
+          {message.content ? (
+            // Wave 5 Bug 12 (P0): scrub embedded quick-reply chip JSON at
+            // render time so already-persisted messages render clean
+            // alongside the route.ts onFinish server-side scrub.
+            <Markdown>{stripQuickReplyLeak(message.content)}</Markdown>
+          ) : (
+            askQuestion?.state === "result" && (
+              <ToolAskUser invocation={askQuestion} />
+            )
+          )}
+        </div>
+      )}
+
+      {sampleCard && <SamplePreviewCard markdown={sampleCard} />}
 
       {proposedSpec?.state === "result" && (
         <div className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">

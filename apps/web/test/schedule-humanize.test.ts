@@ -11,7 +11,7 @@
  * cadence kind, the weekdays edge cases, and the defensive fallbacks.
  */
 import { describe, it, expect } from "vitest";
-import { humanizeSchedule } from "@/lib/schedule";
+import { humanizeSchedule, saveTransitionMessage } from "@/lib/schedule";
 
 describe("humanizeSchedule — pinned to pre-lift behavior", () => {
   it("non-object / missing cadence → 'Schedule not set'", () => {
@@ -118,5 +118,43 @@ describe("humanizeSchedule — pinned to pre-lift behavior", () => {
 
   it("missing timeLocal quirk preserved (trailing 'at ')", () => {
     expect(humanizeSchedule({ cadence: { kind: "daily" } })).toBe("Daily at ");
+  });
+});
+
+/**
+ * saveTransitionMessage — the deterministic post-save transition bubble
+ * (manage-mode plan §3.1 item 1; appended in the same file because it is
+ * humanizeSchedule's sibling: same time/timezone sources, exec advisory 6).
+ * Copy is final-candidate per COPY_GUIDE §4 — computed time, never a
+ * hard-coded clock string.
+ */
+describe("saveTransitionMessage — §3.1 transition copy", () => {
+  it("time + timezone → full computed sentence", () => {
+    expect(
+      saveTransitionMessage({
+        timeLocal: "07:00",
+        timezone: "Asia/Kuala_Lumpur",
+      })
+    ).toBe(
+      "Saved. Your first brief arrives tomorrow at 07:00 (Asia/Kuala_Lumpur)."
+    );
+  });
+
+  it("time without timezone → no empty parens", () => {
+    expect(saveTransitionMessage({ timeLocal: "08:30", timezone: null })).toBe(
+      "Saved. Your first brief arrives tomorrow at 08:30."
+    );
+    expect(saveTransitionMessage({ timeLocal: "08:30", timezone: "  " })).toBe(
+      "Saved. Your first brief arrives tomorrow at 08:30."
+    );
+  });
+
+  it("no known time → COPY_GUIDE fallback 'tomorrow morning'", () => {
+    expect(saveTransitionMessage({})).toBe(
+      "Saved. Your first brief arrives tomorrow morning."
+    );
+    expect(saveTransitionMessage({ timeLocal: "  ", timezone: "Asia/Kuala_Lumpur" })).toBe(
+      "Saved. Your first brief arrives tomorrow morning."
+    );
   });
 });

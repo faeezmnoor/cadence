@@ -5,6 +5,7 @@ import { isAdminEmail } from "@/server/auth/admin";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads, digestSpecs, users } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
+import { briefDisplayName } from "@/lib/brief-display";
 import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
 import type { PersistedMessage } from "@/components/chat/types";
 import { AppNav } from "@/components/nav/app-nav";
@@ -89,6 +90,18 @@ export default async function ChatPage({
 
   const manageOn = isManageMode();
   let thread: typeof chatThreads.$inferSelect | undefined;
+  // Bound brief row for manage threads (plan §4.6 wiring): drives the
+  // header name/badge, the specDiff baseline, the archived banner, and the
+  // transition-message schedule rendering in ChatClient.
+  let boundSpec:
+    | {
+        id: string;
+        name: string;
+        status: string;
+        spec: unknown;
+        scheduling: unknown;
+      }
+    | undefined;
 
   if (briefParam) {
     // Manage entry. Flag off ⇒ spec-bound threads are unreachable (exec
@@ -101,6 +114,8 @@ export default async function ChatPage({
     const specRows = await db
       .select({
         id: digestSpecs.id,
+        name: digestSpecs.name,
+        status: digestSpecs.status,
         spec: digestSpecs.spec,
         scheduling: digestSpecs.scheduling,
       })
@@ -117,6 +132,7 @@ export default async function ChatPage({
     if (!spec) {
       redirect("/briefs");
     }
+    boundSpec = spec;
     const ensured = await ensureManageThread({ userId: user.id, spec });
     thread = ensured.thread;
     // ACX.5 analytics: resuming (or lazily creating) a brief's chat.
@@ -234,6 +250,59 @@ export default async function ChatPage({
     throw new Error("Failed to resolve chat thread");
   }
 
+  // Manage props (plan §4.6): a bare-/chat (or stale-tab) resume of a
+  // spec-bound thread didn't pass through the ?brief= load above — fetch
+  // the bound brief here. Explicit userId filter = the authorization check
+  // (service-role Drizzle client, RLS does not apply).
+  if (manageOn && thread.specId && !boundSpec) {
+    boundSpec = (
+      await db
+        .select({
+          id: digestSpecs.id,
+          name: digestSpecs.name,
+          status: digestSpecs.status,
+          spec: digestSpecs.spec,
+          scheduling: digestSpecs.scheduling,
+        })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.id, thread.specId),
+            eq(digestSpecs.userId, user.id)
+          )
+        )
+        .limit(1)
+    )[0];
+  }
+  // Fail closed like the route gate: a bound thread whose spec row is
+  // missing/unowned renders as archived (banner + disabled composer),
+  // never as a live chat the POST will 409.
+  const briefStatus =
+    manageOn && thread.specId ? (boundSpec?.status ?? "archived") : null;
+  const briefTopics = Array.isArray(
+    (boundSpec?.spec as { topics?: unknown } | undefined)?.topics
+  )
+    ? ((boundSpec?.spec as { topics: unknown[] }).topics.filter(
+        (t): t is string => typeof t === "string"
+      ) as string[])
+    : [];
+  const briefName = boundSpec
+    ? briefDisplayName(boundSpec.name, briefTopics)
+    : null;
+
+  // users.timezone — feeds the live setup→manage transition message
+  // (plan §3.1: computed time, never hard-coded). One narrow select,
+  // flag-gated so flag-off page loads stay byte-identical.
+  const userTimezone = manageOn
+    ? ((
+        await db
+          .select({ timezone: users.timezone })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .limit(1)
+      )[0]?.timezone ?? null)
+    : null;
+
   const priorRows = await db
     .select({
       id: chatMessages.id,
@@ -292,6 +361,14 @@ export default async function ChatPage({
         initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
         sessionEmail={user.email ?? null}
         initialTemplateId={deepLinkTemplate?.id ?? null}
+        manageMode={manageOn}
+        mode={thread.specId != null ? "manage" : "setup"}
+        briefName={briefName}
+        briefStatus={briefStatus}
+        savedSpec={(boundSpec?.spec as Record<string, unknown> | null) ?? null}
+        briefScheduling={boundSpec?.scheduling ?? null}
+        initialSavedSpecId={manageOn ? (thread.specId ?? null) : null}
+        userTimezone={userTimezone}
       />
     </div>
   );

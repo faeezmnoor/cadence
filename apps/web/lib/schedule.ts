@@ -48,3 +48,31 @@ export function humanizeSchedule(rule: unknown): string {
   }
   return "Schedule not set";
 }
+
+/**
+ * saveTransitionMessage — the deterministic post-save transition bubble
+ * (manage-mode plan §3.1 item 1). Rendered client-side after a successful
+ * `confirm_and_save`; copy is final-candidate per COPY_GUIDE §4 ("tomorrow
+ * at {time} {tz}" computed from the brief, never a hard-coded clock time).
+ *
+ * Lives beside `humanizeSchedule` and reads the SAME time/timezone values
+ * (exec advisory 6): callers pass either the SchedulingRuleV1 fields
+ * (timeLocal/timezone — manage page loads) or the draft's
+ * cadence.delivery_time_local + the user's timezone (live setup→manage
+ * transition). The sentence shape differs from the card label ("arrives
+ * tomorrow at…" vs "Daily at…") so it is a sibling helper, not a wrapper —
+ * but the values can never diverge because there is exactly one source for
+ * each.
+ *
+ * Fallback when no time is known: "tomorrow morning" (COPY_GUIDE §4 row).
+ */
+export function saveTransitionMessage(args: {
+  timeLocal?: string | null;
+  timezone?: string | null;
+}): string {
+  const time = args.timeLocal?.trim();
+  if (!time) return "Saved. Your first brief arrives tomorrow morning.";
+  const tz = args.timezone?.trim();
+  const tzLabel = tz ? ` (${tz})` : "";
+  return `Saved. Your first brief arrives tomorrow at ${time}${tzLabel}.`;
+}
