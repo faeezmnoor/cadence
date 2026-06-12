@@ -9,15 +9,15 @@
  *   - Changing the select does NOT save: a confirm-before-commit row
  *     computes the real consequence ("your next brief moves to …") from
  *     account.timezonePreview before anything is written.
- *   - Silent browser capture ONLY for users with zero briefs (PRD §4.1
- *     flow A): a new account has nothing scheduled, so adopting the
- *     device zone is safe. Users with briefs are never silently moved —
- *     they get the suggest banner (timezone-suggest-banner.tsx) instead.
+ *   - The silent zero-brief capture and the with-briefs suggest banner
+ *     live in timezone-guard.tsx (review CPO HIGH-1: they must mount on
+ *     /chat and /briefs too, not just here). This component is purely
+ *     the select control.
  *
  * Copy: "your local time" anchors the user-facing language; the IANA
  * zone is shown as the precise label (COPY_GUIDE timezone canon).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 
 /** Design §5 "Common" group — SEA-first, then the usual suspects. */
@@ -82,10 +82,8 @@ function formatInZone(iso: string | Date, zone: string): string {
 
 export function AccountTimezone({
   initialTimezone,
-  hasBriefs,
 }: {
   initialTimezone: string;
-  hasBriefs: boolean;
 }) {
   const [saved, setSaved] = useState(initialTimezone);
   const [draft, setDraft] = useState(initialTimezone);
@@ -100,27 +98,6 @@ export function AccountTimezone({
   }, []);
 
   const updateTimezone = trpc.account.updateTimezone.useMutation();
-
-  // PRD §4.1 flow A — silent capture for zero-brief users only. The ref
-  // guards against refetch flicker re-firing the mutation.
-  const captureFiredRef = useRef(false);
-  useEffect(() => {
-    if (hasBriefs) return;
-    if (!detected || detected === initialTimezone) return;
-    if (!zones.includes(detected)) return;
-    if (captureFiredRef.current) return;
-    captureFiredRef.current = true;
-    updateTimezone.mutate(
-      { timezone: detected },
-      {
-        onSuccess: () => {
-          setSaved(detected);
-          setDraft(detected);
-        },
-      }
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasBriefs, detected, initialTimezone, zones]);
 
   const dirty = draft !== saved;
   const preview = trpc.account.timezonePreview.useQuery(
@@ -203,12 +180,21 @@ export function AccountTimezone({
             </p>
           ) : previewData && previewData.activeCount > 0 && previewData.nextRunAt ? (
             <>
+              {/*
+               * Review CTO P3-5: the "currently" instant must be the
+               * CURRENT (old-tz) next delivery, not the new-tz instant
+               * re-rendered in the old zone — those are different
+               * moments whenever re-derivation moves the run.
+               */}
               <p className="text-foreground">
                 Your next brief moves to{" "}
                 {formatInZone(previewData.nextRunAt, draft)} ({zoneCity(draft)}{" "}
-                time) — currently{" "}
-                {formatInZone(previewData.nextRunAt, saved)} in{" "}
-                {zoneCity(saved)}.
+                time) — it was{" "}
+                {formatInZone(
+                  previewData.currentNextRunAt ?? previewData.nextRunAt,
+                  saved
+                )}{" "}
+                ({zoneCity(saved)} time).
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {previewData.activeCount === 1
@@ -221,12 +207,13 @@ export function AccountTimezone({
               New briefs will be scheduled in {zoneCity(draft)} time.
             </p>
           )}
+          {/* Designer P2: ≥44px touch targets on mobile; sm keeps the 36px row. */}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={confirm}
               disabled={updateTimezone.isPending}
-              className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50"
+              className="inline-flex min-h-11 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50 sm:min-h-9"
             >
               {updateTimezone.isPending ? "Saving…" : "Confirm timezone"}
             </button>
@@ -237,7 +224,7 @@ export function AccountTimezone({
                 setSavedNote(null);
               }}
               disabled={updateTimezone.isPending}
-              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              className="inline-flex min-h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background sm:min-h-9"
             >
               Cancel
             </button>

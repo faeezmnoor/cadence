@@ -100,6 +100,19 @@ export async function resolveAndLinkToken(args: {
       })
       .where(eq(users.id, row.userId));
 
+    // Review CTO P1-1: a successful relink must clear delivery_broken —
+    // otherwise the dispatcher keeps skipping the user's runs even though
+    // delivery works again. Guarded reset: ONLY delivery_broken flips to
+    // active. Never touch 'paused' — account.deleteSelf parks soft-deleted
+    // users there, and resurrecting them via a stray /start would undo the
+    // deletion semantics.
+    await tx
+      .update(users)
+      .set({ state: "active", updatedAt: now })
+      .where(
+        and(eq(users.id, row.userId), eq(users.state, "delivery_broken"))
+      );
+
     await tx
       .update(telegramLinkTokens)
       .set({ consumedAt: now, updatedAt: now })

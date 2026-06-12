@@ -19,7 +19,7 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import {
   digestRuns,
@@ -61,11 +61,13 @@ export const adminRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify the target exists first for a clean 404 (grantCredits
-      // throws a generic Error mid-transaction otherwise).
+      // throws a generic Error mid-transaction otherwise). Review CTO
+      // P3-7: soft-deleted users are treated as not found — granting to
+      // a deleted account would bump a balance nobody can ever spend.
       const target = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.id, input.userId))
+        .where(and(eq(users.id, input.userId), isNull(users.deletedAt)))
         .limit(1);
       if (target.length === 0) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });

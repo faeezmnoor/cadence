@@ -24,6 +24,7 @@ import { db } from "@/server/db/client";
 import { digestRuns, digestSpecs, users } from "@/server/db/schema";
 import { AppNav } from "@/components/nav/app-nav";
 import { DeliveryBrokenBanner } from "@/components/delivery/delivery-broken-banner";
+import { TimezoneGuard } from "@/components/settings/timezone-guard";
 import { isProTierAlphaEnabled } from "@/server/ai/providers";
 import { BriefsClient, type BriefRow } from "./briefs-client";
 import { maxBriefsForEmail } from "@/server/briefs/limit";
@@ -40,11 +41,18 @@ export default async function BriefsPage() {
   // Settings-surfacing v1 (gaps 3 + 11): delivery state for the on-hold
   // banner (unlinked-with-briefs or delivery_broken).
   const userRows = await db
-    .select({ state: users.state, telegramChatId: users.telegramChatId })
+    .select({
+      state: users.state,
+      telegramChatId: users.telegramChatId,
+      // CPO MED-2 + HIGH-1: stored timezone for next-delivery rendering
+      // and the timezone guard.
+      timezone: users.timezone,
+    })
     .from(users)
     .where(eq(users.id, user.id))
     .limit(1);
   const userRow = userRows[0];
+  const savedTimezone = userRow?.timezone ?? "Asia/Kuala_Lumpur";
 
   // Mirror briefs.list (kept inline rather than calling the tRPC server
   // helper because we want a typed Drizzle round-trip without the runtime
@@ -142,6 +150,14 @@ export default async function BriefsPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppNav active="briefs" isAdmin={isAdminEmail(user.email)} />
+      {/* CPO HIGH-1: timezone capture + suggest banner on the briefs list. */}
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+        <TimezoneGuard
+          savedTimezone={savedTimezone}
+          hasBriefs={specs.length > 0}
+          bannerClassName="mt-6"
+        />
+      </div>
       {(broken || unlinkedWithBriefs) && (
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">
           <DeliveryBrokenBanner
@@ -153,6 +169,7 @@ export default async function BriefsPage() {
         initial={initial}
         initialCanCreate={initialCanCreate}
         proTierAlphaEnabled={isProTierAlphaEnabled()}
+        userTimezone={savedTimezone}
       />
     </div>
   );

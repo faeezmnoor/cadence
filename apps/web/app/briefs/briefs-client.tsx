@@ -50,6 +50,7 @@ export function BriefsClient({
   initial,
   initialCanCreate,
   proTierAlphaEnabled = false,
+  userTimezone,
 }: {
   initial: BriefRow[];
   initialCanCreate: CanCreate;
@@ -60,6 +61,12 @@ export function BriefsClient({
    * about cost. Server page passes isProTierAlphaEnabled().
    */
   proTierAlphaEnabled?: boolean;
+  /**
+   * Review CPO MED-2: the user's STORED timezone (users.timezone) — next
+   * delivery renders in the zone briefs are actually scheduled in, with
+   * a short zone label, instead of the device zone unlabeled.
+   */
+  userTimezone: string;
 }) {
   const utils = trpc.useUtils();
   const listQuery = trpc.briefs.list.useQuery(undefined, {
@@ -169,6 +176,7 @@ export function BriefsClient({
                 key={b.id}
                 row={b}
                 proTierAlphaEnabled={proTierAlphaEnabled}
+                userTimezone={userTimezone}
                 onPause={() => pause.mutate({ id: b.id })}
                 onResume={() => resume.mutate({ id: b.id })}
                 onArchive={() => archive.mutate({ id: b.id })}
@@ -227,6 +235,7 @@ function EmptyState({ canCreate }: { canCreate: CanCreate }) {
 function BriefCard({
   row,
   proTierAlphaEnabled,
+  userTimezone,
   onPause,
   onResume,
   onArchive,
@@ -234,6 +243,7 @@ function BriefCard({
 }: {
   row: BriefRow;
   proTierAlphaEnabled: boolean;
+  userTimezone: string;
   onPause: () => void;
   onResume: () => void;
   onArchive: () => void;
@@ -255,8 +265,8 @@ function BriefCard({
     [row.scheduling]
   );
   const nextDelivery = useMemo(
-    () => (row.nextRunAt ? formatNext(row.nextRunAt) : null),
-    [row.nextRunAt]
+    () => (row.nextRunAt ? formatNext(row.nextRunAt, userTimezone) : null),
+    [row.nextRunAt, userTimezone]
   );
   const lastDelivery = useMemo(
     () => (row.lastRun ? formatLast(row.lastRun.runDate) : null),
@@ -587,19 +597,37 @@ function humanizeSchedule(rule: unknown): string {
   return "Schedule not set";
 }
 
-function formatNext(iso: string): string {
+function formatNext(iso: string, timezone: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const now = Date.now();
   const diffMs = d.getTime() - now;
   const diffMin = Math.round(diffMs / 60_000);
-  const abs = d.toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Review CPO MED-2: render in the user's STORED timezone with a short
+  // zone label — the device zone silently disagreed with the schedule
+  // whenever the two differed (travel, VPN, shared machine).
+  let abs: string;
+  try {
+    abs = new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(d);
+  } catch {
+    // Unknown zone string — fall back to device-local rather than crash.
+    abs = d.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  }
   if (diffMin < 0) return `${abs} (overdue)`;
   if (diffMin < 60) return `in ${diffMin}m · ${abs}`;
   const diffH = Math.round(diffMin / 60);

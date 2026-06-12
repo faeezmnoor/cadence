@@ -4,11 +4,13 @@
  * Settings-surfacing v1 (gap 3) — Telegram delivery status + disconnect.
  *
  * Design §2/§7 component 6. Three states from telegram.status:
- *   - linked  : success dot + @username, Open Telegram, and
- *               "Disconnect Telegram" as a muted text link (rare,
- *               semi-destructive — a button would give it CTA weight)
- *               with an inline-reveal confirm (archive-confirm idiom,
- *               never window.confirm).
+ *   - linked  : success dot + @username, plus "Disconnect Telegram" as a
+ *               muted text link (rare, semi-destructive — a button would
+ *               give it CTA weight) with an inline-reveal confirm
+ *               (archive-confirm idiom, never window.confirm). No "Open
+ *               Telegram" button — review CPO LOW-5 / CTO P3-4: it linked
+ *               to the user's own profile, not the bot chat, and was
+ *               unrequested scope.
  *   - unlinked: plain statement + the verbatim "Connect Telegram" action
  *               routing to /app/link (which owns token issuance).
  *   - broken  : users.state = delivery_broken → warning idiom + reconnect.
@@ -55,7 +57,7 @@ export function DeliveryStatusCard({
           type="button"
           onClick={() => unlink.mutate()}
           disabled={unlink.isPending}
-          className="inline-flex h-9 items-center rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50"
+          className="inline-flex min-h-11 items-center rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50 sm:min-h-9"
         >
           {unlink.isPending ? "Disconnecting…" : "Yes, disconnect"}
         </button>
@@ -63,7 +65,7 @@ export function DeliveryStatusCard({
           type="button"
           onClick={() => setConfirming(false)}
           disabled={unlink.isPending}
-          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          className="inline-flex min-h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background sm:min-h-9"
         >
           Keep it
         </button>
@@ -75,10 +77,12 @@ export function DeliveryStatusCard({
       )}
     </div>
   ) : (
+    // Designer P2: text link keeps its visual weight but gets a ≥44px
+    // hit area (min-h-11 inline-flex) for touch.
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="mt-3 text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+      className="mt-3 inline-flex min-h-11 items-center text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
     >
       Disconnect Telegram
     </button>
@@ -150,16 +154,8 @@ export function DeliveryStatusCard({
           Connected to Telegram{username ? ` · @${username}` : ""}
         </span>
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <a
-          href={username ? `https://t.me/${username}` : "https://t.me"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-        >
-          Open Telegram
-        </a>
-      </div>
+      {/* CPO LOW-5 / CTO P3-4: "Open Telegram" removed — t.me/<username>
+          opened the USER's profile, not the Cadence bot chat. */}
       {disconnectBlock}
     </div>
   );

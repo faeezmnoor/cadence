@@ -158,6 +158,12 @@ export const accountRouter = router({
    * "your next brief moves to {computed}". Computes what the soonest
    * active brief's next delivery WOULD be in the candidate timezone,
    * without writing anything.
+   *
+   * Review CTO P3-5: also returns `currentNextRunAt` — the soonest
+   * ALREADY-SCHEDULED next delivery (old-tz instant). The confirm row
+   * compares "moves to {new}" against this, not against the new instant
+   * re-rendered in the old zone (those differ whenever re-derivation
+   * moves the run).
    */
   timezonePreview: protectedProcedure
     .input(z.object({ timezone: timezoneInput }))
@@ -167,6 +173,7 @@ export const accountRouter = router({
         .select({
           spec: digestSpecs.spec,
           scheduling: digestSpecs.scheduling,
+          nextRunAt: digestSpecs.nextRunAt,
         })
         .from(digestSpecs)
         .where(
@@ -177,6 +184,7 @@ export const accountRouter = router({
         );
 
       let soonest: Date | null = null;
+      let currentSoonest: Date | null = null;
       for (const s of activeSpecs) {
         const { nextRunAt } = rederiveScheduleForTimezone({
           cadence: cadenceFromSpec(s.spec),
@@ -187,8 +195,18 @@ export const accountRouter = router({
         if (nextRunAt && (!soonest || nextRunAt < soonest)) {
           soonest = nextRunAt;
         }
+        if (
+          s.nextRunAt &&
+          (!currentSoonest || s.nextRunAt < currentSoonest)
+        ) {
+          currentSoonest = s.nextRunAt;
+        }
       }
-      return { activeCount: activeSpecs.length, nextRunAt: soonest };
+      return {
+        activeCount: activeSpecs.length,
+        nextRunAt: soonest,
+        currentNextRunAt: currentSoonest,
+      };
     }),
 
   /**

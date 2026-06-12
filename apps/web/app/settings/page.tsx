@@ -7,7 +7,7 @@ import { db } from "@/server/db/client";
 import { digestSpecs, users } from "@/server/db/schema";
 import { AppNav } from "@/components/nav/app-nav";
 import { AccountTimezone } from "@/components/settings/account-timezone";
-import { TimezoneSuggestBanner } from "@/components/settings/timezone-suggest-banner";
+import { TimezoneGuard } from "@/components/settings/timezone-guard";
 import { DeliveryStatusCard } from "@/components/delivery/delivery-status-card";
 
 /**
@@ -64,7 +64,9 @@ export default async function SettingsPage() {
           </p>
         </header>
 
-        <TimezoneSuggestBanner savedTimezone={timezone} hasBriefs={hasBriefs} />
+        {/* CPO HIGH-1: capture + suggest banner via the shared guard
+            (also mounted on /chat and /briefs). */}
+        <TimezoneGuard savedTimezone={timezone} hasBriefs={hasBriefs} />
 
         <div className="space-y-3">
           {/* Account — inline card (email read-only + timezone control). */}
@@ -83,7 +85,9 @@ export default async function SettingsPage() {
               </a>
               .
             </p>
-            <AccountTimezone initialTimezone={timezone} hasBriefs={hasBriefs} />
+            {/* key: the guard's silent capture router.refresh()es this
+                page — remount the select so it shows the captured zone. */}
+            <AccountTimezone key={timezone} initialTimezone={timezone} />
           </section>
 
           {/* Delivery — inline status card; /app/link keeps the connect flow. */}

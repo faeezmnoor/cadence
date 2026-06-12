@@ -44,7 +44,7 @@ export function DeliveryBrokenBanner({
       {showAction && (
         <Link
           href={"/app/link" as never}
-          className="mt-3 inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          className="mt-3 inline-flex min-h-11 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background sm:min-h-9"
         >
           {broken ? "Reconnect Telegram" : "Connect Telegram"}
         </Link>

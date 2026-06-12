@@ -9,6 +9,11 @@
  *   - idempotency: the same client-generated grantId applied twice
  *     produces ONE ledger row and bumps the balance ONCE — the second
  *     call returns duplicate=true with the original balance.
+ *   - concurrency (review CTO P2-2): when the fast-path SELECT misses but
+ *     the ledger INSERT conflicts on the 0028 partial unique index
+ *     (onConflictDoNothing returns no row), the transaction aborts (the
+ *     balance bump rolls back) and the call reports duplicate=true with
+ *     the winning row's balance.
  *   - metadata carries grantId + grantedBy for the audit trail.
  *
  * Harness: module-boundary db mock (digest-retry.test.ts pattern) — the
@@ -21,7 +26,20 @@ const insertCalls: Array<{ table: unknown; values: Record<string, unknown> }> = 
 const state: {
   existingGrantRows: Array<{ id: string; balanceAfter: number }>;
   updateReturning: Array<{ balance: number }>;
-} = { existingGrantRows: [], updateReturning: [] };
+  /** Rows the ledger INSERT's onConflictDoNothing().returning() yields —
+   *  empty simulates losing the 0028 unique-index race (CTO P2-2). */
+  insertReturning: Array<{ id: string }>;
+  /** Rows the OUTER (post-rollback) winner re-read returns. */
+  winnerRows: Array<{ balanceAfter: number }>;
+  /** True while a transaction callback threw — emulates the rollback. */
+  rolledBack: boolean;
+} = {
+  existingGrantRows: [],
+  updateReturning: [],
+  insertReturning: [],
+  winnerRows: [],
+  rolledBack: false,
+};
 
 vi.mock("@/server/db/client", () => {
   const tx = {
@@ -55,14 +73,43 @@ vi.mock("@/server/db/client", () => {
       return {
         values(v: Record<string, unknown>) {
           insertCalls.push({ table, values: v });
-          return Promise.resolve();
+          return {
+            onConflictDoNothing: () => ({
+              returning: () => Promise.resolve(state.insertReturning),
+            }),
+          };
         },
       };
     },
   };
   return {
     db: {
-      transaction: async <T>(fn: (t: typeof tx) => Promise<T>) => fn(tx),
+      transaction: async <T>(fn: (t: typeof tx) => Promise<T>) => {
+        try {
+          return await fn(tx);
+        } catch (err) {
+          // A throw aborts the (mock) transaction — flag it so the test
+          // can assert the balance bump did not survive.
+          state.rolledBack = true;
+          throw err;
+        }
+      },
+      // Outer (non-tx) read used by the CTO P2-2 conflict path to report
+      // the winning grant's balance.
+      select() {
+        const chain = {
+          from() {
+            return chain;
+          },
+          where() {
+            return chain;
+          },
+          limit() {
+            return Promise.resolve(state.winnerRows);
+          },
+        };
+        return chain;
+      },
     },
   };
 });
@@ -75,6 +122,9 @@ beforeEach(() => {
   insertCalls.length = 0;
   state.existingGrantRows = [];
   state.updateReturning = [{ balance: 13 }];
+  state.insertReturning = [{ id: "txn-new" }];
+  state.winnerRows = [];
+  state.rolledBack = false;
 });
 
 describe("grantCredits — happy path", () => {
@@ -154,5 +204,46 @@ describe("grantCredits — idempotency (same grantId twice)", () => {
     // retried request cannot double-credit.
     expect(insertCalls.filter((c) => c.table === transactions)).toHaveLength(1);
     expect(updateCalls.filter((c) => c.table === users)).toHaveLength(1);
+  });
+});
+
+describe("grantCredits — concurrency (review CTO P2-2)", () => {
+  it("losing the unique-index race aborts the transaction and reports the winner", async () => {
+    // Both concurrent calls passed the fast-path SELECT (READ COMMITTED)…
+    state.existingGrantRows = [];
+    // …but THIS call's INSERT hits the 0028 partial unique index:
+    // onConflictDoNothing yields no row.
+    state.insertReturning = [];
+    // The winning grant's ledger row, visible after our rollback.
+    state.winnerRows = [{ balanceAfter: 23 }];
+
+    const res = await grantCredits({
+      userId: "user-1",
+      credits: 10,
+      grantId: "33333333-3333-4333-8333-333333333333",
+      grantedBy: "admin",
+    });
+
+    // Conflict is reported as a duplicate carrying the winner's balance —
+    // never a second credit.
+    expect(res).toEqual({ ok: true, duplicate: true, balanceAfter: 23 });
+
+    // The transaction threw (mock flags it) so the balance UPDATE rolled
+    // back — the loser leaves no trace.
+    expect(state.rolledBack).toBe(true);
+  });
+
+  it("refuses to fabricate a balance if the winning row cannot be re-read", async () => {
+    state.existingGrantRows = [];
+    state.insertReturning = [];
+    state.winnerRows = []; // impossible in practice; must throw, not invent
+    await expect(
+      grantCredits({
+        userId: "user-1",
+        credits: 10,
+        grantId: "44444444-4444-4444-8444-444444444444",
+        grantedBy: "admin",
+      })
+    ).rejects.toThrow(/no winning row/);
   });
 });

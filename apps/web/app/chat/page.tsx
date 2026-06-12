@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { isAdminEmail } from "@/server/auth/admin";
 import { db } from "@/server/db/client";
-import { chatMessages, chatThreads } from "@/server/db/schema";
+import { chatMessages, chatThreads, digestSpecs, users } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
 import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
 import type { PersistedMessage } from "@/components/chat/types";
 import { AppNav } from "@/components/nav/app-nav";
+import { TimezoneGuard } from "@/components/settings/timezone-guard";
 
 /**
  * /chat — server component. Auth-checks, resolves or creates an active
@@ -46,6 +47,28 @@ export default async function ChatPage({
         : "/auth/sign-in"
     );
   }
+
+  // CPO HIGH-1: timezone-guard inputs (the zero-brief silent capture and
+  // the with-briefs suggest banner must live where users actually land —
+  // /chat is the first authed page — not just on /settings).
+  const [tzUserRows, tzBriefRows] = await Promise.all([
+    db
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1),
+    db
+      .select({ id: digestSpecs.id })
+      .from(digestSpecs)
+      .where(
+        and(
+          eq(digestSpecs.userId, user.id),
+          inArray(digestSpecs.status, ["active", "paused"])
+        )
+      ),
+  ]);
+  const savedTimezone = tzUserRows[0]?.timezone ?? "Asia/Kuala_Lumpur";
+  const hasBriefs = tzBriefRows.length > 0;
 
   // Find or create an active thread.
   let thread = (
@@ -105,6 +128,14 @@ export default async function ChatPage({
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
       <AppNav active="chat" isAdmin={isAdminEmail(user.email)} />
+      {/* CPO HIGH-1: zero-height when timezone is consistent. */}
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+        <TimezoneGuard
+          savedTimezone={savedTimezone}
+          hasBriefs={hasBriefs}
+          bannerClassName="my-4"
+        />
+      </div>
       {/*
         key={thread.id} is load-bearing for the Reset flow (multi-brief
         techdesign §7). chat.resetThread archives the current thread and

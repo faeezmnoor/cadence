@@ -73,6 +73,9 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
         setToast(`Already refunded earlier — balance ${data.balanceAfter}`);
       } else if (data.reason === "run_delivered") {
         setToast("Won't refund: run was delivered.");
+      } else if (data.reason === "run_skipped") {
+        // CTO P2-3: skipped occurrences never charged — nothing to refund.
+        setToast("Won't refund: occurrence was skipped — it was never charged.");
       } else {
         setToast(`No refund: ${data.reason}`);
       }

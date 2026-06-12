@@ -272,10 +272,12 @@ function OverviewTab({
           {stackCost === 1 ? "" : "s"} per brief
         </p>
         {proTierAlphaEnabled ? (
+          // Designer P2: text link gets a ≥44px hit area (min-h-11
+          // inline-flex) for touch without changing its visual weight.
           <button
             type="button"
             onClick={onOpenAdvanced}
-            className="mt-1 text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            className="mt-1 inline-flex min-h-11 items-center text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Change research depth
           </button>
