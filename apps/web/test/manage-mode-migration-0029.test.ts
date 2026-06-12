@@ -104,6 +104,18 @@ describe("0029b phase 2 — reactivation (post-deploy only)", () => {
     );
   });
 
+  it("activates exactly one row per spec via the most-recent-completed subselect (exec CTO R1)", () => {
+    // Post-rollback shape: a spec with TWO completed bound threads (backfilled
+    // T1 + rolled-back lazy-create T2). The NOT EXISTS guard sees the
+    // pre-statement snapshot, so without this subselect the UPDATE activates
+    // both rows and aborts on chat_threads_spec_active_uq. Most-recent
+    // updated_at wins; id DESC is the tiebreak (rollback stamps one shared
+    // now() across all rows it touches).
+    expect(sql).toMatch(
+      /AND t\.id = \(SELECT t3\.id FROM chat_threads t3\s+WHERE t3\.spec_id = t\.spec_id AND t3\.status = 'completed'\s+ORDER BY t3\.updated_at DESC, t3\.id DESC\s+LIMIT 1\)/
+    );
+  });
+
   it("touches nothing but chat_threads.status/updated_at (single UPDATE)", () => {
     const statements = sql
       .split(";")

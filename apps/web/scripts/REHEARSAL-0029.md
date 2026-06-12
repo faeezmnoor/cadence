@@ -31,6 +31,12 @@ Create one user, then:
 - **Reactivation NOT-EXISTS skip:** after phase 1, manually insert an
   ACTIVE thread T8 with `spec_id = <spec A id>` (simulates a user
   lazy-creating between deploy and phase 2).
+- **Two-completed-threads convergence (exec CTO R1, post-rollback shape):**
+  threads T9 and T10 BOTH `completed` and bound to live spec F (give T10
+  the newer `updated_at`; equal timestamps are also worth running — that is
+  exactly what `--phase=rollback` produces, since it stamps one shared
+  `now()` — the `id DESC` tiebreak still picks exactly one). This simulates
+  deploy → lazy-create T10 → rollback → reactivate.
 
 ## 2. Phase 1 — schema
 
@@ -59,7 +65,13 @@ Expect:
   fixture both ways: with T8 present (T1 skipped, counted in the skip
   count) and without (T1 reactivated).
 - T7 (archived spec) stays `completed`.
-- **Run it a second time:** prints `0 changes`.
+- **Spec F (CTO R1 fixture):** exactly ONE of T9/T10 flips to `active`
+  (T10 — newest `updated_at`, or highest id on a timestamp tie); the other
+  stays `completed` and is counted as skipped. The statement must NOT abort
+  with a `chat_threads_spec_active_uq` violation — that abort is the exact
+  pre-fix failure this fixture pins.
+- **Run it a second time:** prints `0 changes` (the reactivated T10 now
+  trips the NOT EXISTS guard for spec F — converges instead of aborting).
 
 ## 4. Phase 3 — rollback
 
@@ -67,8 +79,11 @@ Expect:
 node --env-file=.env.branch server/db/apply-0029.mjs --phase=rollback
 ```
 
-Expect: every spec-bound `active` thread (T1 and the manually inserted T8)
-back to `completed`; second run prints `0 changes`.
+Expect: every spec-bound `active` thread (T1, the manually inserted T8, and
+the reactivated T10) back to `completed`; second run prints `0 changes`.
+Then run `--phase=reactivate` once more: spec F is now back in the
+two-completed-threads shape with EQUAL `updated_at` stamps — exactly one of
+T9/T10 must reactivate (no abort), proving rollback → reactivate round-trips.
 
 ## 5. Prod sequence (plan §7.1)
 
