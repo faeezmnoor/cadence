@@ -25,6 +25,8 @@ import {
   isAdvancedStack,
   normalizeStack,
 } from "@/lib/research-stack";
+import { humanizeSchedule } from "@/lib/schedule";
+import { briefDisplayName } from "@/lib/brief-display";
 
 export type BriefRow = {
   id: string;
@@ -272,7 +274,7 @@ function BriefCard({
     () => (row.lastRun ? formatLast(row.lastRun.runDate) : null),
     [row.lastRun]
   );
-  const displayName = row.name?.trim() || (topics[0] ? `${capitalize(topics[0])} brief` : "Untitled brief");
+  const displayName = briefDisplayName(row.name, topics);
 
   return (
     <li
@@ -557,45 +559,11 @@ function extractTopics(spec: unknown): string[] {
   return s.topics.filter((t): t is string => typeof t === "string");
 }
 
-function capitalize(s: string): string {
-  return s.length ? s[0]!.toUpperCase() + s.slice(1) : s;
-}
-
-const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function humanizeSchedule(rule: unknown): string {
-  if (!rule || typeof rule !== "object") return "Schedule not set";
-  const r = rule as {
-    cadence?: { kind?: string; weekdays?: number[]; monthlyDay?: number | "last"; cronExpr?: string };
-    timeLocal?: string;
-    timezone?: string;
-  };
-  const time = r.timeLocal ?? "";
-  const tz = r.timezone ?? "";
-  const tzLabel = tz ? ` (${tz})` : "";
-  const c = r.cadence;
-  if (!c) return "Schedule not set";
-
-  if (c.kind === "daily") {
-    const wd = c.weekdays ?? [1, 2, 3, 4, 5, 6, 7];
-    if (wd.length === 7) return `Daily at ${time}${tzLabel}`;
-    if (wd.length === 5 && wd.every((d, i) => d === i + 1))
-      return `Weekdays at ${time}${tzLabel}`;
-    return `${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "weekly") {
-    const wd = c.weekdays ?? [];
-    return `Weekly · ${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "monthly") {
-    const day = c.monthlyDay === "last" ? "last day" : `day ${c.monthlyDay}`;
-    return `Monthly on ${day} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "custom_cron") {
-    return `Custom: ${c.cronExpr}${tzLabel}`;
-  }
-  return "Schedule not set";
-}
+// humanizeSchedule + displayName were module-private duplicates here until
+// the manage-mode wave lifted them into @/lib/schedule and
+// @/lib/brief-display (exec RC2) so server code (manage-thread seed,
+// transition message) renders the SAME strings as these cards. Import them
+// — never re-add a local copy.
 
 function formatNext(iso: string, timezone: string): string {
   const d = new Date(iso);
