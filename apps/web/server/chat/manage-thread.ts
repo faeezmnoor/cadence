@@ -6,7 +6,7 @@
  * thread, seeded with two deterministic assistant messages
  * (buildManageSeedSummary — no LLM, first paint never waits on a model).
  *
- * The partial unique index `chat_threads_spec_active_uq` (migration 0028)
+ * The partial unique index `chat_threads_spec_active_uq` (migration 0029)
  * is the race guard: a double-tab race — or racing the phase-2 reactivation
  * script — makes the second INSERT fail with a unique violation, which we
  * resolve by re-selecting the winner. A Sentry breadcrumb is logged when

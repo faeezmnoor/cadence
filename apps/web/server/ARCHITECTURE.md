@@ -167,7 +167,7 @@ matching `transactions.type` value (currently `charge | refund | grant | topup`)
 
 ## `chat/`
 
-Thread lifecycle for the manage-mode wave (migration 0028; plan in
+Thread lifecycle for the manage-mode wave (migration 0029; plan in
 `proposals/brief-manage-mode-plan.md`).
 
 - `thread-gate.ts` — `deriveThreadMode` + `resolveThreadGate`, the pure
@@ -194,7 +194,7 @@ Thread lifecycle for the manage-mode wave (migration 0028; plan in
   `active` forever.
 - `status='completed'` is **legacy-only**: no new code path writes it
   (flag-off restores the legacy write for unbound threads). Completed
-  threads are never resumed; migration 0028 phase 2 (post-deploy)
+  threads are never resumed; migration 0029 phase 2 (post-deploy)
   reactivates spec-bound ones.
 - Kill switch (`MANAGE_MODE` off, exec RC5): the route 409s ANY
   spec-bound thread regardless of status and resolution skips them —

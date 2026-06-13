@@ -15,7 +15,7 @@
  *
  * On success: stores the spec id on session.savedSpecId (the existing
  * persistence path stamps content.savedSpecId on the assistant turn,
- * keeping the migration-0028 backfill invariant true going forward) and
+ * keeping the migration-0029 backfill invariant true going forward) and
  * clears the session draft — the rail's pending markers reset to the new
  * saved baseline.
  */

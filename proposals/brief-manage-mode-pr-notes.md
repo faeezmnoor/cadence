@@ -240,10 +240,10 @@ Full suite after chunk D: **117 files / 1119 tests passed** (baseline
 1. Isolated worktree (`git worktree add` — parallel sessions share `~/code/cadence`, never assume sole tree ownership). Re-verify migration number first.
 2. Land commits per §5; CI green; live evals green locally (output in PR).
 3. Branch-DB rehearsal of **all three script phases** (schema, reactivate, rollback) incl. idempotency proofs.
-4. **Pre-merge prod apply: `apply-0028.mjs` (default `--phase=schema`) ONLY** — column, indexes, `spec_id` backfill, throttle column. **No status UPDATE runs pre-merge** (checkable: the schema phase contains none). Forward-safe with live legacy code: nullable column + partial indexes; legacy code never reads `spec_id`, and — the part that made the split necessary — no thread's `status` changes, so legacy `/chat` resolution behavior is byte-identical.
+4. **Pre-merge prod apply: `apply-0029.mjs` (default `--phase=schema`) ONLY** — column, indexes, `spec_id` backfill, throttle column. **No status UPDATE runs pre-merge** (checkable: the schema phase contains none). Forward-safe with live legacy code: nullable column + partial indexes; legacy code never reads `spec_id`, and — the part that made the split necessary — no thread's `status` changes, so legacy `/chat` resolution behavior is byte-identical.
 5. PR with: eval outputs, backfill counts, CTO flag **and explicit ack** on the cost-events commit, founder sign-off confirmations (credit-line voice; "+ New brief" disabled placement), the post-ship PM query (§2 success trigger), and the **founder heads-up note**: the post-deploy reactivation step (7) revives old completed threads, so the first post-reactivation bare-`/chat` visit may land in an old conversation — intended per decision 3.
 6. Set `MANAGE_MODE` in Vercel env, then squash-merge after CPO+CTO approval; Vercel auto-deploy ships flag-on.
-7. **Post-deploy, after verifying the new code is serving:** run `apply-0028.mjs --phase=reactivate` against prod. The NOT-EXISTS guard skips any spec whose user already lazy-created an active manage thread between deploy and now; record reactivated/skipped counts in the PR thread.
+7. **Post-deploy, after verifying the new code is serving:** run `apply-0029.mjs --phase=reactivate` against prod. The NOT-EXISTS guard skips any spec whose user already lazy-created an active manage thread between deploy and now; record reactivated/skipped counts in the PR thread.
 8. Post-deploy smoke: open a reactivated legacy thread via `/chat?brief=<id>`, send "show me a sample" → preview card; check `/briefs` Chat action; check one `manage_thread_resumed` and one chat-turn `cost_events` row landed; send two quick "preview" asks → second returns the dry-run wait line (throttle live).
 
 ### Founder heads-up — reactivated threads
@@ -287,7 +287,7 @@ the baseline shift is accepted.
 |---|---------|-------------|
 | CPO#1 | Panel path (tRPC `digest.sampleNow`) wrote no ACX.5 analytics while the chat tool wrote `sample_requested`/`sample_blocked` | **Fixed** (`d5aa0c0`). `sampleNow` now logs `sample_requested {via:'panel_button', dry_run}` and `sample_blocked` with the shared reason vocabulary; `sampleBlockedReason` single-sourced in `server/digest/sample.ts` (chat tool repointed); router test locks the event shape. Checkable: `grep -rn panel_button apps/web --include="*.ts"` → write site + test. |
 | CPO#2 | AC6.2 (at-cap "also brief me on X" inside a manage thread) had no live eval | **Fixed** (`a5dade5`). Live case 8: "Also brief me on lithium prices." → zero `update_spec_field`/`save_changes`/`send_sample`, draft byte-identical, semantic match on the manage prompt's at-cap line, negative regex on upgrade-CTA language. Suite now 9 cases. **Green on the FIRST live pass — zero prompt iterations needed** (then 9/9 again on the recorded verbose pass). |
-| CTO R1 | 0028b reactivation aborts post-rollback: two completed bound threads per spec both pass the snapshot-evaluated NOT EXISTS guard → `chat_threads_spec_active_uq` violation aborts the statement | **Fixed** (`dd9f081`). One-per-spec subselect (`ORDER BY t3.updated_at DESC, t3.id DESC LIMIT 1` — id tiebreak because rollback stamps one shared `now()`); structural test pins the subselect; REHEARSAL-0028 gains the two-completed-threads fixture (expect 1 reactivated + 1 skipped, converges) and a rollback→reactivate round-trip check. |
+| CTO R1 | 0029b reactivation aborts post-rollback: two completed bound threads per spec both pass the snapshot-evaluated NOT EXISTS guard → `chat_threads_spec_active_uq` violation aborts the statement | **Fixed** (`dd9f081`). One-per-spec subselect (`ORDER BY t3.updated_at DESC, t3.id DESC LIMIT 1` — id tiebreak because rollback stamps one shared `now()`); structural test pins the subselect; REHEARSAL-0029 gains the two-completed-threads fixture (expect 1 reactivated + 1 skipped, converges) and a rollback→reactivate round-trip check. |
 | CTO R3 | `onFinish` flag-on→{specId, stays active} vs flag-off→{status:'completed'} write decision inline at route.ts with no test | **Fixed** (`83f8152`). Extracted to pure `onFinishThreadWrite(manageOn, savedSpecId, draft)` in `server/chat/on-finish-write.ts`; both rows + draft-persist + touch-only + no-updatedAt pinned in `test/chat-onfinish-write.test.ts`. Behavior byte-identical (extract + test only). |
 
 ### Advisories — taken
@@ -315,7 +315,7 @@ them inline. None of them gates merge.
 - `npx tsc --noEmit` clean; `pnpm lint` clean.
 - Full `npx vitest run`: **118 files / 1131 tests passed** (round-0
   baseline 117/1119 — additions only: +9 onFinish helper rows, +2 panel
-  analytics router rows, +1 0028b structural row).
+  analytics router rows, +1 0029b structural row).
 - Live evals (env via `vercel env pull`, deleted after the run along with
   `.vercel/`): setup **10/10 unchanged**; manage **9/9** (new at-cap case
   included) — first pass green, no prompt iterations, outputs refreshed in
