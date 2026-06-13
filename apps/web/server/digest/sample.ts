@@ -101,6 +101,10 @@ export function mapRunToResult(run: RunDigestResult): SampleResult {
     case "composed_dry_run":
       return { ok: true, run, markdown: run.markdown };
     case "no_telegram_link":
+    // Settings-surfacing v1 (gap 3): gate-check skip when Telegram is
+    // unlinked. Same user-facing meaning as no_telegram_link for the
+    // sample path — no link, nothing to deliver.
+    case "skipped_unlinked":
       return { ok: false, code: "no_telegram", run };
     case "skipped_no_credits":
       return { ok: false, code: "no_credits", run };
