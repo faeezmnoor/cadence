@@ -26,6 +26,9 @@ import {
   MAX_PAUSE_CONTINUATIONS,
   MAX_WEB_SEARCHES,
   WEB_SEARCH_TOOL_TYPE,
+  WEB_FETCH_TOOL_TYPE,
+  MAX_WEB_FETCHES,
+  MAX_FETCH_CONTENT_TOKENS,
 } from "@/server/ai/providers/anthropic-websearch";
 import {
   buildWebSearchComposerSystemPrompt,
@@ -138,8 +141,16 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     const body = calls[0];
     expect(body.model).toBe(PRO_COMPOSER_MODEL_ID);
     expect(body.temperature).toBe(0.25);
+    // CAD-226: web_search paired with web_fetch so the composer can open
+    // the specific page a search surfaced and cite it (grounding fix).
     expect(body.tools).toEqual([
       { type: WEB_SEARCH_TOOL_TYPE, name: "web_search", max_uses: MAX_WEB_SEARCHES },
+      {
+        type: WEB_FETCH_TOOL_TYPE,
+        name: "web_fetch",
+        max_uses: MAX_WEB_FETCHES,
+        max_content_tokens: MAX_FETCH_CONTENT_TOKENS,
+      },
     ]);
     expect(String(body.system)).toContain(WEBSEARCH_PROMPT_TAG);
   });

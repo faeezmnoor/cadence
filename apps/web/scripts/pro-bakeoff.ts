@@ -36,6 +36,8 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { digestSpecSchema, type DigestSpecV1 } from "../lib/digest-spec/schema";
+import { authorityDomainsForSpec } from "@/server/sources/authority";
+import { resolveSourceUrls } from "@/server/digest/sources/resolve";
 import { getBakeoffStack } from "../server/ai/providers";
 import type {
   ComposerInput,
@@ -110,11 +112,14 @@ async function gatherViaPerplexity(spec: DigestSpecV1): Promise<GatheredSources>
   const { search } = getBakeoffStack("perplexity_sonnet");
   if (!search) throw new Error("perplexity_sonnet stack is missing search");
   const queries = spec.topics.slice(0, MAX_SEARCH_QUERIES);
+  // CAD-226: mirror production's authority steering so the eval measures
+  // what the pipeline actually does.
+  const authorityDomains = authorityDomainsForSpec(spec);
   const searchBundles: ComposerSearchSource[] = [];
   const memos: string[] = [];
   let searchCostUsd = 0;
   for (const query of queries) {
-    const resp = await search.search(query, { count: 8 });
+    const resp = await search.search(query, { count: 8, authorityDomains });
     searchCostUsd += resp.costUsd;
     searchBundles.push({
       query,
@@ -141,7 +146,8 @@ async function gatherViaPerplexity(spec: DigestSpecV1): Promise<GatheredSources>
 
 async function judgeBrief(
   spec: DigestSpecV1,
-  briefJson: unknown
+  briefJson: unknown,
+  urlResolution?: string
 ): Promise<{ scores: JudgeScores; costUsd: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY required for the judge");
@@ -161,7 +167,8 @@ async function judgeBrief(
           role: "user",
           content: buildJudgePrompt(
             JSON.stringify(spec, null, 2),
-            JSON.stringify(briefJson, null, 2)
+            JSON.stringify(briefJson, null, 2),
+            urlResolution
           ),
         },
       ],
@@ -273,7 +280,23 @@ async function runOne(
   // sonnet_websearch: no search step — the composer researches inline.
 
   const out = await stack.composer.compose(input);
-  const judged = await judgeBrief(specFile.spec, out.brief);
+  // CAD-226: informed judging — resolve every cited URL post-compose so
+  // the judge scores reachability as fact instead of guessing.
+  let urlResolution: string | undefined;
+  try {
+    const briefSources = (out.brief as { sources?: Array<{ marker: number; url: string }> })
+      .sources ?? [];
+    const resolved = await resolveSourceUrls(briefSources.map((s) => s.url));
+    urlResolution = briefSources
+      .map((s, i) => {
+        const r = resolved[i];
+        return `[${s.marker}] ${r && r.resolved ? `resolved (${r.status})` : `FAILED (${r?.status ?? "timeout"})`} — ${s.url}`;
+      })
+      .join("\n");
+  } catch {
+    urlResolution = undefined; // judge falls back to blind mode
+  }
+  const judged = await judgeBrief(specFile.spec, out.brief, urlResolution);
 
   return {
     specName: specFile.name,

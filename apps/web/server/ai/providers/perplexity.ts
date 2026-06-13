@@ -244,13 +244,22 @@ export async function perplexitySearch(
   const count = Math.min(opts.count ?? DEFAULT_COUNT, 20);
   const fetchFn = deps.fetchImpl ?? fetch;
 
+  // CAD-226: per-spec authority preference. A soft instruction, not
+  // search_domain_filter — a hard allowlist kills recall on breaking
+  // news; preference pulls citations toward primary publishers.
+  const authorityLine =
+    opts.authorityDomains && opts.authorityDomains.length > 0
+      ? ` Prioritize official/primary publishers for this topic — especially: ${opts.authorityDomains.join(", ")} — over blogs and aggregators; cite the official page when one covers the claim.`
+      : " Prefer official/primary publishers (government, regulators, exchanges, statistics agencies) over blogs and aggregators when both cover a claim.";
+
   const body = {
     model: PPLX_MODEL,
     messages: [
       {
         role: "system",
         content:
-          "You are a market research assistant. For the user's query, perform deep web research and return a concise, fact-dense answer with clear inline citations. Prefer recent (last 14 days) sources for news; authoritative sources for prices and policy.",
+          "You are a market research assistant. For the user's query, perform deep web research and return a concise, fact-dense answer with clear inline citations. Prefer recent (last 14 days) sources for news; authoritative sources for prices and policy." +
+          authorityLine,
       },
       { role: "user", content: query },
     ],
