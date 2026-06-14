@@ -4,6 +4,21 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { formatUserState } from "@/lib/labels";
+import { STACK_COSTS, normalizeStack } from "@/lib/research-stack";
+
+/**
+ * CAD-225 nit: credit cost for a run's RESOLVED tier, for the refund button
+ * label. Mirrors server creditCostForTier (server/billing/cost.ts) but reads
+ * the CLIENT-safe registry (lib/research-stack.ts has no db import) — keeping
+ * the retired 'pro' price at 3 for legacy rows. The server re-derives the
+ * authoritative amount on refund; this is display only.
+ */
+function refundCreditsForTier(tier: string | null | undefined): number {
+  if (tier === "default" || tier === "pro" || tier === "pro_websearch") {
+    return STACK_COSTS[tier];
+  }
+  return STACK_COSTS[normalizeStack(tier)];
+}
 
 /**
  * /admin/runs — client component for the runs viewer.
@@ -217,8 +232,10 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                         <button
                           type="button"
                           onClick={() => {
+                            const credits = refundCreditsForTier(r.resolvedTier);
+                            const unit = credits === 1 ? "credit" : "credits";
                             const reason = window.prompt(
-                              `Refund 1 credit for run ${r.id.slice(0, 8)}?\n\nOptional reason (will appear in the apology email):`,
+                              `Refund ${credits} ${unit} for run ${r.id.slice(0, 8)}?\n\nOptional reason (will appear in the apology email):`,
                               ""
                             );
                             // null = user cancelled; "" = confirmed without a note.
@@ -231,7 +248,7 @@ export function RunsClient({ adminEmail }: { adminEmail: string }) {
                           disabled={
                             refundRun.isPending && refundRun.variables?.runId === r.id
                           }
-                          title="Credit +1 + send apology email. Idempotent per run."
+                          title={`Credit +${refundCreditsForTier(r.resolvedTier)} + send apology email. Idempotent per run.`}
                           className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {refundRun.isPending && refundRun.variables?.runId === r.id

@@ -104,6 +104,18 @@ export const adminRouter = router({
           specId: digestRuns.specId,
           specVersion: digestSpecs.version,
           specIsSmoke: digestSpecs.isSmoke,
+          // CAD-225 nit: the tier the run actually RESOLVED to (post-
+          // downgrade), falling back to requested, then the spec's current
+          // tier. Drives the refund button's credit count so it shows the
+          // true refund amount (e.g. "Refund 5 credits") instead of a
+          // hardcoded 1. refundForFailedRun re-derives the exact amount
+          // server-side via resolveRefundAmount — this is just the label.
+          resolvedTier: sql<string>`COALESCE(
+            ${digestRuns.metadata} #>> '{tier,resolved}',
+            ${digestRuns.metadata} #>> '{tier,requested}',
+            ${digestSpecs.tier},
+            'default'
+          )`,
           userId: users.id,
           userEmail: users.email,
           userState: users.state,
