@@ -74,7 +74,16 @@ async function runSchemaPhase() {
   // Phase 1 contains NO status UPDATE — prove it by snapshotting status
   // counts before/after and failing loudly on any drift (exec RC1/RC4).
   const statusBefore = await statusCounts();
-  const boundBefore = await boundCount();
+
+  // Pre-run bound count. On the first apply against a pre-0029 DB the spec_id
+  // column does not exist yet, so the count is definitionally 0 — guard the
+  // probe on column existence rather than blindly SELECTing spec_id (which
+  // throws 42703 and aborts the whole schema phase before any DDL runs).
+  const specIdExists = await sql`
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'chat_threads' AND column_name = 'spec_id'
+  `;
+  const boundBefore = specIdExists.length > 0 ? await boundCount() : 0;
 
   const ddl = readMigration("0029_chat_thread_spec_binding.sql");
   // Belt-and-braces (exec RC1/RC4): refuse if anyone ever edits a status

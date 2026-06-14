@@ -153,6 +153,16 @@ describe("apply-0029.mjs — phased runner", () => {
     expect(runner).toMatch(/status counts changed during schema phase/);
   });
 
+  it("guards the pre-run bound count on spec_id column existence (branch-DB rehearsal regression)", () => {
+    // Caught in the 0029 branch-DB rehearsal: boundCount() SELECTs spec_id,
+    // which does not exist on a pre-0029 DB (exactly the pre-merge prod
+    // target) — counting BEFORE the ADD COLUMN throws 42703 and aborts the
+    // whole schema phase. The probe must check column existence first.
+    expect(runner).toMatch(
+      /information_schema\.columns[\s\S]*?column_name = 'spec_id'[\s\S]*?boundCount\(\) : 0/
+    );
+  });
+
   it("rollback phase is the reactivation inverse (plan §7.2)", () => {
     expect(runner).toMatch(/SET status = 'completed', updated_at = now\(\)/);
     expect(runner).toMatch(/WHERE spec_id IS NOT NULL AND status = 'active'/);
