@@ -27,6 +27,7 @@ import { costEvents, digestRuns, digestSpecs, learningLog, users } from "@/serve
 import { buildFeedbackBlock } from "@/server/ai/composer/feedback-block";
 import { classifyTopic } from "@/lib/digest-spec/templates";
 import { normalizeStack, isAdvancedStack } from "@/lib/research-stack";
+import { authorityDomainsForSpec } from "@/server/sources/authority";
 import { buildSampleBanner } from "./sample-banner";
 import { generateBriefShortId, getBriefShareUrl } from "./share";
 
@@ -691,6 +692,10 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       try {
         const memos: string[] = [];
         const proQueries = searchQueries.slice(0, PRO_SEARCH_MAX_QUERIES);
+        // CAD-226: steer Sonar toward primary publishers for this spec.
+        const authorityDomains = authorityDomainsForSpec(
+          specRow.spec as Parameters<typeof authorityDomainsForSpec>[0]
+        );
         for (const query of proQueries) {
           if (Date.now() - proSearchStartedAt > PRO_SEARCH_ISSUE_BUDGET_MS) {
             proSearchTruncated++;
@@ -700,6 +705,7 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
             count: 8,
             userId,
             digestRunId: runRowId,
+            authorityDomains,
           });
           sources.search.push({
             query,

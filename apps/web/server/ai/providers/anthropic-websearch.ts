@@ -47,6 +47,7 @@ import {
 } from "@/server/ai/composer/compose";
 import { PRO_COMPOSER_MODEL_ID } from "./anthropic-pro";
 import { buildWebSearchComposerSystemPrompt } from "./anthropic-websearch-prompt";
+import { makeDeadLinkValidator } from "@/server/ai/composer/grounding-validate";
 import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
 import type { ComposerProvider } from "./types";
 
@@ -55,6 +56,18 @@ const ANTHROPIC_VERSION = "2023-06-01";
 
 /** Server tool type string — pinned by tests. */
 export const WEB_SEARCH_TOOL_TYPE = "web_search_20250305" as const;
+
+/**
+ * CAD-226 grounding: web_fetch lets the composer OPEN the specific page a
+ * search surfaced and cite that page — the informed-judge eval showed the
+ * dominant grounding defect was precise figures cited to homepage/landing
+ * URLs that cannot contain them. Same GA pairing the API docs recommend
+ * for this model (web_search_20250305 + web_fetch_20250910); no per-fetch
+ * surcharge, only token cost, bounded by MAX_FETCH_CONTENT_TOKENS.
+ */
+export const WEB_FETCH_TOOL_TYPE = "web_fetch_20250910" as const;
+export const MAX_WEB_FETCHES = 3;
+export const MAX_FETCH_CONTENT_TOKENS = 12_000;
 
 /** Hard cap on searches per compose attempt (`max_uses`). The prompt asks
  *  for 2-3 targeted searches; the API enforces this ceiling. */
@@ -162,6 +175,8 @@ type FetchLike = typeof fetch;
 
 export interface WebSearchComposeDeps {
   fetchImpl?: FetchLike;
+  /** CAD-226: injectable URL resolver for the dead-link validator (tests). */
+  resolveImpl?: import("@/server/digest/sources/resolve").ResolveSourceUrlsFn;
   /** Override the API key resolver (tests). */
   apiKey?: string;
 }
@@ -210,6 +225,12 @@ export async function composeDigestWebSearch(
             type: WEB_SEARCH_TOOL_TYPE,
             name: "web_search",
             max_uses: MAX_WEB_SEARCHES,
+          },
+          {
+            type: WEB_FETCH_TOOL_TYPE,
+            name: "web_fetch",
+            max_uses: MAX_WEB_FETCHES,
+            max_content_tokens: MAX_FETCH_CONTENT_TOKENS,
           },
         ],
       }),
@@ -278,6 +299,8 @@ export async function composeDigestWebSearch(
         // CAD-224 #4: same wall-clock deadline that gates pause_turn
         // continuations above — once it passes, no corrective retry.
         retryDeadlineAtMs: composeDeadlineAtMs,
+        // CAD-226: re-source any cited URL that fails to resolve.
+        postParseValidate: makeDeadLinkValidator({ resolveImpl: deps.resolveImpl }),
       }
     );
   } catch (err) {

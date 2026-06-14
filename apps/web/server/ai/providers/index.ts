@@ -36,11 +36,19 @@ export function isProTierAlphaEnabled(): boolean {
 }
 
 export function getProviders(tier: Tier): ProviderBundle {
-  if (tier === "pro" && isProTierAlphaEnabled()) {
+  // CAD-225 (founder ruling 2026-06-14): the "pro" (Perplexity Sonar, A2)
+  // stack is RETIRED from the product — strictly dominated (grounds ~2.0 vs
+  // standard's 2.4 at 3x the price). `normalizeStack("pro")` already folds it
+  // to "default" upstream, so this branch is normally unreachable; we keep
+  // getProviders DEFENSIVE so any stray `tier === "pro"` (e.g. a raw legacy
+  // call) returns the default bundle rather than spending Sonar money. The
+  // proSearchProvider/proComposerProvider adapters stay in the codebase for
+  // the dev bake-off harness; they're just no longer routed in production.
+  if (tier === "pro") {
     return {
-      tier: "pro",
-      search: proSearchProvider,
-      composer: proComposerProvider,
+      tier: "default",
+      search: defaultSearchProvider,
+      composer: defaultComposerProvider,
     };
   }
   // CAD-222 (founder ruling 2026-06-11): bake-off winner promoted to a

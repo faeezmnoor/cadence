@@ -7,6 +7,7 @@ import {
   recentRatedBriefs,
   MIN_SAMPLES_PER_TIER,
   MIN_LEAD,
+  MIN_ADVANCED_SPECIFICITY,
   WINDOW_DAYS,
 } from "@/server/evals/pro-eval-gate";
 import { EvalsClient } from "./evals-client";
@@ -54,6 +55,7 @@ export default async function AdminEvalsPage() {
         config={{
           minSamplesPerTier: MIN_SAMPLES_PER_TIER,
           minLead: MIN_LEAD,
+          minAdvancedSpecificity: MIN_ADVANCED_SPECIFICITY,
           windowDays: WINDOW_DAYS,
         }}
       />

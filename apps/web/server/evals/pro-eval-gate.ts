@@ -1,24 +1,42 @@
 /**
- * CAD-90 (Phase 5.1 Pro Tier): eval gate readiness helper.
+ * CAD-90 (Phase 5.1 Pro Tier) / CAD-225 reframe: eval gate readiness helper.
  *
  * Aggregates the last 7 days of manually-rated digest runs (the rating lives
  * in `digest_runs.metadata.manualRating`, written by admin.rateBrief — Evals
- * Phase 0) and decides whether the Pro tier has accumulated enough signal to
- * be flipped on for everyone.
+ * Phase 0) and decides whether the advanced tier has accumulated enough
+ * signal to be flipped on for everyone.
  *
- * Readiness rule (intentionally conservative for an alpha):
- *   - >=5 Pro-tier ratings in the window, AND
- *   - >=5 Default-tier ratings in the window, AND
- *   - Pro composite avg - Default composite avg >= 0.5
+ * WHY the criterion changed (CAD-225, founder-approved 2026-06-14):
+ *   A 5-iteration eval with an INFORMED judge proved grounding ~2.3 is the
+ *   judge's FLOOR for niche Malaysian topics — the standard tier already
+ *   grounds ~2.4, and NO advanced stack clears a grounding bar on these
+ *   topics (it's a property of the topic's source scarcity, not the stack).
+ *   Gating on grounding therefore gated on noise. The advanced tier's real,
+ *   measurable value is SPECIFICITY (+0.6) and FIT (+0.3) — so the gate now
+ *   rewards those axes and DROPS grounding as a hard bar entirely.
+ *
+ * Readiness rule (the cheap pre-filter; see "authority" note below):
+ *   - >=5 advanced-tier ratings in the window, AND
+ *   - >=5 default-tier ratings in the window, AND
+ *   - composite lead (advanced − default) >= MIN_LEAD (0.25), AND
+ *   - advanced specificity avg >= MIN_ADVANCED_SPECIFICITY (3.7) — the axis
+ *     where advanced genuinely wins; advanced must be MEASURABLY more
+ *     specific, not merely composite-ahead on grounding noise.
+ *   - grounding is NO LONGER a hard bar (no stack clears it on these topics).
  *
  * Composite = (grounding + specificity + fit) / 3 — same axes the admin
- * rateBrief mutation persists.
+ * rateBrief mutation persists. Grounding still feeds the composite (so a
+ * grounding collapse would still drag the lead down), it's just not its own
+ * pass/fail gate.
  *
- * This helper is observational. It does NOT flip any flags; /admin/evals
- * surfaces the verdict so Faeez decides when to ship.
+ * AUTHORITY: this helper is the cheap, observational PRE-FILTER. It does NOT
+ * flip any flags. Faeez's manual /admin ratings remain the FINAL authority on
+ * when the advanced tier un-pauses; /admin/evals surfaces this verdict so he
+ * decides when to ship.
  */
 import { sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
+import { isAdvancedStack, normalizeStack } from "@/lib/research-stack";
 
 export type EvalGateMetrics = {
   proCount: number;
@@ -35,6 +53,7 @@ export type EvalGateReason =
   | "insufficient_pro"
   | "insufficient_default"
   | "lead_below_threshold"
+  | "specificity_below_threshold"
   | "no_data";
 
 export type EvalGateResult = {
@@ -44,7 +63,20 @@ export type EvalGateResult = {
 };
 
 export const MIN_SAMPLES_PER_TIER = 5;
-export const MIN_LEAD = 0.5;
+/**
+ * CAD-225: lowered 0.5 → 0.25. With grounding (the topic-floored axis) no
+ * longer a hard bar, the advanced tier's composite lead is carried by
+ * specificity + fit alone, so a smaller composite lead is meaningful — but
+ * it MUST be paired with the specificity bar below (composite-ahead on
+ * grounding noise without a specificity win does NOT pass).
+ */
+export const MIN_LEAD = 0.25;
+/**
+ * CAD-225: the specificity floor the advanced tier must clear. Specificity
+ * (+0.6 in the eval) is the axis where advanced genuinely wins; gating on it
+ * directly — not just via the composite — is what makes the lead trustworthy.
+ */
+export const MIN_ADVANCED_SPECIFICITY = 3.7;
 export const WINDOW_DAYS = 7;
 
 type AggRow = {
@@ -92,28 +124,48 @@ export async function proTierAlphaReady(): Promise<EvalGateResult> {
     GROUP BY ds.tier
   `)) as unknown as AggRow[];
 
+  // CTO P1 (CAD-225): bucket the ADVANCED arm by isAdvancedStack, not the
+  // literal "pro" string — migration 0028 retired "pro", and the live
+  // advanced stack is "pro_websearch". Aggregate every advanced tier into
+  // one arm with count-weighted axis means so the gate keeps working as
+  // stacks evolve. Rows whose tier normalizes to "default" are the
+  // baseline arm.
   let proCount = 0;
   let defaultCount = 0;
-  let proAxes: EvalGateMetrics["proAxes"] = null;
-  let defaultAxes: EvalGateMetrics["defaultAxes"] = null;
+  // Count-weighted axis accumulators (sum of axis*n) per arm.
+  const acc = {
+    pro: { g: 0, s: 0, f: 0, n: 0 },
+    def: { g: 0, s: 0, f: 0, n: 0 },
+  };
 
   for (const r of rows) {
     const n = num(r.n) ?? 0;
     const g = num(r.avg_g);
     const s = num(r.avg_s);
     const f = num(r.avg_f);
-    const axes =
-      g !== null && s !== null && f !== null
-        ? { grounding: round(g, 3)!, specificity: round(s, 3)!, fit: round(f, 3)! }
-        : null;
-    if (r.tier === "pro") {
-      proCount = n;
-      proAxes = axes;
-    } else if (r.tier === "default") {
-      defaultCount = n;
-      defaultAxes = axes;
+    if (n === 0) continue;
+    const advanced = isAdvancedStack(normalizeStack(r.tier));
+    const bucket = advanced ? acc.pro : acc.def;
+    if (advanced) proCount += n;
+    else defaultCount += n;
+    if (g !== null && s !== null && f !== null) {
+      bucket.g += g * n;
+      bucket.s += s * n;
+      bucket.f += f * n;
+      bucket.n += n;
     }
   }
+
+  const axesOf = (b: { g: number; s: number; f: number; n: number }) =>
+    b.n > 0
+      ? {
+          grounding: round(b.g / b.n, 3)!,
+          specificity: round(b.s / b.n, 3)!,
+          fit: round(b.f / b.n, 3)!,
+        }
+      : null;
+  const proAxes: EvalGateMetrics["proAxes"] = axesOf(acc.pro);
+  const defaultAxes: EvalGateMetrics["defaultAxes"] = axesOf(acc.def);
 
   const proCompositeAvg =
     proAxes !== null
@@ -151,8 +203,20 @@ export async function proTierAlphaReady(): Promise<EvalGateResult> {
   if (defaultCount < MIN_SAMPLES_PER_TIER) {
     return { ready: false, reason: "insufficient_default", metrics };
   }
+  // CAD-225 criterion (both bars must clear; grounding is NOT gated):
+  //   (a) composite lead >= MIN_LEAD (0.25), AND
+  //   (b) advanced specificity avg >= MIN_ADVANCED_SPECIFICITY (3.7).
+  // Order is deliberate: report the lead failure first (it's the headline
+  // verdict), then the specificity failure for a composite-passing tier that
+  // isn't actually more specific.
   if (lead === null || lead < MIN_LEAD) {
     return { ready: false, reason: "lead_below_threshold", metrics };
+  }
+  if (
+    proAxes === null ||
+    proAxes.specificity < MIN_ADVANCED_SPECIFICITY
+  ) {
+    return { ready: false, reason: "specificity_below_threshold", metrics };
   }
   return { ready: true, reason: "ready", metrics };
 }

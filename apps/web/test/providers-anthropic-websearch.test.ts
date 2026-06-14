@@ -26,6 +26,9 @@ import {
   MAX_PAUSE_CONTINUATIONS,
   MAX_WEB_SEARCHES,
   WEB_SEARCH_TOOL_TYPE,
+  WEB_FETCH_TOOL_TYPE,
+  MAX_WEB_FETCHES,
+  MAX_FETCH_CONTENT_TOKENS,
 } from "@/server/ai/providers/anthropic-websearch";
 import {
   buildWebSearchComposerSystemPrompt,
@@ -92,6 +95,11 @@ function successBody(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// CAD-226: stub resolver — every cited URL resolves, so the dead-link
+// validator never triggers its corrective retry in these unit tests.
+const allResolved = async (urls: readonly string[]) =>
+  urls.map((url) => ({ url, status: 200, resolved: true, latencyMs: 1 }));
+
 describe("CAD-222 A3 prompt", () => {
   it("appends the web-search addendum AFTER the full Pro prompt", () => {
     const p = buildWebSearchComposerSystemPrompt(input());
@@ -132,14 +140,23 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     };
     await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(calls).toHaveLength(1);
     const body = calls[0];
     expect(body.model).toBe(PRO_COMPOSER_MODEL_ID);
     expect(body.temperature).toBe(0.25);
+    // CAD-226: web_search paired with web_fetch so the composer can open
+    // the specific page a search surfaced and cite it (grounding fix).
     expect(body.tools).toEqual([
       { type: WEB_SEARCH_TOOL_TYPE, name: "web_search", max_uses: MAX_WEB_SEARCHES },
+      {
+        type: WEB_FETCH_TOOL_TYPE,
+        name: "web_fetch",
+        max_uses: MAX_WEB_FETCHES,
+        max_content_tokens: MAX_FETCH_CONTENT_TOKENS,
+      },
     ]);
     expect(String(body.system)).toContain(WEBSEARCH_PROMPT_TAG);
   });
@@ -148,6 +165,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     const fetchImpl = async () => apiResponse(successBody());
     const out = await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(out.modelId).toBe(PRO_COMPOSER_MODEL_ID);
@@ -186,6 +204,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     };
     const out = await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(n).toBe(2);
@@ -213,6 +232,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     await expect(
       composeDigestWebSearch(input(), {
         fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
         apiKey: "test-key",
       })
     ).rejects.toBeInstanceOf(AnthropicWebSearchApiError);

@@ -128,7 +128,7 @@ export default function PricingPage() {
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {isProTierAlpha()
-            ? "Every brief uses standard research unless you say otherwise. Switch on advanced research where it's worth more — it digs deeper and uses 3 or 5 credits, shown on each option."
+            ? "Every brief uses standard research unless you say otherwise. Switch on advanced research where it's worth more — it digs deeper and writes a more specific brief, for 5 credits."
             : "Every brief uses standard research — 1 credit each. Advanced research is temporarily unavailable while we improve it."}
         </p>
         {/* Design-review 2026-06-11 FINDING-002: while advanced research is

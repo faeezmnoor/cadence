@@ -1,0 +1,16 @@
+{
+  "name": "gov-procurement-ms",
+  "spec": {
+    "topics": ["Government contracts", "IT tenders", "public procurement"],
+    "cadence": { "frequency": "daily", "days_of_week": [1, 2, 3, 4, 5], "delivery_time_local": "09:00" },
+    "entities": { "tickers": [], "companies": [], "commodities": [] },
+    "language": "ms",
+    "rss_feeds": [],
+    "data_addons": { "fx_pairs": [], "show_prices": false, "show_7d_change": false, "show_24h_change": true },
+    "tone_preset": "executive_brief",
+    "length_target": "short",
+    "schema_version": 1,
+    "keywords_exclude": [],
+    "keywords_include": []
+  }
+}

@@ -6,7 +6,7 @@
  * three things:
  *
  *   1. The canonical copy ("1 credit per brief", "3 credits per brief",
- *      the "reads more sources … tighter analysis" value framing, footer
+ *      the "more specific" value framing (CAD-225: not sourcing claims), footer
  *      marker note) actually appears in the shared component — so a
  *      drive-by edit can't quietly delete a positioning beat.
  *   2. All three consumers actually import and render the component, so
@@ -43,13 +43,17 @@ describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
 
   it("names advanced research price + value prop", () => {
     expect(explainerSource).toMatch(/🔬 Advanced research/);
-    // Review P1-6 / founder per-stack pricing: the explainer names both
-    // advanced prices and points at the per-option display.
-    expect(explainerSource).toMatch(/3 or 5 credits/);
-    // Plain-English value framing is the positioning hook — no vendor names
-    // in user-facing copy.
-    expect(explainerSource).toMatch(/reads more sources/);
-    expect(explainerSource).toMatch(/tighter\s+analysis/);
+    // CAD-225: advanced is now a SINGLE option (pro_websearch, 5 credits) —
+    // the dominated 3-credit Sonar stack is retired, so the copy names one
+    // price, not "3 or 5".
+    expect(explainerSource).toMatch(/5 credits/);
+    expect(explainerSource).not.toMatch(/3 or 5 credits/);
+    // CAD-225 (CPO review): advanced sells SPECIFICITY/FIT, not better
+    // sourcing — the eval proved grounding is tied with standard, so any
+    // "reads more sources / cross-checks" claim would over-promise.
+    expect(explainerSource).toMatch(/more specific/);
+    expect(explainerSource).not.toMatch(/cross-check/i);
+    expect(explainerSource).not.toMatch(/reads more sources/i);
   });
 
   it("calls out the advanced footer marker so users can self-verify which research mode they got", () => {

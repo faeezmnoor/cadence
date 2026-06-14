@@ -88,6 +88,13 @@ export interface SearchOptions {
   /** Cost-attribution metadata — for `cost_events` rollup. */
   userId?: string | null;
   digestRunId?: string | null;
+  /**
+   * CAD-226: official/primary domains for the spec's topics (from
+   * `authorityDomainsForSpec`). Research-grade providers (Sonar) weave
+   * these into their research instructions as a PREFERENCE — never a
+   * hard filter. Plain result providers (Brave) may ignore them.
+   */
+  authorityDomains?: readonly string[];
 }
 
 export interface SearchResponse {

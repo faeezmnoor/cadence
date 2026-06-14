@@ -23,37 +23,60 @@ import type { SchedulingRuleV1 } from "./scheduling/rule";
 
 /**
  * CAD-222 / founder ruling 2026-06-11: the per-brief research-depth
- * surface is a REGISTRY of stacks, not a binary toggle. Three options
- * ship at launch; adding a fourth is a data change here (+ provider
- * wiring), not UI surgery. Persistence values stay backward-compatible
- * with the live `digest_specs.tier` column:
+ * surface is a REGISTRY of stacks, not a binary toggle.
+ *
+ * CAD-225 (founder ruling 2026-06-14): the "pro" (Perplexity Sonar, A2)
+ * stack is RETIRED from the product. An informed-judge eval proved it
+ * grounds ~2.0 — WORSE than standard's 2.4 — at 3x the price, so it is
+ * strictly dominated. "pro_websearch" (Sonnet with the Anthropic web-search
+ * server tool, A3) becomes the SINGLE advanced option. The `ResearchStack`
+ * union still carries "pro" so legacy persisted rows + the dev bake-off
+ * harness keep type-checking, but it is no longer OFFERED — STACK_ORDER
+ * drops it and normalizeStack("pro") now coerces to "default".
+ *
+ * Persistence values stay backward-compatible with the live
+ * `digest_specs.tier` column:
  *   - "default"        → Standard (Brave + Haiku), 1 credit
- *   - "pro"            → Advanced · Sonar research (Perplexity Sonar
- *                        Reasoning Pro research memo + Sonnet), 3 credits
- *   - "pro_websearch"  → Advanced · live web search (Sonnet with the
- *                        Anthropic web-search server tool — bake-off
- *                        winner 2026-06-11, composite 4.13 vs 3.47), 5 credits
+ *   - "pro"            → RETIRED (Perplexity Sonar A2). Cost kept for
+ *                        backward-compat reads only; normalizeStack folds
+ *                        it to "default" so a legacy spec bills 1 credit and
+ *                        is NOT auto-upgraded to the 5-credit stack.
+ *   - "pro_websearch"  → Advanced (Sonnet with the Anthropic web-search
+ *                        server tool — bake-off winner 2026-06-11,
+ *                        composite 4.13 vs 3.47), 5 credits
  * There is NO cost ceiling on any stack; each stack's credit price is
  * set to cover its measured cost-to-us with margin (founder ruling).
  */
 export type ResearchStack = "default" | "pro" | "pro_websearch";
 
-/** Stable display + iteration order: cheapest first. */
+/**
+ * Stable display + iteration order: cheapest first. The UI maps over THIS,
+ * so "pro" never renders (CAD-225 retired it from the product).
+ */
 export const STACK_ORDER: readonly ResearchStack[] = [
   "default",
-  "pro",
   "pro_websearch",
 ];
 
 export const STACK_COSTS: Record<ResearchStack, number> = {
   default: 1,
+  // CAD-225: kept defined for backward-compat reads of any legacy 'pro' row
+  // (creditCostForTier('pro') still resolves 3). The stack is no longer
+  // offered; normalizeStack folds 'pro' to 'default' before a spec ever bills.
   pro: 3,
   pro_websearch: 5,
 };
 
-/** Coerce a persisted tier string (or anything) to a known stack. */
+/**
+ * Coerce a persisted tier string (or anything) to a known, OFFERED stack.
+ *
+ * CAD-225: "pro" (the retired, dominated A2 stack) now folds to "default" —
+ * a legacy pro spec falls back to standard (billed 1 credit), deliberately
+ * NOT auto-upgraded to the 5-credit pro_websearch stack. Only "pro_websearch"
+ * passes through as advanced.
+ */
 export function normalizeStack(raw: unknown): ResearchStack {
-  return raw === "pro" || raw === "pro_websearch" ? raw : "default";
+  return raw === "pro_websearch" ? raw : "default";
 }
 
 /** True for every stack that is gated behind the advanced alpha flag
@@ -73,7 +96,7 @@ export interface StackDescriptionRow {
  * Transparency table content. Each row compares one dimension between the
  * two stacks. The source of truth for these provider claims is:
  *   - server/ai/providers/default.ts (Claude Haiku 4.5)
- *   - server/ai/providers/anthropic-pro.ts (Claude Sonnet 4.6)
+ *   - server/ai/providers/anthropic-pro.ts (Claude Sonnet 4.5)
  *   - server/sources/index.ts (Brave/RSS for default; Perplexity Sonar for pro)
  *   - HANDOVER.md §4 (stack table)
  */
@@ -101,11 +124,11 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
       "The composer searches the live web mid-write and folds findings into its sources",
   },
   {
-    label: "Citation density",
+    label: "Depth of coverage",
     default: "Sources cited per section",
-    pro: "Stronger inline citations + cross-source corroboration",
+    pro: "More angles per topic; denser, more specific bullets",
     pro_websearch:
-      "Searched pages are folded in and cited like any other numbered source",
+      "Searches more widely mid-write for the densest, most specific take",
   },
   {
     label: "Typical latency",
@@ -128,9 +151,11 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
 export const STACK_SUMMARIES: Record<ResearchStack, string> = {
   default:
     "Fast daily signal from curated feeds and search. The right default for most briefs.",
-  pro: "A research pass reads the web first and hands the writer a memo. Deeper digging on broad topics.",
+  // CAD-225: 'pro' is retired from the product (never rendered — STACK_ORDER
+  // drops it). Summary kept so the Record type stays exhaustive.
+  pro: "Retired research depth — no longer offered.",
   pro_websearch:
-    "The writer searches the live web itself while composing. Sharpest fit to your exact brief.",
+    "The writer searches the live web itself while composing, then writes a tighter, more specific brief. Best for high-signal topics.",
 };
 
 /**
@@ -202,9 +227,14 @@ export function stackLabel(stack: ResearchStack): string {
   // only"). The variant qualifiers reuse the badge-footer phrases.
   switch (stack) {
     case "pro":
-      return "Advanced research · deeper digging";
+      // Retired (CAD-225) — unreachable from the product since normalizeStack
+      // folds "pro" to "default". Kept for exhaustiveness / legacy callers.
+      return "Advanced research";
     case "pro_websearch":
-      return "Advanced research · live web search";
+      // CAD-225: the single advanced option — drop the "· live web search"
+      // qualifier (it's no longer disambiguating two advanced stacks) and
+      // stay vendor-free per COPY_GUIDE.
+      return "Advanced research";
     default:
       return "Standard research";
   }

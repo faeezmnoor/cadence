@@ -31,6 +31,7 @@ import {
   COMPOSE_USER_MESSAGE,
 } from "@/server/ai/composer/compose";
 import { ComposerJsonError } from "@/server/ai/composer/schema";
+import { makeDeadLinkValidator } from "@/server/ai/composer/grounding-validate";
 import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
 import type { ComposerProvider } from "./types";
 
@@ -58,8 +59,14 @@ const PRO_MAX_OUTPUT_TOKENS = 3_000;
  */
 export const PRO_COMPOSER_TIMEOUT_MS = 60_000;
 
+export interface ProComposeDeps {
+  /** CAD-226: injectable URL resolver for the dead-link validator (tests). */
+  resolveImpl?: import("@/server/digest/sources/resolve").ResolveSourceUrlsFn;
+}
+
 export async function composeDigestPro(
-  input: ComposerInput
+  input: ComposerInput,
+  deps: ProComposeDeps = {}
 ): Promise<ComposerOutput> {
   const systemPrompt = buildProComposerSystemPrompt(input);
 
@@ -97,6 +104,8 @@ export async function composeDigestPro(
         // a slow-but-successful first attempt with a defect skips the
         // retry (worst compose ~60s); fast attempts keep the retry.
         retryDeadlineAtMs: Date.now() + 50_000,
+        // CAD-226: re-source any cited URL that fails to resolve.
+        postParseValidate: makeDeadLinkValidator({ resolveImpl: deps.resolveImpl }),
       }
     );
   } catch (err) {

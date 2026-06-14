@@ -4,24 +4,30 @@ The advanced tier is product-paused. Two research stacks compete for
 the **default Advanced slot**; this runbook drives the 10-briefs ×
 2-contenders × 5-specs bake-off (~$20 budget).
 
-## Decision criterion (founder-amended 2026-06-11)
+## Decision criterion (founder-amended 2026-06-13, CAD-225/226)
 
-> Quality only: higher mean composite wins the default Advanced slot;
-> A3 wins ties. There is NO cost ceiling — measured $/brief is the
-> input to per-stack credit pricing. Stacks become configurable
-> settings options (standard / advanced as defaults), each with an
-> estimated cost; the loser is not auto-deleted.
+The bake-off (informed judge, 5 specs) settled the contest: **A3
+`sonnet_websearch` won** (composite 3.33 vs A2 3.03 vs standard 3.07) and
+**A2 `perplexity_sonnet` was RETIRED from the product** — it grounded
+2.0, worse than standard's 2.4, at 3× the price. A3 is the sole advanced
+stack (`pro_websearch`, 5 credits).
 
-Notes on how that maps to tooling:
+The informed-judge eval also proved **grounding ~2.3 is the judge's floor
+for niche MY topics** — standard hits it too — so the original ≥4.0
+grounding bar was unreachable by ANY stack. The un-pause gate was
+reframed onto the axis advanced actually wins:
 
-- **Head-to-head winner** (A2 `perplexity_sonnet` vs A3
-  `sonnet_websearch`): higher mean composite in this report; A3 wins
-  ties. Decided by `decideWinner` in `scripts/pro-bakeoff/lib.ts`.
-- **≥0.5 composite lift**: measured against the *default-tier baseline*
-  via the existing manual-rating gate
-  (`server/evals/pro-eval-gate.ts`, `MIN_LEAD = 0.5`) — the founder
-  rates briefs in /admin; this report's Haiku-judge scores are the
-  cheap pre-filter, not the un-pause authority.
+> **Un-pause gate** (`server/evals/pro-eval-gate.ts`): ≥5 founder-rated
+> briefs per arm, AND advanced composite − standard composite ≥ **0.25**
+> (`MIN_LEAD`), AND advanced **specificity ≥ 3.7**
+> (`MIN_ADVANCED_SPECIFICITY`). Grounding still feeds the composite but
+> is no longer a hard bar. The advanced arm buckets every
+> `isAdvancedStack` tier (today `pro_websearch`), NOT the retired `pro`.
+> Founder /admin ratings remain the final authority; the Haiku judge here
+> is the cheap pre-filter.
+
+The bake-off harness still runs both A2 and A3 (dev tooling for future
+evals); only the PRODUCT registry retired A2.
 - **$/brief**: reported per contender (`winnerMeanCostUsd` on the
   verdict) and used to set each stack option's credit charge so the
   charge covers the cost. Not a gate.

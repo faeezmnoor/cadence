@@ -12,6 +12,7 @@
  * Pure: no I/O, no LLM call.
  */
 import { BRIEF_SCHEMA_VERSION } from "./schema";
+import { authorityDomainsForSpec } from "@/server/sources/authority";
 import type { ComposerInput, ComposerSourcesBundle } from "./types";
 
 const HARD_CHAR_CAP = 3800;
@@ -292,6 +293,21 @@ const FEWSHOT_HALAL_FNB: string = JSON.stringify(
  * memo is an upstream model's synthesis, not a numbered source. Header
  * text is pinned by test/composer-prompt.test.ts.
  */
+/**
+ * CAD-226 grounding: claim-discipline rule appended to the SOURCES
+ * instructions. The informed-judge eval showed precise figures cited to
+ * landing pages are the dominant grounding defect.
+ */
+export const CLAIM_DISCIPLINE_RULE = [
+  "CLAIM DISCIPLINE: only attach a precise figure (price, percentage,",
+  "tonnage, deadline, contract value) to a source whose page plausibly",
+  "CONTAINS that figure — an article, data release, or filing. Never cite",
+  "a homepage, symbol page, or category landing page for a specific",
+  "number. If no source supports the figure, soften the claim to what the",
+  "sources actually say, or drop it. A vaguer brief beats a",
+  "precisely-wrong one.",
+].join("\n");
+
 const RESEARCH_MEMO_HEADER =
   "RESEARCH MEMO (secondary — verify every claim against the SOURCES above; cite only numbered sources)";
 
@@ -312,6 +328,20 @@ function researchMemoBlock(researchMemo: string | undefined): string[] {
     "<research_memo>",
     memo,
     "</research_memo>",
+  ];
+}
+
+/**
+ * CAD-226: per-spec authority-domain hint rendered into the HARD RULES
+ * area. Empty when no topic bucket matches (rule 11's generic preference
+ * still applies). Derived here rather than threaded through ComposerInput
+ * so every composer (haiku, pro, websearch) gets it for free.
+ */
+function authorityPreferenceBlock(input: ComposerInput): string[] {
+  const domains = authorityDomainsForSpec(input.spec);
+  if (domains.length === 0) return [];
+  return [
+    `    Authoritative domains for THIS brief's topics: ${domains.join(", ")}.`,
   ];
 }
 
@@ -420,13 +450,16 @@ export function buildComposerSystemPrompt(input: ComposerInput): string {
     "1. Output JSON ONLY. No preamble, no code fences, no commentary outside the object.",
     `2. Total rendered length will be capped at ~${HARD_CHAR_CAP} characters; keep bullets tight.`,
     "3. `sections`: 1 to 5 (prefer 2-3). Each section: 1 to 5 bullets (prefer 2-3). Thin-signal days: 1 sharp section beats 3 padded ones.",
-    "4. Citations: every `[n]` you write inline MUST appear in `sources[].marker`. Every source in `sources` MUST be cited somewhere in body. No orphans either way.",
+    "4. Citations: every `[n]` you write inline MUST appear in `sources[].marker`. Every source in `sources` MUST be cited somewhere in body. No orphans either way. MARKER DENSITY (grounding discipline): every sentence that states a number, price, percentage, date, deadline, or named-entity fact MUST carry an inline [n] marker on that sentence — not one marker per paragraph. A factual sentence you cannot mark with a source from the SOURCES block (or, for advanced runs, a searched source) does not belong in the brief.",
     "5. Cite ONLY URLs that appear in the SOURCES block below. Do NOT invent URLs.",
     "6. `why_it_matters` is REQUIRED. Connect today's news to the user's spec, entities, or stated position. This is how we earn the daily delivery.",
     "7. Skip sections you don't have high-signal items for. Quality > quantity — emit 1 strong section before 3 thin ones.",
     "8. Respect `keywords_exclude` — never mention those topics. Apply LEARNED PREFERENCES and RECENT FEEDBACK aggressively.",
     "9. Write in the user's `language` setting (en / ms / zh). Headings and `feedback_cta` translate too.",
     "10. Voice: short sentences, numbers over adjectives, no \"in this brief we will…\" filler. Never identify the output as a Telegram message — it's just a brief.",
+    "11. SOURCE AUTHORITY: when more than one source supports a claim, cite the most authoritative one — official/government publishers, central banks, regulators, exchanges, statistics agencies, and the national wire outrank trade press; trade press outranks blogs and aggregators. Numbers (prices, stock levels, tax thresholds, deadlines) should be attributed to a primary source whenever the SOURCES block contains one. If a claim exists ONLY on a low-authority source, either attribute it explicitly (\"according to [publisher]\") or leave it out.",
+    ...authorityPreferenceBlock(input),
+    `12. ${CLAIM_DISCIPLINE_RULE}`,
     "",
     "FEW-SHOT EXAMPLES",
     "These two examples teach SHAPE and VOICE, not facts. Different industries on purpose — do NOT copy specifics; do NOT anchor on commodity or F&B phrasing unless the user's spec calls for it. Cite ONLY URLs from the SOURCES block of the actual request.",

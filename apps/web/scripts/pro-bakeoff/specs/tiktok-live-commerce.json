@@ -1,0 +1,16 @@
+{
+  "name": "tiktok-live-commerce",
+  "spec": {
+    "topics": ["live commerce on TikTok Shop", "AI agent UX patterns"],
+    "cadence": { "frequency": "daily", "days_of_week": [1, 2, 3, 4, 5], "delivery_time_local": "08:00" },
+    "entities": { "tickers": [], "companies": ["TikTok Shop", "Whatnot"], "commodities": [] },
+    "language": "en",
+    "rss_feeds": [],
+    "data_addons": { "fx_pairs": [], "show_prices": false, "show_7d_change": false, "show_24h_change": true },
+    "tone_preset": "executive_brief",
+    "length_target": "short",
+    "schema_version": 1,
+    "keywords_exclude": [],
+    "keywords_include": []
+  }
+}

@@ -630,7 +630,7 @@ function ConfigurableStackSettings({
           stack is a lib/research-stack.ts change, not UI surgery
           (founder ruling 2026-06-11: flexibility over fixed tiers). */}
       <div
-        className="mt-4 grid gap-2 sm:grid-cols-3"
+        className="mt-4 grid gap-2 sm:grid-cols-2"
         role="radiogroup"
         aria-label="Choose research depth"
       >
@@ -738,11 +738,12 @@ function ConfigurableStackSettings({
           data-testid="stack-transparency-table"
         >
           <thead>
+            {/* CAD-225: the dominated 'pro' (Sonar) column is retired — the
+                table compares Standard vs the single Advanced option. */}
             <tr className="text-muted-foreground">
               <th className="pb-2 pr-2 font-medium"></th>
               <th className="pb-2 pr-2 font-medium">Standard</th>
-              <th className="pb-2 pr-2 font-medium">🔬 Advanced · deeper digging</th>
-              <th className="pb-2 font-medium">🔬 Advanced · live web search</th>
+              <th className="pb-2 font-medium">🔬 Advanced</th>
             </tr>
           </thead>
           <tbody>
@@ -760,7 +761,6 @@ function ConfigurableStackSettings({
                 <td className="py-2 pr-2 text-muted-foreground">
                   {row.default}
                 </td>
-                <td className="py-2 pr-2 text-muted-foreground">{row.pro}</td>
                 <td className="py-2 text-muted-foreground">
                   {row.pro_websearch}
                 </td>

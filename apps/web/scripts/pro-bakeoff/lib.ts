@@ -101,7 +101,18 @@ export function contendersToRun(args: BakeoffArgs): ContenderId[] {
  * gate (`server/evals/pro-eval-gate.ts`) aggregates: grounding /
  * specificity / fit, 1-5 each, composite = mean of the three.
  */
-export function buildJudgePrompt(specJson: string, briefJson: string): string {
+export function buildJudgePrompt(
+  specJson: string,
+  briefJson: string,
+  /**
+   * CAD-226: post-hoc URL resolution results ("[1] 200 OK" / "[4] failed
+   * (404)"), one line per source. Judging URL plausibility blind made the
+   * judge mark REAL official portals (bepi.mpob.gov.my) as "appears
+   * fabricated" — informed judging scores reachability as fact, and
+   * reserves skepticism for whether the PAGE can support the CLAIM.
+   */
+  urlResolution?: string
+): string {
   return [
     "You are a strict research-brief evaluator. Score the BRIEF against",
     "the USER SPEC on three axes, integers 1-5 each:",
@@ -110,6 +121,16 @@ export function buildJudgePrompt(specJson: string, briefJson: string): string {
     "  Inline [n] markers present, no obviously invented facts or URLs,",
     "  numbers attributed to a source. 5 = every claim traceable;",
     "  1 = assertions float free of the sources.",
+    ...(urlResolution
+      ? [
+          "  A URL-resolution check ran AFTER composition; results are in the",
+          "  URL RESOLUTION block. Treat resolved (2xx/3xx) URLs as REAL —",
+          "  do not call them fabricated or implausible, even if the domain",
+          "  is unfamiliar. Failed URLs ARE evidence against grounding.",
+          "  Still penalize resolved-but-generic landing pages that cannot",
+          "  plausibly support the specific claim they back.",
+        ]
+      : []),
     "- specificity: concrete numbers, named entities, dates, quantified",
     "  deltas. 5 = dense with verbatim figures; 1 = vague qualitative",
     "  filler ('prices rose', 'sentiment improved').",
@@ -125,6 +146,7 @@ export function buildJudgePrompt(specJson: string, briefJson: string): string {
     "USER SPEC",
     specJson,
     "",
+    ...(urlResolution ? ["URL RESOLUTION", urlResolution, ""] : []),
     "BRIEF",
     briefJson,
   ].join("\n");

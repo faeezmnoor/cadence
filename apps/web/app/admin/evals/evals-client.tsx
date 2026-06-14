@@ -18,16 +18,23 @@ export function EvalsClient({
 }: {
   gate: EvalGateResult;
   recent: RecentRating[];
-  config: { minSamplesPerTier: number; minLead: number; windowDays: number };
+  config: {
+    minSamplesPerTier: number;
+    minLead: number;
+    minAdvancedSpecificity: number;
+    windowDays: number;
+  };
 }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Admin · Pro Tier Eval Gate</h1>
+        <h1 className="text-2xl font-semibold">Admin · Advanced Research Eval Gate</h1>
         <p className="text-sm text-muted-foreground">
           Window: last {config.windowDays} days · Gate:{" "}
-          {config.minSamplesPerTier}+ ratings per tier, Pro lead &ge;{" "}
-          {config.minLead.toFixed(1)} composite points.
+          {config.minSamplesPerTier}+ ratings per tier, advanced lead &ge;{" "}
+          {config.minLead.toFixed(2)} composite points AND advanced specificity
+          &ge; {config.minAdvancedSpecificity.toFixed(1)}. Grounding is floored
+          on niche topics (CAD-225) — not gated.
         </p>
       </header>
 
@@ -103,8 +110,15 @@ function GateBanner({
   config,
 }: {
   gate: EvalGateResult;
-  config: { minSamplesPerTier: number; minLead: number };
+  config: {
+    minSamplesPerTier: number;
+    minLead: number;
+    minAdvancedSpecificity: number;
+  };
 }) {
+  // CAD-225: specificity is the axis advanced genuinely wins on, so it
+  // headlines the verdict alongside the composite lead.
+  const advancedSpecificity = gate.metrics.proAxes?.specificity ?? null;
   if (gate.ready) {
     return (
       <div
@@ -117,7 +131,11 @@ function GateBanner({
           <span className="font-medium">
             {gate.metrics.lead?.toFixed(2)}
           </span>{" "}
-          composite points with{" "}
+          composite points and rating{" "}
+          <span className="font-medium">
+            {advancedSpecificity?.toFixed(2)}
+          </span>{" "}
+          on specificity with{" "}
           {gate.metrics.proCount} advanced / {gate.metrics.defaultCount} standard
           ratings.
         </div>
@@ -132,11 +150,15 @@ function GateBanner({
     >
       <div className="font-semibold">Not ready: {reasonText}</div>
       <div className="mt-1">
-        Pro {gate.metrics.proCount} / Default {gate.metrics.defaultCount}{" "}
+        Advanced {gate.metrics.proCount} / Standard {gate.metrics.defaultCount}{" "}
         ratings ·{" "}
         {gate.metrics.lead === null
           ? "lead n/a"
-          : `lead ${gate.metrics.lead.toFixed(2)}`}
+          : `lead ${gate.metrics.lead.toFixed(2)}`}{" "}
+        ·{" "}
+        {advancedSpecificity === null
+          ? "specificity n/a"
+          : `specificity ${advancedSpecificity.toFixed(2)}`}
       </div>
     </div>
   );
@@ -144,17 +166,19 @@ function GateBanner({
 
 function reasonLabel(
   reason: EvalGateResult["reason"],
-  config: { minSamplesPerTier: number; minLead: number }
+  config: { minSamplesPerTier: number; minLead: number; minAdvancedSpecificity: number }
 ): string {
   switch (reason) {
     case "no_data":
       return "no manually-rated briefs yet";
     case "insufficient_pro":
-      return `need >= ${config.minSamplesPerTier} Pro ratings`;
+      return `need >= ${config.minSamplesPerTier} advanced ratings`;
     case "insufficient_default":
-      return `need >= ${config.minSamplesPerTier} Default ratings`;
+      return `need >= ${config.minSamplesPerTier} standard ratings`;
     case "lead_below_threshold":
-      return `Pro must lead Default by >= ${config.minLead.toFixed(1)}`;
+      return `advanced must lead standard by >= ${config.minLead.toFixed(2)} composite`;
+    case "specificity_below_threshold":
+      return `advanced specificity must be >= ${config.minAdvancedSpecificity.toFixed(1)}`;
     case "ready":
       return "ready";
   }
