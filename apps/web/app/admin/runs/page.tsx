@@ -42,7 +42,7 @@ export default async function AdminRunsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <RunsClient adminEmail={user.email ?? ""} />
     </div>
   );

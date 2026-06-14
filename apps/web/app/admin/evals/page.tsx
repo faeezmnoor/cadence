@@ -48,7 +48,7 @@ export default async function AdminEvalsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <EvalsClient
         gate={gate}
         recent={recent}

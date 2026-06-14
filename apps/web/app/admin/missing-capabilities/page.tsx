@@ -150,7 +150,7 @@ export default async function MissingCapabilitiesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNav active="admin" />
+      <AppNav active="admin" isAdmin />
       <main className="mx-auto max-w-5xl px-6 py-10">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">

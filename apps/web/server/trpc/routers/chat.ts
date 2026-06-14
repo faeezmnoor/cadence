@@ -3,7 +3,7 @@
  *
  * Token-level streaming happens at /api/chat (Vercel AI SDK route handler),
  * not here — tRPC procedures are request/response. This router is the
- * boring side: create/list threads, list messages, mark complete.
+ * boring side: create/list threads, list messages, reset.
  *
  * Why both?
  *  - Streaming via tRPC means inventing our own SSE/Stream protocol that
@@ -37,6 +37,9 @@ export const chatRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Prefer an active thread of the same purpose if one exists.
+      // Manage mode: spec-bound threads are never "a fresh start" — the
+      // isNull filter keeps startThread from handing back a manage thread
+      // (lazy-created manage threads share purpose='reconfigure').
       const existing = await db
         .select()
         .from(chatThreads)
@@ -44,7 +47,8 @@ export const chatRouter = router({
           and(
             eq(chatThreads.userId, ctx.user.id),
             eq(chatThreads.purpose, input.purpose),
-            eq(chatThreads.status, "active")
+            eq(chatThreads.status, "active"),
+            isNull(chatThreads.specId)
           )
         )
         .orderBy(desc(chatThreads.createdAt))
@@ -163,6 +167,7 @@ export const chatRouter = router({
         .select({
           id: chatThreads.id,
           purpose: chatThreads.purpose,
+          specId: chatThreads.specId,
         })
         .from(chatThreads)
         .where(
@@ -201,12 +206,24 @@ export const chatRouter = router({
 
         // 3. Spin up a brand-new active thread for the same purpose. Its
         //    fresh id is what unmounts/remounts useChat on the client.
+        //
+        //    Manage mode (plan §4.2, C6): the specId binding CARRIES OVER to
+        //    the replacement thread — resetting a manage thread must not
+        //    silently degrade it to a setup thread (whose confirm_and_save
+        //    path can archive-and-replace at cap). Archive-then-insert
+        //    inside this one transaction is load-bearing for the partial
+        //    unique index chat_threads_spec_active_uq (one live manage
+        //    thread per brief): the old row leaves 'active' before the new
+        //    bound row enters it. The UI removes "Start over" on manage
+        //    threads; this is the server-side hardening for stale clients
+        //    and direct tRPC calls.
         const [created] = await tx
           .insert(chatThreads)
           .values({
             userId: ctx.user.id,
             purpose: owned[0]!.purpose,
             status: "active",
+            specId: owned[0]!.specId ?? null,
             // draftSpec defaults to NULL — guaranteed clean slate.
           })
           .returning();
@@ -243,30 +260,6 @@ export const chatRouter = router({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
       return rows[0].draftSpec ?? null;
-    }),
-
-  /**
-   * Mark a thread completed. Called by the client after the agent has
-   * successfully run `confirm_and_save` so subsequent /chat visits open
-   * a fresh thread instead of reviving a terminal one.
-   */
-  completeThread: protectedProcedure
-    .input(z.object({ threadId: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const [updated] = await db
-        .update(chatThreads)
-        .set({ status: "completed", updatedAt: new Date() })
-        .where(
-          and(
-            eq(chatThreads.id, input.threadId),
-            eq(chatThreads.userId, ctx.user.id)
-          )
-        )
-        .returning();
-      if (!updated) {
-        throw new TRPCError({ code: "NOT_FOUND" });
-      }
-      return updated;
     }),
 
   /**

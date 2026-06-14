@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeSchedule } from "@/lib/schedule";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 import {
   formatBriefStatus,
@@ -154,7 +155,11 @@ export function BriefDetailClient({
       </nav>
 
       {tab === "overview" ? (
-        <OverviewTab brief={brief} />
+        <OverviewTab
+          brief={brief}
+          proTierAlphaEnabled={proTierAlphaEnabled}
+          onOpenAdvanced={() => setTab("advanced")}
+        />
       ) : (
         <AdvancedTab
           brief={brief}
@@ -196,12 +201,29 @@ function TabButton({
   );
 }
 
-function OverviewTab({ brief }: { brief: BriefRow }) {
+function OverviewTab({
+  brief,
+  proTierAlphaEnabled,
+  onOpenAdvanced,
+}: {
+  brief: BriefRow;
+  proTierAlphaEnabled: boolean;
+  onOpenAdvanced: () => void;
+}) {
   const summary = useMemo(() => extractSummary(brief.spec), [brief.spec]);
   const scheduleLabel = useMemo(
     () => humanizeSchedule(brief.scheduling),
     [brief.scheduling]
   );
+  // Settings-surfacing v1 (PR-7, design §4 row 1): always-on research-depth
+  // row. While the alpha flag is OFF every delivery is served and debited
+  // at standard depth (CAD-215 downgrades in digest/run.ts), so the row
+  // states "Standard research" with no change-link — mirroring
+  // ResearchDepthPausedCard's honesty. Flag ON: the row names the real
+  // depth + per-brief cost and links to the Advanced tab where the picker
+  // lives (changing depth is a money decision; it keeps its page-depth).
+  const stack = normalizeStack(proTierAlphaEnabled ? brief.tier : "default");
+  const stackCost = STACK_COSTS[stack];
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground">
@@ -234,6 +256,33 @@ function OverviewTab({ brief }: { brief: BriefRow }) {
             Nothing here yet — tweak this brief from chat to fill it in.
           </p>
         )}
+      </section>
+
+      <section
+        className="rounded-xl border border-border bg-card p-4 text-card-foreground"
+        data-testid="research-depth-row"
+      >
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Research depth
+        </h2>
+        <p className="text-sm text-foreground">
+          {isAdvancedStack(stack) ? (
+            <span aria-hidden="true">🔬 </span>
+          ) : null}
+          {stackLabel(stack)} · {stackCost} credit
+          {stackCost === 1 ? "" : "s"} per brief
+        </p>
+        {proTierAlphaEnabled ? (
+          // Designer P2: text link gets a ≥44px hit area (min-h-11
+          // inline-flex) for touch without changing its visual weight.
+          <button
+            type="button"
+            onClick={onOpenAdvanced}
+            className="mt-1 inline-flex min-h-11 items-center text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          >
+            Change research depth
+          </button>
+        ) : null}
       </section>
     </div>
   );
@@ -786,45 +835,39 @@ function extractSummary(spec: unknown): [string, string][] {
   if (s.tone_preset) rows.push(["Tone", formatTone(s.tone_preset)]);
   if (s.length_target) rows.push(["Length", formatLength(s.length_target)]);
   if (s.language) rows.push(["Language", formatLanguage(s.language)]);
+  // Settings-surfacing v1 (gap 4 / PR-2): data_addons + rss_feeds were
+  // chat-configurable but invisible everywhere on the web except raw
+  // JSON — "configured but useless". Render-when-present so every
+  // top-level DigestSpecV1 field now has a read surface; rows are omitted
+  // cleanly when the spec doesn't use them.
+  const da = s.data_addons;
+  if (da?.show_prices) {
+    const changes = [
+      da.show_24h_change ? "24h change" : null,
+      da.show_7d_change ? "7d change" : null,
+    ].filter((c): c is string => c != null);
+    rows.push([
+      "Prices",
+      changes.length > 0 ? `Shown, with ${changes.join(" and ")}` : "Shown",
+    ]);
+  }
+  if (da?.fx_pairs?.length) {
+    rows.push(["FX pairs", da.fx_pairs.join(", ")]);
+  }
+  if (s.rss_feeds?.length) {
+    const labels = s.rss_feeds
+      .map((f) => f?.label)
+      .filter((l): l is string => typeof l === "string" && l.length > 0);
+    rows.push([
+      "Your feeds",
+      `${s.rss_feeds.length} custom feed${s.rss_feeds.length === 1 ? "" : "s"}${
+        labels.length > 0 ? ` — ${labels.join(", ")}` : ""
+      }`,
+    ]);
+  }
   return rows;
 }
 
-const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function humanizeSchedule(rule: unknown): string {
-  if (!rule || typeof rule !== "object") return "Schedule not set";
-  const r = rule as {
-    cadence?: {
-      kind?: string;
-      weekdays?: number[];
-      monthlyDay?: number | "last";
-      cronExpr?: string;
-    };
-    timeLocal?: string;
-    timezone?: string;
-  };
-  const time = r.timeLocal ?? "";
-  const tz = r.timezone ?? "";
-  const tzLabel = tz ? ` (${tz})` : "";
-  const c = r.cadence;
-  if (!c) return "Schedule not set";
-  if (c.kind === "daily") {
-    const wd = c.weekdays ?? [1, 2, 3, 4, 5, 6, 7];
-    if (wd.length === 7) return `Daily at ${time}${tzLabel}`;
-    if (wd.length === 5 && wd.every((d, i) => d === i + 1))
-      return `Weekdays at ${time}${tzLabel}`;
-    return `${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "weekly") {
-    const wd = c.weekdays ?? [];
-    return `Weekly · ${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "monthly") {
-    const day = c.monthlyDay === "last" ? "last day" : `day ${c.monthlyDay}`;
-    return `Monthly on ${day} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "custom_cron") {
-    return `Custom: ${c.cronExpr}${tzLabel}`;
-  }
-  return "Schedule not set";
-}
+// humanizeSchedule was a module-private duplicate here until the manage-mode
+// wave lifted it into @/lib/schedule (exec RC2). Import it — never re-add a
+// local copy.

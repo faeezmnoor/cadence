@@ -132,7 +132,14 @@ export type RunStatus =
   | "duplicate"
   | "failed"
   /** T-505a: balance ≤ −1 at gate-check time. Composer + send skipped. */
-  | "skipped_no_credits";
+  | "skipped_no_credits"
+  /**
+   * Settings-surfacing v1 (gap 3): user has no Telegram link at gate-check
+   * time (unlinked via telegram.unlink, or never linked). Skipped BEFORE
+   * any compose cost, debit, or failed-row — deliveries are on hold and
+   * no credits are used while disconnected.
+   */
+  | "skipped_unlinked";
 
 export interface RunDigestResult {
   status: RunStatus;
@@ -242,6 +249,34 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   const user = userRows[0];
   if (!user) {
     return { status: "failed", digestRunId: null, markdown: null, partsSent: 0, telegramMessageId: null, error: "user not found" };
+  }
+
+  // Settings-surfacing v1 (gap 3): unlinked gate. A user with no Telegram
+  // link (disconnected via telegram.unlink, or never linked) gets a clean
+  // skip BEFORE source-gathering, composing, claiming, or debiting — no
+  // transactions row, no failed-run row, no delivery_broken escalation,
+  // no compose cost. The cron dispatcher already skips unlinked users
+  // before claiming (cron-dispatch.ts); this is the belt-and-suspenders
+  // for races (unlink landing between claim and run) and for manual paths.
+  // The claimed row (if the dispatcher raced us) is marked skipped so the
+  // admin viewer doesn't see a ghost "pending" row. next_run_at keeps
+  // advancing on the dispatcher side, so delivery resumes at the next
+  // scheduled occurrence after relink — skipped occurrences are not
+  // back-filled. dryRun bypasses: previews don't send, so they don't gate.
+  if (!dryRun && user.telegramChatId == null) {
+    if (digestRunId) {
+      await db
+        .update(digestRuns)
+        .set({ status: "skipped_unlinked", updatedAt: new Date() })
+        .where(eq(digestRuns.id, digestRunId));
+    }
+    return {
+      status: "skipped_unlinked",
+      digestRunId: digestRunId ?? null,
+      markdown: null,
+      partsSent: 0,
+      telegramMessageId: null,
+    };
   }
 
   // CAD-214 (P0-3): the dispatcher claims runs PER SPEC — composing "the

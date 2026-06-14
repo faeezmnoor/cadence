@@ -53,6 +53,11 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 | Credit sentence | **"1 credit = 1 brief. Advanced research uses 5."** (CAD-225 founder ruling 2026-06-14: the dominated 3-credit Sonar depth was retired; advanced is now a single 5-credit option) | — | "landed in your inbox", burn, runway, "cr" abbreviation, "3 or 5" (one advanced price now) |
 | Channel (marketing) | "the messaging app you already use" + honesty line **"Telegram today, WhatsApp next"** | — | multi-channel, omnichannel, inbox, channel lists beyond TG+WA |
 | Channel (in-app) | Name Telegram plainly on delivery surfaces; nav label stays **Delivery** | The one action string: **"Connect Telegram"** — button, bot copy, errors all quote it verbatim | inbox anywhere; "bot" outside Telegram mechanics (lowercase "the bot" OK when meaning the Telegram endpoint) |
+| Disconnect (in-app) | **"Disconnect Telegram"** — the symmetric inverse of "Connect Telegram"; confirm prompt, button, and banner all quote it verbatim | Confirm: "Disconnect Telegram? Briefs can't be delivered until you connect again. Nothing is deleted, and credits aren't touched." | unlink, remove, deactivate, "disconnect delivery" |
+| Reconnect (in-app) | **"Reconnect Telegram"** — the broken-state variant of "Connect Telegram", used only when a previously linked chat became unreachable (delivery on hold). Same connect flow, honest about the prior link | Broken-state banner + Delivery card button quote it verbatim | relink, re-link, "fix your connection", reusing "Connect Telegram" when a link existed and broke |
+| Delivery-suspended state | **"on hold"** — deliveries while Telegram is disconnected or unreachable. Distinct from the brief lifecycle's "paused" (pause/resume cards); the two never substitute for each other | Banner: "Deliveries are on hold" | paused (for delivery state), stopped, suspended, frozen, disabled |
+| Skipped, not charged | The canonical money sentence for occurrences missed while disconnected: **"Deliveries are on hold — no credits are used while disconnected."** Money voice: state the true consequence, numbers/credits first, zero charm | Banner + relink confirmation (+ Telegram if surfaced there) | "you won't be billed", burn, "credits are safe", any paraphrase that drops the no-credits fact |
+| Timezone | User-facing copy anchors on **"your local time"**; the IANA zone is shown as the precise label ("your local time (Asia/Kuala_Lumpur)"). Mismatch-banner pattern: state both zones plainly, offer one-tap switch, dismiss names the kept zone ("Keep Kuala Lumpur") | Settings → Account control; suggest banner | TZ, GMT offsets as the only label, "time zone" vs "timezone" mixing (write **timezone**), auto-changing without confirm when briefs exist |
 | Persona | **your own market researcher** (marketing) / Cadence | Public permalink: "Prepared by Cadence — a market researcher you set up in chat" | assistant, senior (as researcher modifier), agent, copilot, AI assistant |
 | Free start | **"3 free briefs"** · CTA sub-line: **"Start free — 3 briefs, no card."** | The one CTA button label: **"Start your first brief"** | trial credits, "3 free credits" (Terms may define credits once), claim/redeem language |
 | Delivery time | Marketing: **"every morning"** only. In-app: **"tomorrow at {time} {tz}"** computed from the brief; fallback "tomorrow morning" | — | any hard-coded clock time ("07:00 MYT") |
@@ -66,6 +71,17 @@ The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_run
 ### 4b. DECIDED (founder, 2026-06-11) — the "brief" overload: keep "brief" for both layers, no rename
 
 "Brief" names both the **delivered artifact** (locked by "1 credit = 1 brief") and the **standing, pausable configuration** (the `/briefs` cards). The audit's proposed rename of the standing layer ("watch") was **rejected by the founder** — "watch" drags in the alert/monitoring mental model §4 bans, and "brief" works like "newsletter": *my brief* (standing) vs *today's brief* (delivered), disambiguated by context. **The binding rule that replaces the rename:** the brief list counts in **briefs** ("3 active briefs"); billing counts in **credits** only — never "73 briefs" as a balance. "1 credit = 1 brief" is the only sentence where the two meet. Enforce this before multi-brief GA. (UX audit v3, doc 03 §3; founder ruling 2026-06-11.)
+
+### 4c. The brief's chat (manage-mode wave, 2026-06-13)
+
+| Concept | Canonical | UI chrome forms | Banned variants |
+|---|---|---|---|
+| The post-save conversation | **your brief's chat** | Card action label: **"Chat"** (the one canonical label — button, link, tooltip all use it verbatim) | "manage mode", "thread", "session" in any UI copy ("manage mode" stays internal vocabulary, like `digest`) |
+
+**Canonical cooldown sentence pair** — the send-cooldown window is per-user across ALL briefs, so both variants are deliberately brief-agnostic; never attribute the wait to "this brief":
+
+- Chat (agent voice): **"I sent one a few minutes ago. I can send another at {time}."** — computed time; fallback "I sent one a few minutes ago. I can send another in a few minutes."
+- Panel (deterministic): **"You just sent one. Try again in a few minutes."** (shipped string — do not fork it)
 
 ## 5. Honesty boundaries
 
@@ -81,6 +97,7 @@ The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_run
 | "Like Bloomberg, but cheap" | Compare only to DIY or hiring. |
 | "Built for the palm oil industry" (any vertical) | "Watch anything, however specific." |
 | Unconditional delivery promises (e.g. "your brief still arrives" when credits = 0 and the pipeline will skip) | State the true consequence, then the fix. |
+| Success claims for capabilities that don't exist (e.g. a feed-add ask in the brief's chat) | Own the gap verbally — what happened → what it means → one action: "I can't add feeds here yet — that was only possible while setting up. I can change what this brief watches, or its schedule." Never invent a workaround or stage a bogus edit. |
 
 ## 6. Voice & tone
 
@@ -99,6 +116,7 @@ The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_run
 ## 7. Mechanics
 
 - **Sentence case everywhere** — headings, buttons, badges, nav. Styling caps via CSS only. Proper nouns: Cadence, Telegram, WhatsApp.
+- **Micro-label class (the one legitimate uppercase exception):** `text-[10px] uppercase tracking-wide text-muted-foreground`, reserved for load-bearing state captions (e.g. "Sample — not delivered" on the in-chat sample preview). It exists because the caption must read as chrome, not content. Do NOT cite this as general uppercase precedent for decorative labels — anything that isn't a state caption stays sentence case.
 - **Numerals** for anything countable or money ("3 free briefs", "1 credit = 1 brief", "$5").
 - **Dates:** `10 Jun 2026`. No ordinals. **Times:** computed, never hard-coded (§4).
 - **Oxford comma:** always. **Em dash:** spaced ` — `, max one per sentence — the brand's pivot punctuation; don't devalue it.
@@ -116,7 +134,8 @@ The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_run
 | How it works | Prove the two wedge claims (chat setup + day-1 vs day-10) | Confidence | "Start your first brief" |
 | Pricing | Remove money fear (packs, never-expire, no subscription) | Safety — "I can't get trapped" | "Start free — 3 briefs, no card" |
 | Sign-in | Get out of the way; zero marketing | Familiarity | Sign in |
-| Config chat | One specific watch configured; reward specificity | Being understood | Send first message |
+| Config chat | Configure one brief, then keep it tuned | Being understood | Send first message |
+| Briefs | The hub — get to the right brief's chat | Orientation | "+ New brief" |
 | Brief footer | Harvest corrections | Ownership | "Tell Cadence what to change" |
 | Credits | State balance + cost plainly; sell nothing until low | Control | "Top up" (only when low) |
 

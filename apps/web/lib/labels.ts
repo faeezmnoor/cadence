@@ -120,6 +120,9 @@ const RUN_STATUSES: Record<string, string> = {
   sent: "Sent",
   failed: "Failed",
   skipped_no_credits: "Skipped — no credits",
+  // Settings-surfacing v1 (gap 3): deliveries on hold while Telegram is
+  // disconnected. Skipped, not charged.
+  skipped_unlinked: "Skipped — Telegram disconnected",
 };
 export function formatRunStatus(raw: string): string {
   return RUN_STATUSES[raw] ?? prettify(raw);

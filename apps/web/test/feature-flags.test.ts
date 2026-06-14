@@ -5,7 +5,7 @@
  * (env → edge config → DB) can't silently change the contract.
  */
 import { describe, it, expect } from "vitest";
-import { isProTierAlpha } from "@/lib/feature-flags";
+import { isManageMode, isProTierAlpha } from "@/lib/feature-flags";
 import { isProTierAlphaEnabled } from "@/server/ai/providers";
 
 function withEnv<T>(key: string, value: string | undefined, fn: () => T): T {
@@ -19,6 +19,27 @@ function withEnv<T>(key: string, value: string | undefined, fn: () => T): T {
     else process.env[key] = prev;
   }
 }
+
+describe("manage mode — isManageMode (plan §7.2, exec RC5)", () => {
+  it("defaults OFF when unset (kill switch fails closed)", () => {
+    withEnv("MANAGE_MODE", undefined, () => {
+      expect(isManageMode()).toBe(false);
+    });
+  });
+
+  it("mirrors the isProTierAlpha truth table exactly", () => {
+    for (const v of ["1", "true"]) {
+      withEnv("MANAGE_MODE", v, () => {
+        expect(isManageMode()).toBe(true);
+      });
+    }
+    for (const v of ["false", "0", "FALSE", "", "True", "yes"]) {
+      withEnv("MANAGE_MODE", v, () => {
+        expect(isManageMode()).toBe(false);
+      });
+    }
+  });
+});
 
 describe("CAD-101 — isProTierAlpha", () => {
   it("returns false when unset", () => {

@@ -47,6 +47,9 @@ export function BriefActions({
   onConfirm,
   onTweak,
   busy = false,
+  pendingChanges = false,
+  yielded = false,
+  onReconfirm,
 }: {
   ready: boolean;
   /**
@@ -75,9 +78,29 @@ export function BriefActions({
   onTweak: () => void;
   /** True while the chat is streaming — the confirm button waits its turn. */
   busy?: boolean;
+  /**
+   * Manage mode (plan §3.5): true when edits are staged on the draft
+   * (`specDiff(savedSpec, draftSpec).length > 0`). Flips the panel to the
+   * `reconfirm` state — ONE live action, mirroring FINDING-011.
+   */
+  pendingChanges?: boolean;
+  /**
+   * Manage mode (plan §3.1 item 4): true once the user has sent a message
+   * after the panel's triggering save event — the `actions` celebration
+   * yields to the conversation (chips remain the path back). Reconfirm is
+   * NOT subject to yield: it is the path to saving staged edits.
+   */
+  yielded?: boolean;
+  /**
+   * Manage mode (plan §3.5 / C2): appends the user chat message
+   * "Looks good — update this brief" per the confirm contract — the agent
+   * treats it as confirmation and runs exactly one
+   * save_changes(user_confirmed: true). Same mechanism as onConfirm.
+   */
+  onReconfirm?: () => void;
 }) {
   const saved = savedSpecId != null;
-  const state = briefActionsState({ ready, saved });
+  const state = briefActionsState({ ready, saved, pendingChanges });
   // Warm from the confirm state onward (review nit: enabling only in
   // "actions" left a cold query at the confirm→actions flip, flashing
   // "Connect Telegram first" at already-linked users for one fetch).
@@ -134,6 +157,52 @@ export function BriefActions({
       </div>
     );
   }
+
+  // Manage mode (plan §3.5): spec saved + staged edits. One voice — the
+  // update pair only. No preview/send affordances: sampling a half-edited
+  // brief is the pre-save disabled-button bug class (FINDING-011). Exactly
+  // ONE brand-primary button on this surface.
+  if (state === "reconfirm") {
+    return (
+      <div
+        data-testid="brief-actions"
+        className="mx-auto flex w-full max-w-2xl flex-col gap-3 rounded-md border border-border bg-card/40 p-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold tracking-tight">
+            Update this brief?
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Your changes apply from the next delivery. Nothing already sent
+            changes.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            data-testid="brief-actions-reconfirm"
+            onClick={onReconfirm}
+            disabled={busy}
+            className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-xs font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Looks good — update this brief
+          </button>
+          <button
+            type="button"
+            data-testid="brief-actions-tweak"
+            onClick={onTweak}
+            className="rounded-md text-xs text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          >
+            or keep changing it below
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Manage mode (plan §3.1 item 4): the actions panel yields once the user
+  // has spoken after its triggering save event.
+  if (yielded) return null;
 
   const linked = telegramStatus.data?.linked ?? false;
 

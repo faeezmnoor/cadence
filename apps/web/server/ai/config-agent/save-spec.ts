@@ -23,23 +23,12 @@ import type { DigestSpecV1 } from "@/lib/digest-spec/schema";
 import { ruleFromLegacyCadence } from "@/lib/scheduling/rule";
 import { nextRunAt as computeNextRunAt } from "@/lib/scheduling/evaluator";
 import { maxBriefsForEmail, SINGLE_BRIEF_NOTICE } from "@/server/briefs/limit";
+// Wave 4 Bug 7 name derivation — lifted verbatim into lib/brief-display.ts
+// (manage-mode wave) so updateSpecInPlace can share it without importing
+// this cap-gated module.
+import { deriveBriefName } from "@/lib/brief-display";
 
 const DEFAULT_TIMEZONE = "Asia/Kuala_Lumpur";
-
-/**
- * Wave 4 Bug 7 fix: derive a user-facing brief name from the spec so the
- * /briefs list no longer shows "Untitled brief" for chat-saved briefs.
- * Prefers a topics[0] capitalized name; falls back to a generic label.
- */
-function deriveBriefName(spec: DigestSpecV1): string {
-  const t0 = spec.topics?.[0];
-  if (typeof t0 === "string" && t0.trim().length > 0) {
-    const trimmed = t0.trim();
-    const head = trimmed[0]!.toUpperCase() + trimmed.slice(1);
-    return `${head} brief`;
-  }
-  return "Untitled brief";
-}
 
 export async function saveSpecForUser(args: {
   userId: string;

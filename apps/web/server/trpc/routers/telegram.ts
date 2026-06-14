@@ -19,6 +19,7 @@ export const telegramRouter = router({
       .select({
         telegramChatId: users.telegramChatId,
         telegramUsername: users.telegramUsername,
+        state: users.state,
       })
       .from(users)
       .where(eq(users.id, ctx.user.id))
@@ -27,8 +28,34 @@ export const telegramRouter = router({
     return {
       linked: Boolean(row?.telegramChatId),
       username: row?.telegramUsername ?? null,
+      /** users.state — "delivery_broken" drives the broken-delivery card. */
+      state: row?.state ?? "active",
       botConfigured: isTelegramConfigured(),
     };
+  }),
+
+  /**
+   * Settings-surfacing v1 (gap 3): disconnect Telegram. Clears the
+   * linkage only — briefs keep their status and schedule, learning and
+   * credits are untouched. While unlinked, both the cron dispatcher and
+   * the pipeline skip the user's runs WITHOUT debiting or writing failed
+   * rows (see cron-dispatch.ts + digest/run.ts "skipped_unlinked"), and
+   * `next_run_at` keeps advancing so delivery resumes at the next
+   * scheduled occurrence after relink — no back-fill flood.
+   *
+   * Relink reuses the existing 15-min token flow unchanged; linking a
+   * different Telegram account simply replaces the cleared columns.
+   */
+  unlink: protectedProcedure.mutation(async ({ ctx }) => {
+    await db
+      .update(users)
+      .set({
+        telegramChatId: null,
+        telegramUsername: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, ctx.user.id));
+    return { ok: true as const };
   }),
 
   /**

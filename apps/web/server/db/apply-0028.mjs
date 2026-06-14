@@ -1,17 +1,8 @@
-// CAD-225 — apply migration 0028 (retire the 'pro' research stack).
+// Review CTO P2-2 — apply migration 0028 (partial unique index on
+// transactions ((metadata->>'grantId')) WHERE type='admin_grant', so
+// concurrent admin grants with the same grantId cannot double-credit).
 //
-// An informed-judge eval proved the 'pro' (Perplexity Sonar, A2) stack is
-// strictly dominated (grounds ~2.0 vs standard's 2.4 at 3x the price), so it
-// is retired from the product. This migrates any spec rows still on tier='pro'
-// to tier='default' so they bill 1 credit and serve the standard stack — NOT
-// auto-upgraded to the 5-credit pro_websearch stack.
-//
-// The CHECK constraint is intentionally left permissive (0027 still allows
-// 'pro') — no constraint change here, so 'pro' stays a valid-but-unused value
-// for safety.
-//
-// Idempotent: the UPDATE matches only tier='pro' rows; once migrated, a
-// re-run updates zero rows and converges to the same state.
+// Idempotent: CREATE UNIQUE INDEX IF NOT EXISTS; re-running converges.
 //
 // Usage:
 //   cd apps/web && node --env-file=.env.local server/db/apply-0028.mjs
@@ -35,29 +26,29 @@ async function fail(msg) {
 }
 
 const ddl = readFileSync(
-  path.join(import.meta.dirname, "migrations/0028_retire_pro_stack.sql"),
+  path.join(import.meta.dirname, "migrations/0028_grant_idempotency.sql"),
   "utf8"
 );
 
 try {
-  console.log("[apply-0028] applying 0028_retire_pro_stack.sql ...");
+  console.log("[apply-0028] applying 0028_grant_idempotency.sql ...");
   await sql.unsafe(ddl);
 
-  // Verify: no spec rows remain on the retired 'pro' tier.
-  const remaining = await sql`
-    SELECT count(*)::int AS n FROM public.digest_specs WHERE tier = 'pro'
+  // Verify: the index exists, is UNIQUE, and is partial on admin_grant.
+  const rows = await sql`
+    SELECT indexdef
+    FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'transactions_admin_grant_grant_id_uq'
   `;
-  if (remaining[0].n > 0) {
-    await fail(`${remaining[0].n} digest_specs rows still on tier='pro' after migration`);
+  if (rows.length === 0) {
+    await fail("transactions_admin_grant_grant_id_uq missing after migration");
   }
-
-  const counts = await sql`
-    SELECT tier, count(*)::int AS n FROM public.digest_specs GROUP BY tier
-  `;
-  console.log(
-    `[apply-0028] OK: 0 rows on tier='pro'. tier distribution:`,
-    counts.map((r) => `${r.tier}=${r.n}`).join(", ") || "(no rows)"
-  );
+  const def = rows[0].indexdef;
+  if (!/CREATE UNIQUE INDEX/i.test(def)) await fail(`index is not UNIQUE: ${def}`);
+  if (!def.includes("admin_grant")) await fail(`index is not partial on admin_grant: ${def}`);
+  if (!def.includes("grantId")) await fail(`index does not key on grantId: ${def}`);
+  console.log(`[apply-0028] OK: ${def}`);
 } catch (err) {
   console.error("[apply-0028] failed:", err);
   await sql.end({ timeout: 5 });

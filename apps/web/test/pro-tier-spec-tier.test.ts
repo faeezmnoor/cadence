@@ -60,7 +60,7 @@ describe("CAD-222 — migration 0027 (review P0: DB vocabulary tracks the regist
     // If STACK_ORDER grows a stack the newest tier-VOCABULARY migration
     // (0027 — the last one to touch the CHECK predicate) doesn't mention,
     // this fails — the exact gap the post-merge review caught. CAD-225 only
-    // RETIRES a stack (data migration 0028, no constraint change), so
+    // RETIRES a stack (data migration 0030, no constraint change), so
     // STACK_ORDER = [default, pro_websearch] both still live in 0027's
     // widened CHECK; the guard stays green.
     for (const stack of STACK_ORDER) {
@@ -69,8 +69,8 @@ describe("CAD-222 — migration 0027 (review P0: DB vocabulary tracks the regist
   });
 });
 
-describe("CAD-225 — migration 0028 (retire dominated 'pro' stack)", () => {
-  const sql = read("server/db/migrations/0028_retire_pro_stack.sql");
+describe("CAD-225 — migration 0030 (retire dominated 'pro' stack)", () => {
+  const sql = read("server/db/migrations/0030_retire_pro_stack.sql");
 
   it("migrates any tier='pro' spec rows to 'default' (not auto-upgraded)", () => {
     // Backward-compat ruling: a legacy 'pro' spec falls back to standard
@@ -81,15 +81,15 @@ describe("CAD-225 — migration 0028 (retire dominated 'pro' stack)", () => {
     expect(sql).toMatch(/updated_at\s*=\s*now\(\)/i);
   });
 
-  it("leaves the CHECK constraint permissive (no constraint change in 0028)", () => {
-    // 'pro' stays a valid-but-unused value for safety — 0028 must NOT
+  it("leaves the CHECK constraint permissive (no constraint change in 0030)", () => {
+    // 'pro' stays a valid-but-unused value for safety — 0030 must NOT
     // tighten the constraint (that would risk a legacy write violating it).
     expect(sql).not.toMatch(/digest_specs_tier_check/);
   });
 
-  it("apply runner exists, points at the 0028 SQL, and verifies the post-state", () => {
-    const runner = read("server/db/apply-0028.mjs");
-    expect(runner).toMatch(/0028_retire_pro_stack\.sql/);
+  it("apply runner exists, points at the 0030 SQL, and verifies the post-state", () => {
+    const runner = read("server/db/apply-0030.mjs");
+    expect(runner).toMatch(/0030_retire_pro_stack\.sql/);
     // Verifier asserts zero rows remain on the retired tier.
     expect(runner).toMatch(/WHERE tier = 'pro'/);
     expect(runner).toMatch(/FAIL/);

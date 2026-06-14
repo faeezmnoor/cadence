@@ -1,15 +1,23 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Message } from "ai";
+import Link from "next/link";
 import type { PersistedMessage } from "./types";
 import { MessageBubble } from "./message-bubble";
 import { SpecSidebar, type DraftLike } from "./spec-sidebar";
-import { isReady as draftIsReady } from "./spec-sidebar.helpers";
-import { pickLatestQuickReplies } from "./quick-replies";
+import { isReady as draftIsReady, specDiff } from "./spec-sidebar.helpers";
+import { pickLatestQuickReplies, resolveChips } from "./quick-replies";
 import { BriefActions } from "./brief-actions";
+import {
+  briefActionsState,
+  panelYielded,
+  resolveSavedSpecId,
+} from "./brief-actions.helpers";
+import { briefDisplayName } from "@/lib/brief-display";
+import { saveTransitionMessage } from "@/lib/schedule";
 import { DateSeparator } from "./date-separator";
 import { TypingDots } from "./typing-dots";
 import { usePinnedScroll } from "./use-pinned-scroll";
@@ -25,6 +33,20 @@ import {
 } from "@/lib/digest-spec/templates";
 import { StarterCards } from "./starter-cards";
 import { BriefGallery } from "./brief-gallery";
+
+/**
+ * Manage-mode wave: persisted tool results re-attached at hydration so
+ * reload-rendered transcripts match the live session (sample cards, save
+ * notices, the savedSpecId scan, and the panel yield derivation).
+ * Deliberately NOT including suggest_quick_replies/ask_user — the chip
+ * strip stays a latest-turn-only, live-session surface (the deterministic
+ * manage fallback covers reloads).
+ */
+const HYDRATED_RESULT_TOOLS = new Set([
+  "send_sample",
+  "confirm_and_save",
+  "save_changes",
+]);
 
 /**
  * Streaming chat client for the config agent.
@@ -44,6 +66,14 @@ export function ChatClient({
   initialDraft,
   sessionEmail,
   initialTemplateId = null,
+  manageMode = false,
+  mode = "setup",
+  briefName = null,
+  briefStatus = null,
+  savedSpec = null,
+  briefScheduling = null,
+  initialSavedSpecId = null,
+  userTimezone = null,
 }: {
   threadId: string;
   initialMessages: PersistedMessage[];
@@ -57,6 +87,29 @@ export function ChatClient({
    * only on a fresh thread. Null = no deep-link.
    */
   initialTemplateId?: string | null;
+  /**
+   * Manage-mode wave (plan §4.6): the MANAGE_MODE flag, read server-side
+   * via isManageMode(). False keeps every surface byte-identical to the
+   * shipped setup chat (§7.2 rollback contract).
+   */
+  manageMode?: boolean;
+  /** Server-derived: thread.specId != null ⇒ "manage" (plan §4.2). */
+  mode?: "setup" | "manage";
+  /** Display name of the bound brief (briefDisplayName, server-computed). */
+  briefName?: string | null;
+  /** Bound digest_specs.status: "active" | "paused" | "archived". */
+  briefStatus?: string | null;
+  /** The SAVED spec jsonb — the specDiff baseline (plan C7). */
+  savedSpec?: Record<string, unknown> | null;
+  /** SchedulingRuleV1 jsonb of the bound brief (transition message). */
+  briefScheduling?: unknown;
+  /**
+   * thread.specId — server-authoritative. Beats any stale confirm_and_save
+   * tool result lingering in transcript history (exec advisory 12).
+   */
+  initialSavedSpecId?: string | null;
+  /** users.timezone — live setup→manage transition message rendering. */
+  userTimezone?: string | null;
 }) {
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -77,14 +130,31 @@ export function ChatClient({
           (r) => r.toolName === "ask_user"
         )?.result as { question?: string } | undefined;
         const text = m.content.text?.trim() || askResult?.question;
+        // Manage-mode wave: re-hydrate the tool results that drive
+        // persistent UI — the send_sample preview card (§3.2), and the
+        // confirm_and_save / save_changes results behind the savedSpecId
+        // scan, the panel yield rule, and the transition message — so a
+        // reload renders the same transcript the live session did.
+        const toolInvocations = (m.content.toolResults ?? [])
+          .filter((r) => HYDRATED_RESULT_TOOLS.has(r.toolName))
+          .map((r, idx) => ({
+            state: "result" as const,
+            toolCallId: r.toolCallId || `hydrated-${m.id}-${idx}`,
+            toolName: r.toolName,
+            args: {},
+            result: r.result,
+          }));
         // Tool-only turns (e.g. a silent spec update) carry no user-visible
         // text — drop them from the hydrated transcript instead of
-        // rendering a placeholder bubble.
-        if (!text) return null;
+        // rendering a placeholder bubble, UNLESS they carry one of the
+        // hydrated results above (the card/notice renders bubble-less).
+        if (!text && toolInvocations.length === 0) return null;
         return {
           id: m.id,
           role: "assistant",
-          content: text,
+          content: text ?? "",
+          toolInvocations:
+            toolInvocations.length > 0 ? toolInvocations : undefined,
         };
       }
       return null;
@@ -148,7 +218,14 @@ export function ChatClient({
         code?: string;
         userMessage?: string;
         supportRef?: string;
+        error?: string;
       };
+      // Manage mode (plan §3.6 / C3): the 409 brief_archived envelope is
+      // NOT an error bubble — the archived banner (latched below) owns the
+      // moment. Suppress the generic retry bubble for it.
+      if (parsed && typeof parsed === "object" && parsed.error === "brief_archived") {
+        return null;
+      }
       if (parsed && typeof parsed === "object" && parsed.userMessage) {
         return {
           code: parsed.code ?? "unknown",
@@ -397,27 +474,66 @@ export function ChatClient({
   // sees three explicit next actions (Preview, Send-now, Link Telegram).
   // /app/link is still reachable via the AppNav and via the inline CTA.
 
-  // Dogfood-bugs 2026-06-09: surface the spec id of the latest
-  // confirm_and_save tool result to BriefActions so its sample/preview
-  // buttons stay disabled until the agent has actually persisted the
-  // draft. Without this, clicking "Send me one now" before the agent
-  // calls confirm_and_save fires `digest.sampleNow` against the user's
-  // stale `is_current` spec (a prior smoke seed for users with one) and
-  // composes a brief on the WRONG topic.
-  const savedSpecId = useMemo<string | null>(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (!m || m.role !== "assistant") continue;
-      const tool = m.toolInvocations?.find(
-        (t) => t.toolName === "confirm_and_save" && t.state === "result"
-      );
-      if (tool && tool.state === "result") {
-        const r = tool.result as { spec_id?: string } | undefined;
-        return typeof r?.spec_id === "string" ? r.spec_id : null;
+  // Dogfood-bugs 2026-06-09: surface the spec id of the latest persisted
+  // save to BriefActions so its sample/preview buttons stay disabled until
+  // the agent has actually persisted the draft. Without this, clicking
+  // "Send me one now" before the agent calls confirm_and_save fires
+  // `digest.sampleNow` against the user's stale `is_current` spec (a prior
+  // smoke seed for users with one) and composes a brief on the WRONG topic.
+  //
+  // Manage-mode wave (exec advisory 12): the thread-bound
+  // initialSavedSpecId (= thread.specId, server-authoritative) takes
+  // precedence over any tool result lingering in transcript history; the
+  // scan itself now also recognizes save_changes results (same shape).
+  const savedSpecId = useMemo<string | null>(
+    () => resolveSavedSpecId(initialSavedSpecId, messages),
+    [initialSavedSpecId, messages]
+  );
+
+  /* ----------------------- manage-mode derivations ----------------------- */
+
+  // A setup thread BECOMES a manage thread the moment the save lands —
+  // same session, no reload (plan §3.1: the header identity change is the
+  // strongest "thread survived" signal). Everything below stays inert
+  // unless the MANAGE_MODE flag is on.
+  const isManage =
+    manageMode && (mode === "manage" || savedSpecId != null);
+
+  // Archived brief (plan §3.6 / C3): the server passes the state on page
+  // load; a mid-session archive surfaces as the 409 brief_archived
+  // envelope, which we latch below (never a stale success).
+  const [archivedLatch, setArchivedLatch] = useState(false);
+  const archived = isManage && (briefStatus === "archived" || archivedLatch);
+
+  // Archive-while-tab-open (AC8.1): a POST that comes back with the 409
+  // {error:"brief_archived"} envelope flips the client into the archived
+  // banner state. One-way latch — un-archiving requires a reload anyway.
+  useEffect(() => {
+    if (!error || !isManage) return;
+    const candidate = (error.message ?? "").replace(/^\[chat\]\s*/, "").trim();
+    try {
+      const parsed = JSON.parse(candidate) as { error?: string };
+      if (parsed && typeof parsed === "object" && parsed.error === "brief_archived") {
+        setArchivedLatch(true);
       }
+    } catch {
+      /* not a JSON envelope — not ours */
     }
-    return null;
-  }, [messages]);
+  }, [error, isManage]);
+
+  // Telegram link state for the manage chip set ("Send one to Telegram"
+  // renders only when linked — never a chip that can't work, §3.1). Shares
+  // the react-query cache entry with BriefActions' own status query.
+  const telegramStatus = trpc.telegram.status.useQuery(undefined, {
+    enabled: isManage,
+    refetchOnWindowFocus: false,
+  });
+  const telegramLinked = telegramStatus.data?.linked ?? false;
+
+  // The specDiff baseline (plan C7): server-passed saved spec on manage
+  // page loads; within a live setup→manage session, the last ready draft
+  // (the one confirm_and_save persisted) until the next reload.
+  const lastReadyDraftRef = useRef<DraftLike>(null);
 
   const handleReset = async () => {
     if (isStreamingState || resetting) return;
@@ -437,6 +553,183 @@ export function ChatClient({
 
   const isStreaming = isStreamingState;
   const draft = (draftQuery.data ?? null) as DraftLike;
+
+  // Track the latest READY draft so the live setup→manage transition keeps
+  // a baseline after the route clears draftSpec on save.
+  useEffect(() => {
+    if (draft && draftIsReady(draft)) lastReadyDraftRef.current = draft;
+  }, [draft]);
+
+  // The baseline must be FROZEN at save time, not follow the live draft:
+  // lastReadyDraftRef tracks the currently-staged draft too (once ready),
+  // so diffing against it directly would make specDiff(staged, staged)
+  // always empty and the reconfirm panel unreachable within a session.
+  // Snapshot the just-saved draft whenever a NEW save event (confirm_and_
+  // save or save_changes result) lands in the transcript; history events
+  // present at mount don't snapshot (a staged-but-unsaved draft on reload
+  // must keep its pending markers against the server-passed savedSpec).
+  const [sessionBaseline, setSessionBaseline] = useState<DraftLike>(null);
+  const saveEventCount = useMemo(
+    () =>
+      messages.filter(
+        (m) =>
+          m.role === "assistant" &&
+          m.toolInvocations?.some(
+            (t) =>
+              (t.toolName === "confirm_and_save" ||
+                t.toolName === "save_changes") &&
+              t.state === "result"
+          )
+      ).length,
+    [messages]
+  );
+  const seenSaveCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (seenSaveCountRef.current === null) {
+      // Mount: history save events are already reflected in savedSpec.
+      seenSaveCountRef.current = saveEventCount;
+      return;
+    }
+    if (saveEventCount > seenSaveCountRef.current) {
+      seenSaveCountRef.current = saveEventCount;
+      // The draft that was just persisted IS the new saved baseline
+      // (§3.5: pending markers clear to the new saved baseline).
+      if (lastReadyDraftRef.current) {
+        setSessionBaseline(lastReadyDraftRef.current);
+      }
+    }
+  }, [saveEventCount]);
+
+  const baselineSpec: DraftLike = isManage
+    ? (sessionBaseline ??
+      (savedSpec as DraftLike) ??
+      lastReadyDraftRef.current)
+    : null;
+
+  // Pending changes (plan C7/§3.4): row-level diff of staged draft vs the
+  // saved baseline. No staged draft ⇒ nothing pending (abandoned edits live
+  // only in draftSpec; a cleared draft means the rail shows the baseline).
+  const pendingRows = useMemo(
+    () => (isManage && draft ? specDiff(baselineSpec, draft) : []),
+    [isManage, draft, baselineSpec]
+  );
+  const pendingChanges = pendingRows.length > 0;
+
+  // The rail renders the saved brief when nothing is staged (manage mode);
+  // setup mode keeps the live draft exactly as shipped.
+  const railDraft: DraftLike = isManage ? (draft ?? baselineSpec) : draft;
+
+  // Panel readiness: in manage mode an untouched saved brief is ready by
+  // construction (the resolver's `actions` row); a staged draft must still
+  // pass the same readiness check as setup.
+  const panelReady = draftIsReady(isManage ? (draft ?? baselineSpec) : draft);
+
+  // Panel yield rule (plan §3.1 item 4): pure derivation from message
+  // order — the actions panel stops rendering once the user speaks after
+  // the triggering save event. Manage mode only.
+  const yielded = useMemo(() => {
+    if (!isManage) return false;
+    return panelYielded(
+      messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          saveEvent:
+            m.role === "assistant" &&
+            !!m.toolInvocations?.some(
+              (t) =>
+                (t.toolName === "confirm_and_save" ||
+                  t.toolName === "save_changes") &&
+                t.state === "result"
+            ),
+        }))
+    );
+  }, [isManage, messages]);
+
+  // Resolver state (plan §3.5) — shared between the panel and the chip
+  // strip so the two surfaces can never disagree about who owns the moment.
+  const panelState = briefActionsState({
+    ready: panelReady,
+    saved: savedSpecId != null,
+    pendingChanges: isManage && pendingChanges,
+  });
+
+  // Chip strip resolution (plan C5/§3.1): one pure decision per turn.
+  // Setup mode resolves byte-identically to the shipped behavior (model
+  // chips, suppressed while the confirm panel owns the moment); manage mode
+  // adds the deterministic fallback set and the archived/reconfirm
+  // suppressions. Matrix pinned in test/manage-chips.test.ts.
+  const lastRole = useMemo<"user" | "assistant" | null>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const role = messages[i]?.role;
+      if (role === "user" || role === "assistant") return role;
+    }
+    return null;
+  }, [messages]);
+  const chips = useMemo<string[]>(
+    () =>
+      resolveChips({
+        manage: isManage,
+        archived,
+        panelState,
+        lastRole,
+        modelChips: latestQuickReplies,
+        telegramLinked,
+      }),
+    [isManage, archived, panelState, lastRole, latestQuickReplies, telegramLinked]
+  );
+
+  // Transition moment (plan §3.1 item 1): after a successful
+  // confirm_and_save the client renders exactly one deterministic message.
+  // Anchored to the message carrying the LATEST confirm_and_save result;
+  // save_changes has its own agent-voiced line ("Updated. …") instead.
+  const transitionAnchorId = useMemo<string | null>(() => {
+    if (!manageMode) return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m || m.role !== "assistant") continue;
+      const hasSave = m.toolInvocations?.some(
+        (t) => t.toolName === "confirm_and_save" && t.state === "result"
+      );
+      if (hasSave) return m.id;
+    }
+    return null;
+  }, [manageMode, messages]);
+  const transitionText = useMemo<string>(() => {
+    // Schedule source order: the bound brief's SchedulingRuleV1 (reloads),
+    // else the saved draft's cadence + the user's timezone (live session).
+    const rule = briefScheduling as
+      | { timeLocal?: string; timezone?: string }
+      | null
+      | undefined;
+    if (rule && typeof rule === "object" && typeof rule.timeLocal === "string") {
+      return saveTransitionMessage({
+        timeLocal: rule.timeLocal,
+        timezone: rule.timezone ?? null,
+      });
+    }
+    const base = (draft ?? lastReadyDraftRef.current) as
+      | { cadence?: { delivery_time_local?: unknown } }
+      | null;
+    const timeLocal = base?.cadence?.delivery_time_local;
+    return saveTransitionMessage({
+      timeLocal: typeof timeLocal === "string" ? timeLocal : null,
+      timezone: userTimezone,
+    });
+  }, [briefScheduling, draft, userTimezone]);
+
+  // Header identity (plan §3.3): server-passed name on manage loads; the
+  // live transition derives the same name the server would compute.
+  const headerName = useMemo(() => {
+    if (briefName) return briefName;
+    const base = (baselineSpec ?? lastReadyDraftRef.current) as
+      | { topics?: unknown }
+      | null;
+    const topics = Array.isArray(base?.topics)
+      ? base.topics.filter((t): t is string => typeof t === "string")
+      : [];
+    return briefDisplayName(null, topics);
+  }, [briefName, baselineSpec]);
 
   const hasMessages = messages.length > 0;
 
@@ -501,12 +794,55 @@ export function ChatClient({
     <main className="flex min-h-0 flex-1 bg-background">
       <div className="flex flex-1 flex-col min-h-0">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-          <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
-            Set up your brief
-          </h1>
+          {isManage ? (
+            // Manage mode header (plan §3.3): breadcrumb-lite to /briefs,
+            // brief display name as the H1, status badge. min-w-0 + truncate
+            // keep it intact at 390px — the name gives way, never the
+            // breadcrumb or badge.
+            <div
+              data-testid="manage-header"
+              className="flex min-w-0 items-center gap-2"
+            >
+              <Link
+                href="/briefs"
+                className="shrink-0 rounded-sm text-sm text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              >
+                Briefs
+              </Link>
+              <span aria-hidden className="shrink-0 text-sm text-muted-foreground/60">
+                /
+              </span>
+              <h1
+                className="min-w-0 truncate text-base font-semibold tracking-tight sm:text-lg"
+                title={headerName}
+              >
+                {headerName}
+              </h1>
+              {/* Status badge — Active/Paused orientation only (§3.3);
+                  archived briefs speak through the banner, not a badge. */}
+              {!archived &&
+                (briefStatus === "paused" ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Paused
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
+                    Active
+                  </span>
+                ))}
+            </div>
+          ) : (
+            <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
+              Set up your brief
+            </h1>
+          )}
           <div className="flex shrink-0 items-center gap-2">
             <CreditPill />
-            {confirmingReset ? (
+            {/* C6: manage threads have no "Start over" — replaced by
+                "+ New brief" (same canCreate gate as /briefs, §3.3). */}
+            {isManage ? (
+              <NewBriefHeaderButton />
+            ) : confirmingReset ? (
               <span
                 data-testid="chat-reset-confirm"
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
@@ -610,28 +946,46 @@ export function ChatClient({
                 return <DateSeparator key={item.id} at={item.at} />;
               }
               return (
-                <MessageBubble
-                  key={item.message.id}
-                  message={item.message.raw}
-                  createdAt={item.message.createdAt}
-                  isFirstInGroup={item.isFirstInGroup}
-                  isLastInGroup={item.isLastInGroup}
-                />
+                <Fragment key={item.message.id}>
+                  <MessageBubble
+                    message={item.message.raw}
+                    createdAt={item.message.createdAt}
+                    isFirstInGroup={item.isFirstInGroup}
+                    isLastInGroup={item.isLastInGroup}
+                  />
+                  {/* Transition moment (plan §3.1 item 1): exactly one
+                      deterministic post-save message, rendered client-side
+                      right after the turn that carried the confirm_and_save
+                      result (chunk B keeps it out of the prompts so the
+                      copy can never drift). Anchored to the persisted tool
+                      result, so reloads render the same transcript. */}
+                  {item.message.id === transitionAnchorId && (
+                    <div
+                      data-testid="save-transition-message"
+                      className="max-w-[88%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-foreground sm:max-w-[85%]"
+                    >
+                      {transitionText}
+                    </div>
+                  )}
+                </Fragment>
               );
             })}
             {/* Designer audit P2 (2026-06-12): while the confirm panel is
                 showing (draft ready, not yet saved), the quick-reply strip
                 is suppressed — otherwise the propose turn stacks three
                 affordances for one decision (agent question + model chip +
-                confirm button). The panel owns the confirm moment. */}
-            {!isStreaming &&
-              latestQuickReplies.length > 0 &&
-              !(draftIsReady(draft) && savedSpecId == null) && (
+                confirm button). The panel owns the confirm moment.
+                Manage-mode wave (plan C5/§3.1): the strip now resolves
+                through `resolveChips` — same setup behavior (panelState
+                "confirm" is exactly the old ready-and-unsaved condition),
+                plus the deterministic manage fallback set, the reconfirm
+                suppression, and the archived suppression. */}
+            {!isStreaming && chips.length > 0 && (
               <div
                 className="flex flex-wrap gap-1.5"
                 aria-label="Quick reply suggestions"
               >
-                {latestQuickReplies.map((c, i) => {
+                {chips.map((c, i) => {
                   // Stream E #7 — relabel BM/中文 chips as "coming July".
                   const lang = classifyLanguageChip(c);
                   const label = lang
@@ -753,19 +1107,39 @@ export function ChatClient({
                 sends the confirmation as the user's message (same
                 informed-consent pattern as starter cards) and the agent's
                 confirm_and_save flips savedSpecId. */}
-            <BriefActions
-              ready={draftIsReady(draft)}
-              savedSpecId={savedSpecId}
-              busy={isStreamingState}
-              onConfirm={() => {
-                if (isStreamingState) return;
-                void append({
-                  role: "user",
-                  content: "Looks good — save this brief.",
-                });
-              }}
-              onTweak={() => composerInputRef.current?.focus()}
-            />
+            {/* Manage-mode wave: archived briefs suppress the panel entirely
+                (no affordance may promise a sample/save the server will
+                refuse — §3.6); the reconfirm state + yield rule ride the
+                resolver (§3.5/§3.1). Setup mode behavior is unchanged:
+                pendingChanges/yielded stay false there by construction. */}
+            {!archived && (
+              <BriefActions
+                ready={panelReady}
+                savedSpecId={savedSpecId}
+                busy={isStreamingState}
+                pendingChanges={isManage && pendingChanges}
+                yielded={yielded}
+                onConfirm={() => {
+                  if (isStreamingState) return;
+                  void append({
+                    role: "user",
+                    content: "Looks good — save this brief.",
+                  });
+                }}
+                onReconfirm={() => {
+                  // Confirm contract (C2 / PR #40 pattern): the brand button
+                  // appends a USER chat message; the agent treats it as the
+                  // confirmation and runs exactly one
+                  // save_changes(user_confirmed: true).
+                  if (isStreamingState) return;
+                  void append({
+                    role: "user",
+                    content: "Looks good — update this brief",
+                  });
+                }}
+                onTweak={() => composerInputRef.current?.focus()}
+              />
+            )}
             {friendlyError && (
               <div
                 data-testid="chat-error-bubble"
@@ -796,8 +1170,34 @@ export function ChatClient({
 
         {/* Mobile spec disclosure sits above the input. */}
         <div className="border-t border-border bg-background px-4 pt-3 sm:px-6 lg:hidden">
-          <SpecSidebar draft={draft} variant="mobile" />
+          <SpecSidebar
+            draft={railDraft}
+            variant="mobile"
+            manage={isManage}
+            pendingRows={pendingRows}
+          />
         </div>
+
+        {/* Archived brief (plan §3.6 / C3): banner above the composer; the
+            server 409 backstop means this copy is honest — posts genuinely
+            can't land. No "restore" promise. */}
+        {archived && (
+          <div
+            data-testid="archived-brief-banner"
+            className="border-t border-border bg-muted/40 px-4 py-3 sm:px-6"
+          >
+            <p className="mx-auto w-full max-w-2xl text-sm text-foreground">
+              This brief is archived, so this chat is closed. Your
+              conversation is kept here.{" "}
+              <Link
+                href="/briefs"
+                className="rounded-sm text-muted-foreground underline underline-offset-4 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              >
+                Back to your briefs
+              </Link>
+            </p>
+          </div>
+        )}
 
         <form
           onSubmit={onSubmit}
@@ -809,18 +1209,22 @@ export function ChatClient({
               type="text"
               value={input}
               onChange={handleInputChange}
-              disabled={isStreaming}
+              disabled={isStreaming || archived}
+              aria-disabled={isStreaming || archived}
               placeholder={
-                hasMessages
-                  ? "Type your reply…"
-                  : "Describe what to watch — e.g. palm oil prices"
+                archived
+                  ? "This chat is closed"
+                  : hasMessages
+                    ? "Type your reply…"
+                    : "Describe what to watch — e.g. palm oil prices"
               }
-              autoFocus
+              autoFocus={!archived}
               className="block h-11 flex-1 rounded-md border border-input bg-background px-4 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
             />
             <button
               type="submit"
-              disabled={isStreaming || !input.trim()}
+              disabled={isStreaming || archived || !input.trim()}
+              aria-disabled={isStreaming || archived || !input.trim()}
               className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-medium text-brand-foreground transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send
@@ -829,7 +1233,12 @@ export function ChatClient({
         </form>
       </div>
 
-      <SpecSidebar draft={draft} variant="desktop" />
+      <SpecSidebar
+        draft={railDraft}
+        variant="desktop"
+        manage={isManage}
+        pendingRows={pendingRows}
+      />
     </main>
   );
 }
@@ -844,6 +1253,44 @@ export function ChatClient({
  * doesn't flash a placeholder, and hidden entirely on error so an admin
  * outage doesn't shout at the user.
  */
+/**
+ * Manage-mode header action (plan §3.3 / C6): "Start over" is replaced by
+ * "+ New brief" on manage threads — outline recipe, routed through
+ * /chat?new=1, gated by the SAME briefs.canCreate rule as /briefs. At cap
+ * it renders the shipped disabled state ("Multiple briefs are coming
+ * soon." title) — founder sign-off checkpoint on this more visible
+ * placement is logged in proposals/brief-manage-mode-pr-notes.md.
+ */
+function NewBriefHeaderButton() {
+  const canCreate = trpc.briefs.canCreate.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  // Loading defaults to the disabled rendering rather than a clickable
+  // button — an at-cap user must never see an enabled "+ New brief" flash.
+  const allowed = canCreate.data?.allowed ?? false;
+  if (!allowed) {
+    return (
+      <span
+        data-testid="manage-new-brief-disabled"
+        title="Multiple briefs are coming soon."
+        aria-disabled="true"
+        className="inline-flex h-9 shrink-0 cursor-not-allowed items-center rounded-md border border-border bg-muted px-3 text-xs font-medium text-muted-foreground"
+      >
+        + New brief
+      </span>
+    );
+  }
+  return (
+    <Link
+      href="/chat?new=1"
+      data-testid="manage-new-brief"
+      className="inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+    >
+      + New brief
+    </Link>
+  );
+}
+
 function CreditPill() {
   const balance = trpc.billing.getBalance.useQuery(undefined, {
     refetchOnWindowFocus: true,

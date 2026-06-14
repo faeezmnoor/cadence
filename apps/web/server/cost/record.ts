@@ -86,6 +86,27 @@ export function braveCostUsd(): number {
 }
 
 /**
+ * OpenAI pricing per 1M tokens, USD (manage-mode wave, ACX.1 chat-turn
+ * cost rows). gpt-4o-mini is the chat config/manage agent model.
+ * Source: OpenAI pricing page.
+ */
+const OPENAI_PRICING: Record<string, { input: number; output: number }> = {
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
+};
+
+export function openaiCostUsd(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number
+): number {
+  // Same fallback posture as anthropicCostUsd: under-counting hides cost
+  // from the side-income lens, so unknown models price as gpt-4o-mini
+  // rather than 0.
+  const price = OPENAI_PRICING[modelId] ?? OPENAI_PRICING["gpt-4o-mini"]!;
+  return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
+}
+
+/**
  * Anthropic web-search server tool surcharge, USD per 1,000 searches
  * (CAD-222 bake-off contender A3). Charged ON TOP of normal token cost.
  *

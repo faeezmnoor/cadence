@@ -7,20 +7,34 @@
  *   - Card per brief (full bleed on mobile, two-up at sm+).
  *   - Sort: active by next delivery ascending; paused sinks to bottom.
  *   - Status badge (Active / Paused) — text + color, never color-only.
+ *   - Chat action FIRST in the card action row (manage-mode plan §3.3):
+ *     outline-secondary recipe matching Pause — NOT bg-brand, one CTA per
+ *     surface ("+ New brief" is this page's brand button). Hidden when the
+ *     MANAGE_MODE flag is off (server-passed prop, §7.2 rollback d).
+ *     Archived briefs never render cards (page query filters them), so
+ *     they can never get the action.
  *   - Pause / Resume toggle button per card.
  *   - Archive with confirm (inline reveal, NOT window.confirm — that
  *     pattern was flagged in design-audit v2).
- *   - "+ New brief" CTA at top, routing through /chat (the new-brief
- *     authoring path). Disabled with tooltip when canCreate.allowed=false.
- *   - Empty state with CTA → /chat.
+ *   - "+ New brief" CTA at top, routing through /chat?new=1 (the manage
+ *     wave's explicit new-setup-thread entry — AC9.1). Disabled with
+ *     tooltip when canCreate.allowed=false.
+ *   - Empty state with CTA → /chat?new=1.
  *
  * Design tokens only — no raw neutral or raw hex per UX audit lessons.
  * Mobile-first at 390x844; cards stack and the sticky top stays visible.
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
-import { isAdvancedStack, normalizeStack } from "@/lib/research-stack";
+import {
+  STACK_COSTS,
+  isAdvancedStack,
+  normalizeStack,
+} from "@/lib/research-stack";
+import { humanizeSchedule } from "@/lib/schedule";
+import { briefDisplayName } from "@/lib/brief-display";
 
 export type BriefRow = {
   id: string;
@@ -45,9 +59,31 @@ type CanCreate = { allowed: boolean; count: number; max: number };
 export function BriefsClient({
   initial,
   initialCanCreate,
+  proTierAlphaEnabled = false,
+  userTimezone,
+  manageMode = false,
 }: {
   initial: BriefRow[];
   initialCanCreate: CanCreate;
+  /**
+   * Settings-surfacing v1 (PR-7): the depth badge is flag-gated — while
+   * advanced research is paused (CAD-215) every delivery is served and
+   * debited at standard depth, so badging a card "Advanced" would lie
+   * about cost. Server page passes isProTierAlphaEnabled().
+   */
+  proTierAlphaEnabled?: boolean;
+  /**
+   * Review CPO MED-2: the user's STORED timezone (users.timezone) — next
+   * delivery renders in the zone briefs are actually scheduled in, with
+   * a short zone label, instead of the device zone unlabeled.
+   */
+  userTimezone: string;
+  /**
+   * MANAGE_MODE flag, read server-side (isManageMode). Off hides the card
+   * Chat action entirely — under flag-off, /chat?brief= just redirects
+   * back here (exec RC5 / §7.2 rollback contract d).
+   */
+  manageMode?: boolean;
 }) {
   const utils = trpc.useUtils();
   const listQuery = trpc.briefs.list.useQuery(undefined, {
@@ -156,6 +192,9 @@ export function BriefsClient({
               <BriefCard
                 key={b.id}
                 row={b}
+                proTierAlphaEnabled={proTierAlphaEnabled}
+                userTimezone={userTimezone}
+                showChat={manageMode}
                 onPause={() => pause.mutate({ id: b.id })}
                 onResume={() => resume.mutate({ id: b.id })}
                 onArchive={() => archive.mutate({ id: b.id })}
@@ -189,7 +228,9 @@ function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
   }
   return (
     <Link
-      href={"/chat" as never}
+      // Manage wave (AC9.1): ?new=1 is the explicit "fresh setup thread"
+      // entry — bare /chat now resumes the most-recent thread instead.
+      href={"/chat?new=1" as never}
       className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
     >
       + New brief
@@ -213,12 +254,19 @@ function EmptyState({ canCreate }: { canCreate: CanCreate }) {
 
 function BriefCard({
   row,
+  proTierAlphaEnabled,
+  userTimezone,
+  showChat,
   onPause,
   onResume,
   onArchive,
   busy,
 }: {
   row: BriefRow;
+  proTierAlphaEnabled: boolean;
+  userTimezone: string;
+  /** MANAGE_MODE flag — false hides the Chat action (rollback contract). */
+  showChat: boolean;
   onPause: () => void;
   onResume: () => void;
   onArchive: () => void;
@@ -226,6 +274,13 @@ function BriefCard({
 }) {
   const [archiving, setArchiving] = useState(false);
   const isPaused = row.status === "paused";
+  // Settings-surfacing v1 (PR-7): badge every advanced stack (the old
+  // `tier === "pro"` check missed pro_websearch) and show the per-brief
+  // credit cost — the list is where users reason about burn rate.
+  // Standard depth shows no badge (default is unmarked; badging it would
+  // manufacture a tier hierarchy COPY_GUIDE bans).
+  const stack = normalizeStack(row.tier);
+  const showDepthBadge = proTierAlphaEnabled && isAdvancedStack(stack);
 
   const topics = useMemo(() => extractTopics(row.spec), [row.spec]);
   const scheduleLabel = useMemo(
@@ -233,14 +288,14 @@ function BriefCard({
     [row.scheduling]
   );
   const nextDelivery = useMemo(
-    () => (row.nextRunAt ? formatNext(row.nextRunAt) : null),
-    [row.nextRunAt]
+    () => (row.nextRunAt ? formatNext(row.nextRunAt, userTimezone) : null),
+    [row.nextRunAt, userTimezone]
   );
   const lastDelivery = useMemo(
     () => (row.lastRun ? formatLast(row.lastRun.runDate) : null),
     [row.lastRun]
   );
-  const displayName = row.name?.trim() || (topics[0] ? `${capitalize(topics[0])} brief` : "Untitled brief");
+  const displayName = briefDisplayName(row.name, topics);
 
   return (
     <li
@@ -254,15 +309,9 @@ function BriefCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-medium text-foreground">{displayName}</h3>
             <StatusBadge status={row.status} />
-            {/* CAD-225: badge any ADVANCED stack via the registry helper, not
-                a raw `=== "pro"` check. Post-retirement the real advanced
-                stack is pro_websearch; normalizeStack folds the retired 'pro'
-                to 'default' so a legacy spec stops badging (it now serves
-                standard). The old `=== "pro"` predicate badged the retired
-                stack and missed pro_websearch entirely. */}
-            {isAdvancedStack(normalizeStack(row.tier)) ? (
+            {showDepthBadge ? (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                🔬 Advanced
+                🔬 Advanced · {STACK_COSTS[stack]} credits per brief
               </span>
             ) : null}
           </div>
@@ -315,6 +364,21 @@ function BriefCard({
       </dl>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* Manage-mode plan §3.3: Chat is FIRST in the action row —
+            outline-secondary recipe matching Pause (same h-8 height, so
+            flag-off ⇒ flag-on causes no layout shift), never bg-brand
+            (one CTA per surface; this page's brand button is "+ New
+            brief"). Full focus-ring recipe per ACX.2. */}
+        {showChat && (
+          <Link
+            href={`/chat?brief=${row.id}` as never}
+            data-testid="brief-card-chat"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          >
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+            Chat
+          </Link>
+        )}
         {isPaused ? (
           <button
             type="button"
@@ -531,59 +595,43 @@ function extractTopics(spec: unknown): string[] {
   return s.topics.filter((t): t is string => typeof t === "string");
 }
 
-function capitalize(s: string): string {
-  return s.length ? s[0]!.toUpperCase() + s.slice(1) : s;
-}
+// humanizeSchedule + displayName were module-private duplicates here until
+// the manage-mode wave lifted them into @/lib/schedule and
+// @/lib/brief-display (exec RC2) so server code (manage-thread seed,
+// transition message) renders the SAME strings as these cards. Import them
+// — never re-add a local copy.
 
-const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function humanizeSchedule(rule: unknown): string {
-  if (!rule || typeof rule !== "object") return "Schedule not set";
-  const r = rule as {
-    cadence?: { kind?: string; weekdays?: number[]; monthlyDay?: number | "last"; cronExpr?: string };
-    timeLocal?: string;
-    timezone?: string;
-  };
-  const time = r.timeLocal ?? "";
-  const tz = r.timezone ?? "";
-  const tzLabel = tz ? ` (${tz})` : "";
-  const c = r.cadence;
-  if (!c) return "Schedule not set";
-
-  if (c.kind === "daily") {
-    const wd = c.weekdays ?? [1, 2, 3, 4, 5, 6, 7];
-    if (wd.length === 7) return `Daily at ${time}${tzLabel}`;
-    if (wd.length === 5 && wd.every((d, i) => d === i + 1))
-      return `Weekdays at ${time}${tzLabel}`;
-    return `${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "weekly") {
-    const wd = c.weekdays ?? [];
-    return `Weekly · ${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "monthly") {
-    const day = c.monthlyDay === "last" ? "last day" : `day ${c.monthlyDay}`;
-    return `Monthly on ${day} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "custom_cron") {
-    return `Custom: ${c.cronExpr}${tzLabel}`;
-  }
-  return "Schedule not set";
-}
-
-function formatNext(iso: string): string {
+function formatNext(iso: string, timezone: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const now = Date.now();
   const diffMs = d.getTime() - now;
   const diffMin = Math.round(diffMs / 60_000);
-  const abs = d.toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Review CPO MED-2: render in the user's STORED timezone with a short
+  // zone label — the device zone silently disagreed with the schedule
+  // whenever the two differed (travel, VPN, shared machine).
+  let abs: string;
+  try {
+    abs = new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(d);
+  } catch {
+    // Unknown zone string — fall back to device-local rather than crash.
+    abs = d.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  }
   if (diffMin < 0) return `${abs} (overdue)`;
   if (diffMin < 60) return `in ${diffMin}m · ${abs}`;
   const diffH = Math.round(diffMin / 60);
