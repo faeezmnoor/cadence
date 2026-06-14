@@ -45,13 +45,26 @@ export const USD_TO_MICRO = 1_000_000;
  * credit price covers measured cost-to-us with margin; credits sell at
  * $0.10–0.167 each depending on pack):
  *   - default        1 credit — ~$0.04–0.08 COGS
- *   - pro            3 credits — ~$0.09 COGS measured in the bake-off
+ *   - pro            3 credits — RETIRED stack (CAD-225, dominated). Price
+ *                    kept ONLY for backward-compat reads: a legacy charge/
+ *                    refund recorded as tier='pro' must mirror back exactly
+ *                    3. A live spec never bills 3 because normalizeStack('pro')
+ *                    → 'default' upstream (digest/run.ts) before any debit.
  *   - pro_websearch  5 credits — ~$0.18 COGS measured (max $0.37 with a
  *                    repair retry); 5 keeps margin ≥ ~2.3× worst-pack
  */
 export type Tier = "default" | "pro" | "pro_websearch";
 
 export function creditCostForTier(tier: Tier | string | null | undefined): number {
+  // CAD-225: read STACK_COSTS directly for any KNOWN stack key — including
+  // the retired 'pro' (a legacy charge stamped 'pro' must refund 3). This is
+  // DELIBERATELY distinct from normalizeStack: a spec's tier is normalized to
+  // 'default' before it ever bills, so the 'pro'→3 path is reachable only via
+  // a raw legacy tier string, never a live brief. Only genuinely
+  // unknown/null values fall through normalizeStack to 'default'.
+  if (tier === "default" || tier === "pro" || tier === "pro_websearch") {
+    return STACK_COSTS[tier];
+  }
   return STACK_COSTS[normalizeStack(tier)];
 }
 

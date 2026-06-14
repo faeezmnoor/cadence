@@ -43,7 +43,12 @@ describe("STACK_COSTS — billing source of truth", () => {
   it("standard costs 1 credit per brief", () => {
     expect(STACK_COSTS.default).toBe(1);
   });
-  it("advanced costs 3 credits per brief", () => {
+  it("advanced (pro_websearch) costs 5 credits per brief", () => {
+    expect(STACK_COSTS.pro_websearch).toBe(5);
+  });
+  it("retired 'pro' cost stays defined at 3 for backward-compat reads (CAD-225)", () => {
+    // The stack is no longer offered, but STACK_COSTS['pro'] must remain so
+    // a legacy charge/refund recorded as tier='pro' mirrors back exactly 3.
     expect(STACK_COSTS.pro).toBe(3);
   });
 });
@@ -85,8 +90,8 @@ describe("nextDeliveryCost — single-delivery credit cost", () => {
   it("standard = 1 credit", () => {
     expect(nextDeliveryCost("default")).toBe(1);
   });
-  it("advanced = 3 credits", () => {
-    expect(nextDeliveryCost("pro")).toBe(3);
+  it("advanced (pro_websearch) = 5 credits", () => {
+    expect(nextDeliveryCost("pro_websearch")).toBe(5);
   });
 });
 
@@ -99,27 +104,27 @@ describe("monthlyCreditEstimate — run-rate preview math", () => {
       )
     ).toBe(30);
   });
-  it("daily advanced ≈ 90 credits/month", () => {
+  it("daily advanced (pro_websearch) ≈ 150 credits/month", () => {
     expect(
       monthlyCreditEstimate(
         rule({ kind: "daily", weekdays: [1, 2, 3, 4, 5, 6, 7] }),
-        "pro"
+        "pro_websearch"
       )
-    ).toBe(90);
+    ).toBe(150);
   });
   it("weekly Mon+Wed standard ≈ round(2/7 * 30 * 1) = 9", () => {
     expect(
       monthlyCreditEstimate(rule({ kind: "weekly", weekdays: [1, 3] }), "default")
     ).toBe(9);
   });
-  it("monthly advanced ≈ round(1/30 * 30 * 3) = 3", () => {
+  it("monthly advanced ≈ round(1/30 * 30 * 5) = 5", () => {
     expect(
-      monthlyCreditEstimate(rule({ kind: "monthly", monthlyDay: 1 }), "pro")
-    ).toBe(3);
+      monthlyCreditEstimate(rule({ kind: "monthly", monthlyDay: 1 }), "pro_websearch")
+    ).toBe(5);
   });
   it("returns 0 when scheduling is unknown (preview unavailable copy gate)", () => {
     expect(monthlyCreditEstimate(null, "default")).toBe(0);
-    expect(monthlyCreditEstimate({}, "pro")).toBe(0);
+    expect(monthlyCreditEstimate({}, "pro_websearch")).toBe(0);
   });
 });
 
@@ -127,13 +132,13 @@ describe("stackLabel — no plan-tier nouns per project_cadence_no_tier_plans", 
   it("default → 'Standard research'", () => {
     expect(stackLabel("default")).toBe("Standard research");
   });
-  it("pro → 'Advanced research · deeper digging' (vendor-free per COPY_GUIDE)", () => {
-    expect(stackLabel("pro")).toBe("Advanced research · deeper digging");
+  it("pro_websearch → 'Advanced research' (CAD-225: the single advanced option, no qualifier)", () => {
+    // CAD-225 retired the second advanced stack, so the "· live web search"
+    // disambiguator is dropped — it's the only advanced option now.
+    expect(stackLabel("pro_websearch")).toBe("Advanced research");
   });
-  it("pro_websearch → 'Advanced research · live web search'", () => {
-    expect(stackLabel("pro_websearch")).toBe(
-      "Advanced research · live web search"
-    );
+  it("retired 'pro' label is vendor-free 'Advanced research' (unreachable from product)", () => {
+    expect(stackLabel("pro")).toBe("Advanced research");
   });
   it("never returns 'Pro plan' / 'Pro tier' / 'Default tier' / 'upgrade'", () => {
     for (const label of [
@@ -172,21 +177,27 @@ describe("STACK_DESCRIPTIONS — transparency table content", () => {
   });
 });
 
-describe("CAD-222 — three-stack registry (founder ruling 2026-06-11)", () => {
-  it("STACK_ORDER lists all stacks cheapest-first", () => {
-    expect(STACK_ORDER).toEqual(["default", "pro", "pro_websearch"]);
+describe("CAD-225 — two-stack registry (pro/A2 retired)", () => {
+  it("STACK_ORDER offers only default + pro_websearch, cheapest-first", () => {
+    // CAD-225: the dominated 'pro' (Perplexity Sonar A2) stack is retired
+    // from the product — it must NOT appear in the iteration order the UI
+    // renders from.
+    expect(STACK_ORDER).toEqual(["default", "pro_websearch"]);
+    expect(STACK_ORDER).not.toContain("pro");
     const costs = STACK_ORDER.map((s) => STACK_COSTS[s]);
     expect([...costs].sort((a, b) => a - b)).toEqual(costs);
   });
 
-  it("per-stack credit prices: 1 / 3 / 5", () => {
+  it("STACK_COSTS still defines all three (1 / 3 / 5) for backward-compat reads", () => {
     expect(STACK_COSTS.default).toBe(1);
-    expect(STACK_COSTS.pro).toBe(3);
+    expect(STACK_COSTS.pro).toBe(3); // retired but still readable
     expect(STACK_COSTS.pro_websearch).toBe(5);
   });
 
-  it("normalizeStack passes known stacks through and defaults the rest", () => {
-    expect(normalizeStack("pro")).toBe("pro");
+  it("normalizeStack folds retired 'pro' → 'default'; only pro_websearch is advanced", () => {
+    // CAD-225 backward-compat ruling: a legacy 'pro' spec falls back to
+    // standard (billed 1), NOT auto-upgraded to the 5-credit stack.
+    expect(normalizeStack("pro")).toBe("default");
     expect(normalizeStack("pro_websearch")).toBe("pro_websearch");
     expect(normalizeStack("default")).toBe("default");
     expect(normalizeStack("legacy-garbage")).toBe("default");
@@ -194,13 +205,14 @@ describe("CAD-222 — three-stack registry (founder ruling 2026-06-11)", () => {
     expect(normalizeStack(undefined)).toBe("default");
   });
 
-  it("isAdvancedStack: everything above 1 credit is advanced (alpha-gated)", () => {
+  it("isAdvancedStack: pro_websearch is advanced; default is not", () => {
     expect(isAdvancedStack("default")).toBe(false);
-    expect(isAdvancedStack("pro")).toBe(true);
     expect(isAdvancedStack("pro_websearch")).toBe(true);
+    // 'pro' still classifies as advanced, but it's unreachable post-normalize.
+    expect(isAdvancedStack("pro")).toBe(true);
   });
 
-  it("every stack has a summary for the option picker", () => {
+  it("every OFFERED stack has a summary for the option picker", () => {
     for (const s of STACK_ORDER) {
       expect(STACK_SUMMARIES[s].length).toBeGreaterThan(0);
       expect(STACK_SUMMARIES[s]).not.toMatch(/Pro plan|Pro tier|upgrade/i);

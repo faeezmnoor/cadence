@@ -43,13 +43,15 @@ describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
 
   it("names advanced research price + value prop", () => {
     expect(explainerSource).toMatch(/🔬 Advanced research/);
-    // Review P1-6 / founder per-stack pricing: the explainer names both
-    // advanced prices and points at the per-option display.
-    expect(explainerSource).toMatch(/3 or 5 credits/);
+    // CAD-225: advanced is now a SINGLE option (pro_websearch, 5 credits) —
+    // the dominated 3-credit Sonar stack is retired, so the copy names one
+    // price, not "3 or 5".
+    expect(explainerSource).toMatch(/5 credits/);
+    expect(explainerSource).not.toMatch(/3 or 5 credits/);
     // Plain-English value framing is the positioning hook — no vendor names
-    // in user-facing copy.
+    // in user-facing copy. CAD-225: "more specific" is the axis advanced wins.
     expect(explainerSource).toMatch(/reads more sources/);
-    expect(explainerSource).toMatch(/tighter\s+analysis/);
+    expect(explainerSource).toMatch(/more specific/);
   });
 
   it("calls out the advanced footer marker so users can self-verify which research mode they got", () => {

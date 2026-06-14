@@ -4,8 +4,11 @@
  * Validates the routing rules in `getProviders` without depending on
  * any live network or DB. Behavior under test:
  *   - Default tier always returns Brave + Haiku.
- *   - "pro" tier with alpha flag OFF falls back to default.
- *   - "pro" tier with alpha flag ON returns Perplexity + Sonnet.
+ *   - "pro" tier ALWAYS returns the default bundle now — CAD-225 retired the
+ *     Perplexity Sonar (A2) stack from the product; getProviders stays
+ *     defensive so a stray raw "pro" never spends Sonar money, regardless of
+ *     the alpha flag.
+ *   - "pro_websearch" remains the single advanced stack, alpha-gated.
  *   - Adapters expose stable ids that downstream cost logs can rely on.
  */
 import { describe, it, expect } from "vitest";
@@ -47,7 +50,7 @@ describe("CAD-85 provider abstraction", () => {
     expect(bundle.composer).toBe(defaultComposerProvider);
   });
 
-  it("pro tier with alpha flag OFF falls back to default", () => {
+  it("pro tier (retired) returns default with alpha flag OFF", () => {
     withEnv("PRO_TIER_ALPHA", undefined, () => {
       const bundle = getProviders("pro");
       expect(bundle.tier).toBe("default");
@@ -55,28 +58,33 @@ describe("CAD-85 provider abstraction", () => {
     });
   });
 
-  it("pro tier with alpha flag '1' returns Pro providers", () => {
+  it("pro tier (retired) returns default EVEN with alpha flag ON (CAD-225)", () => {
+    // CAD-225: 'pro' (Perplexity Sonar A2) is retired from the product. The
+    // alpha flag no longer resurrects it — getProviders is defensive so a
+    // raw 'pro' never routes to the Sonar adapter regardless of the flag.
     withEnv("PRO_TIER_ALPHA", "1", () => {
       const bundle = getProviders("pro");
-      expect(bundle.tier).toBe("pro");
-      expect(bundle.search.id).toBe("perplexity-sonar-reasoning-pro");
-      expect(bundle.composer.id).toBe("anthropic-sonnet-pro");
-      expect(bundle.composer.modelId).toBe(PRO_COMPOSER_MODEL_ID);
+      expect(bundle.tier).toBe("default");
+      expect(bundle.search.id).toBe("brave");
+      expect(bundle.composer.id).toBe("anthropic-haiku");
+      // Sonar adapters stay in the codebase for the dev bake-off harness but
+      // are not reachable via getProviders.
+      expect(bundle.search.id).not.toBe("perplexity-sonar-reasoning-pro");
     });
   });
 
-  it("pro tier with alpha flag 'true' also opts in", () => {
+  it("pro tier with alpha flag 'true' STILL returns default (retired)", () => {
     withEnv("PRO_TIER_ALPHA", "true", () => {
       expect(isProTierAlphaEnabled()).toBe(true);
-      expect(getProviders("pro").tier).toBe("pro");
+      expect(getProviders("pro").tier).toBe("default");
     });
   });
 
-  it("pro tier with alpha flag 'false' falls back", () => {
-    withEnv("PRO_TIER_ALPHA", "false", () => {
-      expect(isProTierAlphaEnabled()).toBe(false);
-      expect(getProviders("pro").tier).toBe("default");
-    });
+  // PRO_COMPOSER_MODEL_ID retained as an import so the bake-off harness id
+  // stays referenced; assert it's still a non-empty stable string.
+  it("PRO_COMPOSER_MODEL_ID remains defined for the dev bake-off harness", () => {
+    expect(typeof PRO_COMPOSER_MODEL_ID).toBe("string");
+    expect(PRO_COMPOSER_MODEL_ID.length).toBeGreaterThan(0);
   });
 });
 

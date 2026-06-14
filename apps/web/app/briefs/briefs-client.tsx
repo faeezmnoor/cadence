@@ -20,6 +20,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { isAdvancedStack, normalizeStack } from "@/lib/research-stack";
 
 export type BriefRow = {
   id: string;
@@ -253,7 +254,13 @@ function BriefCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-medium text-foreground">{displayName}</h3>
             <StatusBadge status={row.status} />
-            {row.tier === "pro" ? (
+            {/* CAD-225: badge any ADVANCED stack via the registry helper, not
+                a raw `=== "pro"` check. Post-retirement the real advanced
+                stack is pro_websearch; normalizeStack folds the retired 'pro'
+                to 'default' so a legacy spec stops badging (it now serves
+                standard). The old `=== "pro"` predicate badged the retired
+                stack and missed pro_websearch entirely. */}
+            {isAdvancedStack(normalizeStack(row.tier)) ? (
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 🔬 Advanced
               </span>

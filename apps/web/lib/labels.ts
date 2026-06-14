@@ -141,10 +141,14 @@ export function formatUserState(raw: string): string {
  * facing "Standard research" / "Advanced research" framing (locked
  * vocabulary — never "Pro"/"Default"/"deep research" as depth names).
  */
+// CAD-225: the dominated 'pro' (Sonar A2) depth is retired from the product;
+// 'pro_websearch' is the single advanced option, so both map to the same
+// unqualified "Advanced research" label. The 'pro' entry stays for any legacy
+// row that still surfaces in an admin/history view.
 const TIERS: Record<string, string> = {
   default: "Standard research",
-  pro: "Advanced research · deeper digging",
-  pro_websearch: "Advanced research · live web search",
+  pro: "Advanced research",
+  pro_websearch: "Advanced research",
 };
 export function formatTier(raw: string): string {
   return TIERS[raw] ?? prettify(raw);
