@@ -27,3 +27,44 @@ describe("brief actions: state resolver", () => {
     expect(briefActionsState({ ready: true, saved: true })).toBe("actions");
   });
 });
+
+/**
+ * Manage-mode wave (plan §3.5, resolution C1) — APPENDED rows only. The
+ * three rows above are the PR #40/#42 behavioral freeze: they must never
+ * be edited, and `pendingChanges` must default to false so every existing
+ * call site resolves byte-identically.
+ */
+describe("brief actions: manage-mode reconfirm rows (appended, plan §3.5)", () => {
+  it("pendingChanges omitted ≡ pendingChanges:false — legacy rows byte-identical", () => {
+    expect(
+      briefActionsState({ ready: false, saved: false, pendingChanges: false })
+    ).toBe("hidden");
+    expect(
+      briefActionsState({ ready: false, saved: true, pendingChanges: false })
+    ).toBe("hidden");
+    expect(
+      briefActionsState({ ready: true, saved: false, pendingChanges: false })
+    ).toBe("confirm");
+    expect(
+      briefActionsState({ ready: true, saved: true, pendingChanges: false })
+    ).toBe("actions");
+  });
+
+  it("saved && pendingChanges → reconfirm — the one-live-action update state", () => {
+    expect(
+      briefActionsState({ ready: true, saved: true, pendingChanges: true })
+    ).toBe("reconfirm");
+  });
+
+  it("!ready wins over pendingChanges — a half-staged incomplete draft renders nothing", () => {
+    expect(
+      briefActionsState({ ready: false, saved: true, pendingChanges: true })
+    ).toBe("hidden");
+  });
+
+  it("!saved && pendingChanges → confirm — staged edits without a saved target cannot reconfirm", () => {
+    expect(
+      briefActionsState({ ready: true, saved: false, pendingChanges: true })
+    ).toBe("confirm");
+  });
+});

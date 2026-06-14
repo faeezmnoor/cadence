@@ -33,8 +33,11 @@ describe("Wave 5 Bug 10 — archived spec isolation", () => {
     expect(src).toMatch(/ne\(digestSpecs\.status,\s*"archived"\)/);
   });
 
-  it("server/trpc/routers/digest.ts sampleNow guard filters status != 'archived'", () => {
-    const src = readSrc("server/trpc/routers/digest.ts");
+  it("sampleNow expected-spec guard filters status != 'archived' (moved to the shared sample core in the manage-mode wave)", () => {
+    // routers/digest.ts is now a thin wrapper around runSampleForUser; the
+    // guard lives in server/digest/sample.ts (plan §4.5) and serves BOTH
+    // the tRPC path and the chat agent's send_sample tool.
+    const src = readSrc("server/digest/sample.ts");
     expect(src).toMatch(/ne\(digestSpecs\.status,\s*"archived"\)/);
   });
 

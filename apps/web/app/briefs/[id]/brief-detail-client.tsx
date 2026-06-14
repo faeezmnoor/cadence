@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
+import { humanizeSchedule } from "@/lib/schedule";
 import { digestSpecSchema, type DigestSpecV1 } from "@/lib/digest-spec/schema";
 import {
   formatBriefStatus,
@@ -867,42 +868,6 @@ function extractSummary(spec: unknown): [string, string][] {
   return rows;
 }
 
-const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function humanizeSchedule(rule: unknown): string {
-  if (!rule || typeof rule !== "object") return "Schedule not set";
-  const r = rule as {
-    cadence?: {
-      kind?: string;
-      weekdays?: number[];
-      monthlyDay?: number | "last";
-      cronExpr?: string;
-    };
-    timeLocal?: string;
-    timezone?: string;
-  };
-  const time = r.timeLocal ?? "";
-  const tz = r.timezone ?? "";
-  const tzLabel = tz ? ` (${tz})` : "";
-  const c = r.cadence;
-  if (!c) return "Schedule not set";
-  if (c.kind === "daily") {
-    const wd = c.weekdays ?? [1, 2, 3, 4, 5, 6, 7];
-    if (wd.length === 7) return `Daily at ${time}${tzLabel}`;
-    if (wd.length === 5 && wd.every((d, i) => d === i + 1))
-      return `Weekdays at ${time}${tzLabel}`;
-    return `${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "weekly") {
-    const wd = c.weekdays ?? [];
-    return `Weekly · ${wd.map((d) => DAY_NAMES[d]).join(", ")} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "monthly") {
-    const day = c.monthlyDay === "last" ? "last day" : `day ${c.monthlyDay}`;
-    return `Monthly on ${day} at ${time}${tzLabel}`;
-  }
-  if (c.kind === "custom_cron") {
-    return `Custom: ${c.cronExpr}${tzLabel}`;
-  }
-  return "Schedule not set";
-}
+// humanizeSchedule was a module-private duplicate here until the manage-mode
+// wave lifted it into @/lib/schedule (exec RC2). Import it — never re-add a
+// local copy.

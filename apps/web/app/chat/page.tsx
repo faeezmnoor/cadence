@@ -5,25 +5,41 @@ import { isAdminEmail } from "@/server/auth/admin";
 import { db } from "@/server/db/client";
 import { chatMessages, chatThreads, digestSpecs, users } from "@/server/db/schema";
 import { ChatClient } from "@/components/chat/chat-client";
+import { briefDisplayName } from "@/lib/brief-display";
 import { DIGEST_TEMPLATES } from "@/lib/digest-spec/templates";
 import type { PersistedMessage } from "@/components/chat/types";
 import { AppNav } from "@/components/nav/app-nav";
 import { TimezoneGuard } from "@/components/settings/timezone-guard";
+import { isManageMode } from "@/lib/feature-flags";
+import { ensureManageThread } from "@/server/chat/manage-thread";
+import { log } from "@/lib/log";
 
 /**
- * /chat — server component. Auth-checks, resolves or creates an active
- * thread, hydrates prior messages, then mounts the streaming client.
+ * /chat — server component. Auth-checks, resolves or creates a thread,
+ * hydrates prior messages, then mounts the streaming client.
  *
- * Resume-on-reload (T-108) is implemented here: we pick the most recent
- * active thread of purpose=initial_config, or create one. Messages are
- * fetched server-side so the client renders with content already painted.
+ * Resolution order (manage-mode plan §4.2):
+ *   1. ?brief=<id>  — manage entry. Flag off / unknown / unowned / archived
+ *      → redirect /briefs (C4). Otherwise open the bound active thread or
+ *      lazy-create + seed one (ensureManageThread, AC7.2).
+ *   2. ?new=1       — "New brief": reuse a zero-message active setup thread
+ *      (refresh-spam guard) else insert a fresh initial_config thread.
+ *   3. ?template=   — deep-link flow, untouched: always lands on a setup
+ *      thread (never a manage thread).
+ *   4. bare /chat   — flag ON: most-recently-active thread, ANY purpose,
+ *      by updatedAt (manage threads included). Flag OFF: legacy behavior,
+ *      byte-equivalent for unbound threads, and spec-bound threads are
+ *      invisible to resolution entirely (exec RC5 fail-closed).
  */
 export const dynamic = "force-dynamic";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ template?: string }>;
+  searchParams?: Promise<{ template?: string; brief?: string; new?: string }>;
 }) {
   // PR 3: /chat?template=<id> deep-link (landing-page ICP stripes).
   // Server-validated: must be a known AND visible catalog row — retired or
@@ -33,6 +49,8 @@ export default async function ChatPage({
   const deepLinkTemplate = DIGEST_TEMPLATES.find(
     (t) => t.id === rawTemplate && t.visible
   );
+  const briefParam = typeof params.brief === "string" ? params.brief : null;
+  const wantsNew = params.new === "1";
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -70,21 +88,151 @@ export default async function ChatPage({
   const savedTimezone = tzUserRows[0]?.timezone ?? "Asia/Kuala_Lumpur";
   const hasBriefs = tzBriefRows.length > 0;
 
-  // Find or create an active thread.
-  let thread = (
-    await db
+  const manageOn = isManageMode();
+  let thread: typeof chatThreads.$inferSelect | undefined;
+  // Bound brief row for manage threads (plan §4.6 wiring): drives the
+  // header name/badge, the specDiff baseline, the archived banner, and the
+  // transition-message schedule rendering in ChatClient.
+  let boundSpec:
+    | {
+        id: string;
+        name: string;
+        status: string;
+        spec: unknown;
+        scheduling: unknown;
+      }
+    | undefined;
+
+  if (briefParam) {
+    // Manage entry. Flag off ⇒ spec-bound threads are unreachable (exec
+    // RC5); unknown/unowned/archived/malformed ids ⇒ /briefs (C4/AC4.4).
+    // All queries go through the service-role Drizzle client, so the
+    // explicit userId filter IS the authorization check.
+    if (!manageOn || !UUID_RE.test(briefParam)) {
+      redirect("/briefs");
+    }
+    const specRows = await db
+      .select({
+        id: digestSpecs.id,
+        name: digestSpecs.name,
+        status: digestSpecs.status,
+        spec: digestSpecs.spec,
+        scheduling: digestSpecs.scheduling,
+      })
+      .from(digestSpecs)
+      .where(
+        and(
+          eq(digestSpecs.id, briefParam),
+          eq(digestSpecs.userId, user.id),
+          inArray(digestSpecs.status, ["active", "paused"])
+        )
+      )
+      .limit(1);
+    const spec = specRows[0];
+    if (!spec) {
+      redirect("/briefs");
+    }
+    boundSpec = spec;
+    const ensured = await ensureManageThread({ userId: user.id, spec });
+    thread = ensured.thread;
+    // ACX.5 analytics: resuming (or lazily creating) a brief's chat.
+    log.info("manage_thread_resumed", {
+      userId: user.id,
+      threadId: ensured.thread.id,
+      specId: spec.id,
+      source: ensured.created ? "lazy_created" : "briefs_card",
+    });
+  } else if (wantsNew) {
+    // "New brief" (AC9.1): always lands on a FRESH setup thread. Reuse an
+    // existing zero-message active setup thread (refresh-spam guard), else
+    // insert. Manage threads untouched — mid-setup and manage coexist.
+    const candidates = await db
       .select()
       .from(chatThreads)
       .where(
         and(
           eq(chatThreads.userId, user.id),
           eq(chatThreads.purpose, "initial_config"),
-          eq(chatThreads.status, "active")
+          eq(chatThreads.status, "active"),
+          isNull(chatThreads.specId)
         )
       )
       .orderBy(desc(chatThreads.createdAt))
-      .limit(1)
-  )[0];
+      .limit(1);
+    const candidate = candidates[0];
+    if (candidate) {
+      const anyMessage = await db
+        .select({ id: chatMessages.id })
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.threadId, candidate.id),
+            isNull(chatMessages.archivedAt)
+          )
+        )
+        .limit(1);
+      if (anyMessage.length === 0) {
+        thread = candidate;
+      }
+    }
+    if (!thread) {
+      const [inserted] = await db
+        .insert(chatThreads)
+        .values({
+          userId: user.id,
+          purpose: "initial_config",
+          status: "active",
+        })
+        .returning();
+      thread = inserted;
+    }
+  } else if (deepLinkTemplate || !manageOn) {
+    // ?template= flow untouched (always a setup thread), and the legacy
+    // bare-/chat resolution under flag-off. isNull(specId) keeps spec-bound
+    // threads invisible here (RC5) — byte-equivalent to legacy for unbound
+    // threads, which all have specId NULL.
+    thread = (
+      await db
+        .select()
+        .from(chatThreads)
+        .where(
+          and(
+            eq(chatThreads.userId, user.id),
+            eq(chatThreads.purpose, "initial_config"),
+            eq(chatThreads.status, "active"),
+            isNull(chatThreads.specId)
+          )
+        )
+        .orderBy(desc(chatThreads.createdAt))
+        .limit(1)
+    )[0];
+  } else {
+    // Bare /chat, flag on (AC4.3): resume the most-recently-active thread,
+    // ANY purpose — manage threads included — ordered by updatedAt (touched
+    // per turn and on user-message insert, so this is true recency).
+    thread = (
+      await db
+        .select()
+        .from(chatThreads)
+        .where(
+          and(
+            eq(chatThreads.userId, user.id),
+            eq(chatThreads.status, "active")
+          )
+        )
+        .orderBy(desc(chatThreads.updatedAt))
+        .limit(1)
+    )[0];
+    if (thread?.specId) {
+      // ACX.5 analytics: bare /chat resumed a manage thread.
+      log.info("manage_thread_resumed", {
+        userId: user.id,
+        threadId: thread.id,
+        specId: thread.specId,
+        source: "bare_chat",
+      });
+    }
+  }
 
   if (!thread) {
     const [inserted] = await db
@@ -101,6 +249,59 @@ export default async function ChatPage({
   if (!thread) {
     throw new Error("Failed to resolve chat thread");
   }
+
+  // Manage props (plan §4.6): a bare-/chat (or stale-tab) resume of a
+  // spec-bound thread didn't pass through the ?brief= load above — fetch
+  // the bound brief here. Explicit userId filter = the authorization check
+  // (service-role Drizzle client, RLS does not apply).
+  if (manageOn && thread.specId && !boundSpec) {
+    boundSpec = (
+      await db
+        .select({
+          id: digestSpecs.id,
+          name: digestSpecs.name,
+          status: digestSpecs.status,
+          spec: digestSpecs.spec,
+          scheduling: digestSpecs.scheduling,
+        })
+        .from(digestSpecs)
+        .where(
+          and(
+            eq(digestSpecs.id, thread.specId),
+            eq(digestSpecs.userId, user.id)
+          )
+        )
+        .limit(1)
+    )[0];
+  }
+  // Fail closed like the route gate: a bound thread whose spec row is
+  // missing/unowned renders as archived (banner + disabled composer),
+  // never as a live chat the POST will 409.
+  const briefStatus =
+    manageOn && thread.specId ? (boundSpec?.status ?? "archived") : null;
+  const briefTopics = Array.isArray(
+    (boundSpec?.spec as { topics?: unknown } | undefined)?.topics
+  )
+    ? ((boundSpec?.spec as { topics: unknown[] }).topics.filter(
+        (t): t is string => typeof t === "string"
+      ) as string[])
+    : [];
+  const briefName = boundSpec
+    ? briefDisplayName(boundSpec.name, briefTopics)
+    : null;
+
+  // users.timezone — feeds the live setup→manage transition message
+  // (plan §3.1: computed time, never hard-coded). One narrow select,
+  // flag-gated so flag-off page loads stay byte-identical.
+  const userTimezone = manageOn
+    ? ((
+        await db
+          .select({ timezone: users.timezone })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .limit(1)
+      )[0]?.timezone ?? null)
+    : null;
 
   const priorRows = await db
     .select({
@@ -138,13 +339,20 @@ export default async function ChatPage({
       </div>
       {/*
         key={thread.id} is load-bearing for the Reset flow (multi-brief
-        techdesign §7). chat.resetThread archives the current thread and
-        returns a brand-new thread id; the parent /chat/page.tsx then
-        re-runs and picks up the new thread. Without `key`, React would
-        diff the same ChatClient instance and the Vercel AI SDK's
-        `useChat` hook (keyed on threadId) would survive — carrying the
-        prior `messages` array into the next request and contaminating
-        the supposedly-fresh capture session.
+        techdesign §7) AND for SPA navigation between manage threads
+        (/chat?brief=A → /chat?brief=B must remount with no stale message
+        bleed). chat.resetThread archives the current thread and returns a
+        brand-new thread id; the parent /chat/page.tsx then re-runs and
+        picks up the new thread. Without `key`, React would diff the same
+        ChatClient instance and the Vercel AI SDK's `useChat` hook (keyed
+        on threadId) would survive — carrying the prior `messages` array
+        into the next request and contaminating the supposedly-fresh
+        capture session.
+
+        Manage-mode chunk C wiring: ChatClient additionally receives mode,
+        bound spec name/status, the saved spec (specDiff baseline) and
+        initialSavedSpecId={thread.specId} (precedence over stale
+        confirm_and_save tool results — exec advisory 12).
       */}
       <ChatClient
         key={thread.id}
@@ -153,6 +361,14 @@ export default async function ChatPage({
         initialDraft={(thread.draftSpec as Record<string, unknown> | null) ?? null}
         sessionEmail={user.email ?? null}
         initialTemplateId={deepLinkTemplate?.id ?? null}
+        manageMode={manageOn}
+        mode={thread.specId != null ? "manage" : "setup"}
+        briefName={briefName}
+        briefStatus={briefStatus}
+        savedSpec={(boundSpec?.spec as Record<string, unknown> | null) ?? null}
+        briefScheduling={boundSpec?.scheduling ?? null}
+        initialSavedSpecId={manageOn ? (thread.specId ?? null) : null}
+        userTimezone={userTimezone}
       />
     </div>
   );

@@ -26,6 +26,12 @@ export interface ConfigAgentSession {
   threadId: string;
   draft?: DigestSpecDraft;
   savedSpecId?: string;
+  /**
+   * Manage mode (plan §4.3): the digest_specs id this thread is bound to
+   * (= chat_threads.spec_id, server-derived — NEVER from client input).
+   * Set only on manage turns; `send_sample`/`save_changes` target it.
+   */
+  boundSpecId?: string;
 }
 
 /**
@@ -51,6 +57,28 @@ export interface ConfigAgentContext {
      */
     notice?: string;
   }>;
+  /**
+   * Manage mode (plan §4.3.3) — injected like `saveSpec` so the eval
+   * harness can stub them without a DB. Optional because setup contexts
+   * never carry them; the manage tools fail with a recoverable envelope
+   * (safeExecute) if invoked without their dependency.
+   *
+   * `updateSpec` → updateSpecInPlace: same spec id forever, version + 1,
+   * ZERO cap interaction (never touches saveSpecForUser / maxBriefsForEmail).
+   */
+  updateSpec?: (args: {
+    userId: string;
+    specId: string;
+    spec: DigestSpecV1;
+  }) => Promise<{ id: string; version: number }>;
+  /**
+   * `sendSample` → runSampleForUser({origin:'chat_tool'}): typed results,
+   * never throws for guards — the model phrases failures conversationally.
+   */
+  sendSample?: (args: {
+    dryRun: boolean;
+    specId: string;
+  }) => Promise<import("@/server/digest/sample").SampleResult>;
 }
 
 /**

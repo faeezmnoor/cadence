@@ -28,6 +28,7 @@ import { TimezoneGuard } from "@/components/settings/timezone-guard";
 import { isProTierAlphaEnabled } from "@/server/ai/providers";
 import { BriefsClient, type BriefRow } from "./briefs-client";
 import { maxBriefsForEmail } from "@/server/briefs/limit";
+import { isManageMode } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,7 @@ export default async function BriefsPage() {
         initialCanCreate={initialCanCreate}
         proTierAlphaEnabled={isProTierAlphaEnabled()}
         userTimezone={savedTimezone}
+        manageMode={isManageMode()}
       />
     </div>
   );

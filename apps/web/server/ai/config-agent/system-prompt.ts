@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 let cached: string | null = null;
+let cachedManage: string | null = null;
 
 /**
  * Resolve the prompts dir robustly. process.cwd() differs between
@@ -57,4 +58,17 @@ export function loadConfigAgentSystemPrompt(): string {
   const path = resolvePromptPath("config_agent_v1.md");
   cached = readFileSync(path, "utf8");
   return cached;
+}
+
+/**
+ * Manage-mode prompt (manage-mode plan §4.3.1). A SEPARATE file so the
+ * setup interview prompt stays provably byte-identical for its eval gate.
+ * Same candidate-path logic; `outputFileTracingIncludes` in next.config.mjs
+ * already globs ../../prompts/**\/*.md, so no Vercel config change.
+ */
+export function loadManageAgentSystemPrompt(): string {
+  if (cachedManage) return cachedManage;
+  const path = resolvePromptPath("config_agent_manage_v1.md");
+  cachedManage = readFileSync(path, "utf8");
+  return cachedManage;
 }

@@ -1,0 +1,66 @@
+# Live manage eval — 9 cases (plan §4.4 + exec PR review round 1, CPO#2 at-cap case), green FIRST pass — zero prompt iterations needed
+# (an earlier non-verbose run this session was also 9/9 — two consecutive green passes)
+# cmd: RUN_LIVE_EVALS=1 OPENAI_API_KEY=... EXTRACTOR_TIMEOUT_MS=20000 npx vitest run test/eval-manage-live.test.ts --reporter=verbose
+# date: 2026-06-13 01:40 +08 | branch: feat/brief-manage-mode
+
+
+ RUN  v4.1.7 /Users/faeez/dev/projects/cadence-manage/apps/web
+
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 1. sample request → exactly one send_sample(deliver:false), no save
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: true
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 1. sample request → exactly one send_sample(deliver:false), no save 6810ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 2a. edit → stage, wait, save only after the PANEL confirmation (exactly once) 13221ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 2b. edit → typed "yes, save it" confirms identically (exactly one save) 12583ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 3. pause ask → zero spec/sample tool calls, points to the briefs page 1021ms
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 4. delivery cooldown injected → wait phrasing, no raw error, never blames "this brief", offers a preview
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false
+}
+[32minfo[0m - sample_blocked {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false,
+  reason: 'cooldown'
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 4. delivery cooldown injected → wait phrasing, no raw error, never blames "this brief", offers a preview 2170ms
+stdout | test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 5. unlinked injected → quotes "Connect Telegram" verbatim, exactly one nudge
+[32minfo[0m - sample_requested {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false
+}
+[32minfo[0m - sample_blocked {
+  userId: 'eval-user',
+  threadId: 'eval-manage-thread',
+  specId: '33333333-3333-3333-3333-333333333333',
+  via: 'chat_tool',
+  dry_run: false,
+  reason: 'no_telegram'
+}
+
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 5. unlinked injected → quotes "Connect Telegram" verbatim, exactly one nudge 2081ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 6. save transition → one post-save line, chips emitted, NO schedule announcement (client renders it) 0ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 7. RSS ask (exec RC3) → zero spec/sample calls, honest limitation, no success claim, no staged topic edit 1279ms
+ ✓ test/eval-manage-live.test.ts > LIVE manage eval (9 cases, §4.4 + exec CPO#2) > 8. at-cap second-brief ask (AC6.2, exec CPO#2) → zero spec/sample calls, draft unchanged, at-cap line, no upgrade CTA 1371ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  01:39:36
+   Duration  41.16s (transform 162ms, setup 0ms, import 474ms, tests 40.54s, environment 0ms)
+

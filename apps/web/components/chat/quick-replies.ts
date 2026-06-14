@@ -18,6 +18,7 @@
  *    chips going missing whenever the LLM misbehaves.
  */
 import type { Message } from "ai";
+import type { BriefActionsState } from "./brief-actions.helpers";
 import {
   formatFrequency,
   formatLanguage,
@@ -72,6 +73,48 @@ export function prettifyChip(raw: string): string {
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.filter((s): s is string => typeof s === "string");
+}
+
+/* ------------------------------------------------------------------ */
+/* Manage-mode chip set + deterministic fallback (plan C5 / §3.1)      */
+/* ------------------------------------------------------------------ */
+
+export const MANAGE_CHIP_PREVIEW = "Preview a sample";
+export const MANAGE_CHIP_SEND = "Send one to Telegram";
+export const MANAGE_CHIP_CHANGE = "Change something";
+
+/**
+ * The single chip-strip decision for a turn — pure so vitest can pin the
+ * matrix (deterministic by construction; no model compliance involved).
+ *
+ *  - Archived briefs render NO chips (plan §3.6).
+ *  - While the confirm/reconfirm panel owns the moment, the strip is
+ *    suppressed (designer audit P2 + §3.5 — one voice per decision).
+ *  - Model-suggested chips, when emitted, take precedence (C5).
+ *  - Manage fallback: when the last transcript item is an assistant
+ *    message and the model suggested nothing, render the static manage
+ *    set. "Send one to Telegram" only when linked — never render a chip
+ *    that can't work (§3.1).
+ *  - Setup mode keeps its shipped behavior: model chips or nothing.
+ */
+export function resolveChips(args: {
+  manage: boolean;
+  archived: boolean;
+  panelState: BriefActionsState;
+  lastRole: "user" | "assistant" | null;
+  modelChips: string[];
+  telegramLinked: boolean;
+}): string[] {
+  if (args.archived) return [];
+  if (args.panelState === "confirm" || args.panelState === "reconfirm") {
+    return [];
+  }
+  if (args.modelChips.length > 0) return args.modelChips;
+  if (!args.manage) return [];
+  if (args.lastRole !== "assistant") return [];
+  return args.telegramLinked
+    ? [MANAGE_CHIP_PREVIEW, MANAGE_CHIP_SEND, MANAGE_CHIP_CHANGE]
+    : [MANAGE_CHIP_PREVIEW, MANAGE_CHIP_CHANGE];
 }
 
 export function pickLatestQuickReplies(messages: Message[]): string[] {

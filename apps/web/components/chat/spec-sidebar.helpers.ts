@@ -113,6 +113,42 @@ export function resolveRailOpen(
   return manual ?? hasContent;
 }
 
+/* ------------------------------------------------------------------ */
+/* specDiff (manage-mode plan §3.4 / C7)                               */
+/* ------------------------------------------------------------------ */
+
+export interface ChangedRow {
+  label: string;
+  /** Staged (new) display value. */
+  value: string | null;
+  /** Saved (old) display value — renders as the "was …" caption. */
+  was: string | null;
+}
+
+/**
+ * Row-level diff between the SAVED spec and the STAGED draft, in display
+ * terms: both sides run through the same `buildRows` projection the rail
+ * renders, so the pending markers can never disagree with what the rail
+ * shows. `pendingChanges` (resolver input, §3.5) is
+ * `specDiff(saved, staged).length > 0`. No staged draft ⇒ no diff —
+ * abandoned edits live only in draftSpec (AC3.4), and a cleared draft
+ * (post-save) returns the rail to the saved baseline.
+ */
+export function specDiff(saved: DraftLike, staged: DraftLike): ChangedRow[] {
+  if (!staged) return [];
+  const savedRows = buildRows(saved);
+  const stagedRows = buildRows(staged);
+  const savedByLabel = new Map(savedRows.map((r) => [r.label, r.value]));
+  const out: ChangedRow[] = [];
+  for (const row of stagedRows) {
+    const was = savedByLabel.get(row.label) ?? null;
+    if (row.value !== was) {
+      out.push({ label: row.label, value: row.value, was });
+    }
+  }
+  return out;
+}
+
 export function isReady(draft: DraftLike): boolean {
   if (!draft || typeof draft !== "object") return false;
   const d = draft as Record<string, unknown>;
