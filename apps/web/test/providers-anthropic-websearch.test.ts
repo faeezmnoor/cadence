@@ -95,6 +95,11 @@ function successBody(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// CAD-226: stub resolver — every cited URL resolves, so the dead-link
+// validator never triggers its corrective retry in these unit tests.
+const allResolved = async (urls: readonly string[]) =>
+  urls.map((url) => ({ url, status: 200, resolved: true, latencyMs: 1 }));
+
 describe("CAD-222 A3 prompt", () => {
   it("appends the web-search addendum AFTER the full Pro prompt", () => {
     const p = buildWebSearchComposerSystemPrompt(input());
@@ -135,6 +140,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     };
     await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(calls).toHaveLength(1);
@@ -159,6 +165,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     const fetchImpl = async () => apiResponse(successBody());
     const out = await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(out.modelId).toBe(PRO_COMPOSER_MODEL_ID);
@@ -197,6 +204,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     };
     const out = await composeDigestWebSearch(input(), {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
       apiKey: "test-key",
     });
     expect(n).toBe(2);
@@ -224,6 +232,7 @@ describe("CAD-222 A3 compose (mocked fetch)", () => {
     await expect(
       composeDigestWebSearch(input(), {
         fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveImpl: allResolved as never,
         apiKey: "test-key",
       })
     ).rejects.toBeInstanceOf(AnthropicWebSearchApiError);

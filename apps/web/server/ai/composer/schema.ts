@@ -225,6 +225,77 @@ export function pruneUnusedSources(brief: BriefJson): PrunedBriefResult | null {
 }
 
 /**
+ * CAD-226 grounding fix 1 — dedupe sources by URL (deterministic, $0).
+ *
+ * The informed-judge eval found briefs citing the SAME url under two
+ * markers ("sources 1 and 3 are identical"), which the judge penalizes as
+ * a grounding defect. Merge same-URL entries: keep the lowest marker,
+ * remap every reference to the duplicate onto it, renumber 1..k. Pure;
+ * input never mutated. Returns null when there is nothing to merge.
+ *
+ * URL identity is intentionally minimal (lowercase host, drop `www.`,
+ * drop trailing slash, drop query + hash) so it can't pull in the heavy
+ * `server/sources` module — citation URLs are already clean.
+ */
+function normalizeCitationUrl(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${host}${path}`;
+  } catch {
+    return url.trim().toLowerCase().replace(/\/+$/, "");
+  }
+}
+
+export function dedupeBriefSourcesByUrl(brief: BriefJson): PrunedBriefResult | null {
+  const seen = new Map<string, number>(); // normalized url -> kept marker
+  const remap = new Map<number, number>(); // old marker -> kept marker
+  const kept: BriefJson["sources"] = [];
+  for (const src of [...brief.sources].sort((a, b) => a.marker - b.marker)) {
+    const key = normalizeCitationUrl(src.url);
+    const existing = seen.get(key);
+    if (existing !== undefined) {
+      remap.set(src.marker, existing); // fold duplicate onto the first
+    } else {
+      seen.set(key, src.marker);
+      kept.push(src);
+    }
+  }
+  if (kept.length === brief.sources.length) return null; // nothing duplicated
+
+  // Renumber the survivors 1..k and compose the full old->new map.
+  const renumber = new Map<number, number>();
+  kept.sort((a, b) => a.marker - b.marker);
+  kept.forEach((s, i) => renumber.set(s.marker, i + 1));
+  const resolve = (old: number) => {
+    const folded = remap.get(old) ?? old; // duplicate -> its kept marker
+    return renumber.get(folded) ?? folded;
+  };
+  const fixText = (text: string) =>
+    renumberMarkersInText(text, new Map(
+      [...new Set([...remap.keys(), ...renumber.keys()])].map((m) => [m, resolve(m)])
+    ));
+
+  const repaired: BriefJson = {
+    ...brief,
+    tldr: fixText(brief.tldr),
+    why_it_matters: fixText(brief.why_it_matters),
+    sections: brief.sections.map((section) => ({
+      heading: fixText(section.heading),
+      bullets: section.bullets.map((bullet) => ({
+        text: fixText(bullet.text),
+        citation_markers: [
+          ...new Set(bullet.citation_markers.map((n) => resolve(n))),
+        ],
+      })),
+    })),
+    sources: kept.map((s, i) => ({ ...s, marker: i + 1 })),
+  };
+  return { brief: repaired, prunedUnused: brief.sources.length - kept.length };
+}
+
+/**
  * Extract the first balanced JSON object from a messy LLM response.
  *
  * Handles: leading prose, ```json fences, trailing prose, unbalanced braces

@@ -47,6 +47,11 @@ export interface SourceResolveResult {
  * preserving input order. Duplicates are checked individually (cheap, and
  * the caller is responsible for de-duping if they care).
  */
+export type ResolveSourceUrlsFn = (
+  urls: readonly string[],
+  opts?: { fetchImpl?: typeof fetch; timeoutMs?: number }
+) => Promise<SourceResolveResult[]>;
+
 export async function resolveSourceUrls(
   urls: readonly string[],
   opts: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}

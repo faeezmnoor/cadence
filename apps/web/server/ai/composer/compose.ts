@@ -33,6 +33,7 @@ import {
   briefJsonSchema,
   checkCitationParity,
   ComposerJsonError,
+  dedupeBriefSourcesByUrl,
   extractJsonObject,
   pruneUnusedSources,
   type BriefJson,
@@ -331,6 +332,16 @@ export async function composeBriefWithRepair(
      * allowed (haiku is fast; behavior unchanged).
      */
     retryDeadlineAtMs?: number;
+    /**
+     * CAD-226 grounding fix 2 — resolution-aware corrective retry. Runs
+     * AFTER a successful parse+parity on the validated brief; if it
+     * returns an addendum (e.g. "these cited URLs don't resolve — replace
+     * or drop"), the driver spends its single corrective retry to let the
+     * model re-source, then returns the best of the two. Async because it
+     * may hit the network (URL resolution). Unset = no post-parse check
+     * (haiku/default path unchanged).
+     */
+    postParseValidate?: (brief: BriefJson) => Promise<string | null>;
   }
 ): Promise<ComposeWithRepairResult> {
   const first = await callModel();
@@ -339,9 +350,48 @@ export async function composeBriefWithRepair(
 
   const firstOutcome = parseBriefOutcome(first.text);
   if (firstOutcome.ok) {
+    // CAD-226: dedupe same-URL sources (deterministic, $0) before any
+    // further checks — a duplicate URL is a grounding defect the model
+    // shouldn't be asked to fix.
+    const deduped =
+      dedupeBriefSourcesByUrl(firstOutcome.brief)?.brief ?? firstOutcome.brief;
+
+    // CAD-226: resolution-aware corrective retry. Only when a validator is
+    // supplied, a defect is found, and we're within the compose deadline.
+    if (ctx.postParseValidate) {
+      const addendum = await ctx.postParseValidate(deduped);
+      const deadlineOk =
+        ctx.retryDeadlineAtMs === undefined ||
+        Date.now() <= ctx.retryDeadlineAtMs;
+      if (addendum && deadlineOk) {
+        log.warn("composer: grounding defect — one corrective re-source", {
+          model: ctx.modelId,
+          digestRunId: ctx.digestRunId ?? null,
+        });
+        const retry = await callModel(addendum);
+        inputTokens += retry.inputTokens;
+        outputTokens += retry.outputTokens;
+        const retryOutcome = parseBriefOutcome(retry.text);
+        if (retryOutcome.ok) {
+          // Take the re-sourced brief (deduped), best effort — do NOT
+          // re-validate-and-loop; one corrective shot, bounded cost.
+          const retryDeduped =
+            dedupeBriefSourcesByUrl(retryOutcome.brief)?.brief ??
+            retryOutcome.brief;
+          return {
+            brief: retryDeduped,
+            inputTokens,
+            outputTokens,
+            repair: buildRepairInfo(retryOutcome.prunedUnused, 1),
+          };
+        }
+        // Re-source attempt broke parse — keep the (valid) first brief.
+      }
+    }
+
     logPrunedRepair(firstOutcome.prunedUnused, 0, ctx);
     return {
-      brief: firstOutcome.brief,
+      brief: deduped,
       inputTokens,
       outputTokens,
       repair: buildRepairInfo(firstOutcome.prunedUnused, 0),

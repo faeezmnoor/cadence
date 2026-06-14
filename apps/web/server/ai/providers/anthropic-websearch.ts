@@ -47,6 +47,7 @@ import {
 } from "@/server/ai/composer/compose";
 import { PRO_COMPOSER_MODEL_ID } from "./anthropic-pro";
 import { buildWebSearchComposerSystemPrompt } from "./anthropic-websearch-prompt";
+import { makeDeadLinkValidator } from "@/server/ai/composer/grounding-validate";
 import type { ComposerInput, ComposerOutput } from "@/server/ai/composer/types";
 import type { ComposerProvider } from "./types";
 
@@ -174,6 +175,8 @@ type FetchLike = typeof fetch;
 
 export interface WebSearchComposeDeps {
   fetchImpl?: FetchLike;
+  /** CAD-226: injectable URL resolver for the dead-link validator (tests). */
+  resolveImpl?: import("@/server/digest/sources/resolve").ResolveSourceUrlsFn;
   /** Override the API key resolver (tests). */
   apiKey?: string;
 }
@@ -296,6 +299,8 @@ export async function composeDigestWebSearch(
         // CAD-224 #4: same wall-clock deadline that gates pause_turn
         // continuations above — once it passes, no corrective retry.
         retryDeadlineAtMs: composeDeadlineAtMs,
+        // CAD-226: re-source any cited URL that fails to resolve.
+        postParseValidate: makeDeadLinkValidator({ resolveImpl: deps.resolveImpl }),
       }
     );
   } catch (err) {

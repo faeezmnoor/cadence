@@ -492,6 +492,9 @@ describe("composeDigest (default Haiku) — module boundary", () => {
   });
 });
 
+const allResolvedPro = async (urls: readonly string[]) =>
+  urls.map((url) => ({ url, status: 200, resolved: true, latencyMs: 1 }));
+
 describe("composeDigestPro (Sonnet) — same shared behavior", () => {
   beforeEach(() => {
     vi.mocked(generateText).mockReset();
@@ -508,7 +511,7 @@ describe("composeDigestPro (Sonnet) — same shared behavior", () => {
         usage,
       } as never);
 
-    const out = await composeDigestPro(composerInput());
+    const out = await composeDigestPro(composerInput(), { resolveImpl: allResolvedPro as never });
 
     expect(generateText).toHaveBeenCalledTimes(2);
     const secondSystem = vi.mocked(generateText).mock.calls[1][0]
@@ -525,7 +528,7 @@ describe("composeDigestPro (Sonnet) — same shared behavior", () => {
       usage,
     } as never);
 
-    const out = await composeDigestPro(composerInput());
+    const out = await composeDigestPro(composerInput(), { resolveImpl: allResolvedPro as never });
     expect(generateText).toHaveBeenCalledTimes(1);
     expect(out.repair).toEqual({ prunedUnused: 2 });
   });
