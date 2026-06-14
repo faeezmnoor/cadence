@@ -157,7 +157,7 @@ describe("STACK_DESCRIPTIONS — transparency table content", () => {
     expect(labels).toContain("Search provider");
     expect(labels).toContain("Composer model");
     expect(labels).toContain("Research depth");
-    expect(labels).toContain("Citation density");
+    expect(labels).toContain("Depth of coverage");
     expect(labels).toContain("Typical latency");
     expect(labels).toContain("Credit cost per brief");
   });

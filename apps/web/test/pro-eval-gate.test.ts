@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 
 function row(
-  tier: "pro" | "default",
+  tier: "pro_websearch" | "default",
   n: number,
   g: number,
   s: number,
@@ -76,7 +76,7 @@ describe("proTierAlphaReady", () => {
 
   it("returns insufficient_default when Pro=5 but Default=4", async () => {
     nextRows = [
-      row("pro", 5, 4.2, 4.0, 4.4),
+      row("pro_websearch", 5, 4.2, 4.0, 4.4),
       row("default", 4, 3.5, 3.6, 3.5),
     ];
     const res = await proTierAlphaReady();
@@ -88,7 +88,7 @@ describe("proTierAlphaReady", () => {
 
   it("returns insufficient_pro when Default=5 but Pro=2", async () => {
     nextRows = [
-      row("pro", 2, 4.5, 4.5, 4.5),
+      row("pro_websearch", 2, 4.5, 4.5, 4.5),
       row("default", 5, 3.5, 3.5, 3.5),
     ];
     const res = await proTierAlphaReady();
@@ -100,7 +100,7 @@ describe("proTierAlphaReady", () => {
     // Advanced composite = 3.9, Default composite = 3.8, lead = 0.1 < 0.25.
     // Advanced specificity (3.9) clears its bar, so the FAILURE is the lead.
     nextRows = [
-      row("pro", 5, 3.9, 3.9, 3.9),
+      row("pro_websearch", 5, 3.9, 3.9, 3.9),
       row("default", 5, 3.8, 3.8, 3.8),
     ];
     const res = await proTierAlphaReady();
@@ -115,7 +115,7 @@ describe("proTierAlphaReady", () => {
     // advanced MUST measurably win. Gate must reject.
     nextRows = [
       // g=4.3, s=3.5, f=4.3 → composite 4.033
-      row("pro", 6, 4.3, 3.5, 4.3),
+      row("pro_websearch", 6, 4.3, 3.5, 4.3),
       // composite 3.633
       row("default", 5, 3.6, 3.7, 3.6),
     ];
@@ -133,7 +133,7 @@ describe("proTierAlphaReady", () => {
     // composite lead of 0.3 (>= 0.25). Ready.
     nextRows = [
       // g=3.9, s=3.9, f=3.9 → composite 3.9
-      row("pro", 6, 3.9, 3.9, 3.9),
+      row("pro_websearch", 6, 3.9, 3.9, 3.9),
       // composite 3.6 → lead 0.3
       row("default", 5, 3.6, 3.6, 3.6),
     ];
@@ -153,7 +153,7 @@ describe("proTierAlphaReady", () => {
     // A grounding hard-bar would have wrongly blocked this — the gate readies.
     nextRows = [
       // g=2.3, s=4.2, f=4.0 → composite 3.5
-      row("pro", 6, 2.3, 4.2, 4.0),
+      row("pro_websearch", 6, 2.3, 4.2, 4.0),
       // g=2.4, s=3.3, f=3.3 → composite 3.0 → lead 0.5
       row("default", 5, 2.4, 3.3, 3.3),
     ];
@@ -166,7 +166,7 @@ describe("proTierAlphaReady", () => {
 
   it("handles numeric strings from pg driver (drizzle returns numeric as string)", async () => {
     nextRows = [
-      { tier: "pro", n: "5", avg_g: "4.0", avg_s: "4.0", avg_f: "4.0" },
+      { tier: "pro_websearch", n: "5", avg_g: "4.0", avg_s: "4.0", avg_f: "4.0" },
       { tier: "default", n: "5", avg_g: "3.0", avg_s: "3.0", avg_f: "3.0" },
     ];
     const res = await proTierAlphaReady();
@@ -174,3 +174,29 @@ describe("proTierAlphaReady", () => {
     expect(res.metrics.lead).toBeCloseTo(1.0, 3);
   });
 });
+
+describe("CAD-225 CTO-P1 — gate buckets advanced by isAdvancedStack, not the retired \"pro\" string", () => {
+  it("rates the live advanced stack (pro_websearch), not a column 0028 erased", async () => {
+    nextRows = [
+      row("pro_websearch", 5, 2.3, 4.0, 4.0), // grounding-floored but specific
+      row("default", 5, 2.4, 3.2, 3.3),
+    ];
+    const out = await proTierAlphaReady();
+    // Advanced arm is populated from pro_websearch, composite lead clears
+    // 0.25 and specificity clears 3.7 -> ready.
+    expect(out.metrics.proCount).toBe(5);
+    expect(out.ready).toBe(true);
+  });
+
+  it("a legacy 'pro' row counts toward the BASELINE arm (normalizeStack pro->default)", async () => {
+    nextRows = [
+      row("default", 3, 3.0, 3.0, 3.0),
+      { tier: "pro", n: "2", avg_g: "2.0", avg_s: "3.4", avg_f: "3.3" },
+    ];
+    const out = await proTierAlphaReady();
+    // No advanced ratings at all -> defaultCount aggregates both, proCount 0.
+    expect(out.metrics.proCount).toBe(0);
+    expect(out.metrics.defaultCount).toBe(5);
+  });
+});
+

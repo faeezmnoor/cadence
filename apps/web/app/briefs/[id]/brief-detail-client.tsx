@@ -581,7 +581,7 @@ function ConfigurableStackSettings({
           stack is a lib/research-stack.ts change, not UI surgery
           (founder ruling 2026-06-11: flexibility over fixed tiers). */}
       <div
-        className="mt-4 grid gap-2 sm:grid-cols-3"
+        className="mt-4 grid gap-2 sm:grid-cols-2"
         role="radiogroup"
         aria-label="Choose research depth"
       >

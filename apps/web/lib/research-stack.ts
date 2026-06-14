@@ -96,7 +96,7 @@ export interface StackDescriptionRow {
  * Transparency table content. Each row compares one dimension between the
  * two stacks. The source of truth for these provider claims is:
  *   - server/ai/providers/default.ts (Claude Haiku 4.5)
- *   - server/ai/providers/anthropic-pro.ts (Claude Sonnet 4.6)
+ *   - server/ai/providers/anthropic-pro.ts (Claude Sonnet 4.5)
  *   - server/sources/index.ts (Brave/RSS for default; Perplexity Sonar for pro)
  *   - HANDOVER.md §4 (stack table)
  */
@@ -124,11 +124,11 @@ export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
       "The composer searches the live web mid-write and folds findings into its sources",
   },
   {
-    label: "Citation density",
+    label: "Depth of coverage",
     default: "Sources cited per section",
-    pro: "Stronger inline citations + cross-source corroboration",
+    pro: "More angles per topic; denser, more specific bullets",
     pro_websearch:
-      "Searched pages are folded in and cited like any other numbered source",
+      "Searches more widely mid-write for the densest, most specific take",
   },
   {
     label: "Typical latency",

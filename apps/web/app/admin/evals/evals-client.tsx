@@ -28,7 +28,7 @@ export function EvalsClient({
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Admin · Pro Tier Eval Gate</h1>
+        <h1 className="text-2xl font-semibold">Admin · Advanced Research Eval Gate</h1>
         <p className="text-sm text-muted-foreground">
           Window: last {config.windowDays} days · Gate:{" "}
           {config.minSamplesPerTier}+ ratings per tier, advanced lead &ge;{" "}

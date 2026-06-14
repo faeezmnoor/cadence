@@ -78,8 +78,8 @@ export function TierExplainer({
         </p>
         <p>
           <span className="font-medium text-foreground">🔬 Advanced research · 5 credits</span>{" "}
-          — it reads more sources, cross-checks them, and writes a tighter,
-          more specific analysis.
+          — it digs into more angles and writes a denser, more specific
+          brief, tuned tighter to what you asked for.
         </p>
       </div>
     );
@@ -105,8 +105,8 @@ export function TierExplainer({
           🔬 Advanced research · 5 credits per brief
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          It reads more sources, cross-checks them, and writes a tighter,
-          more specific analysis. Best for high-signal topics where a generic
+          It digs into more angles and writes a denser, more specific brief,
+          tuned tighter to what you asked for. Best for topics where a generic
           summary won&apos;t cut it.
         </p>
       </div>

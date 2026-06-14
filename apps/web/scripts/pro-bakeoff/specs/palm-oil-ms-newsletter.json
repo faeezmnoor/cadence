@@ -1,0 +1,16 @@
+{
+  "name": "palm-oil-ms-newsletter",
+  "spec": {
+    "topics": ["palm oil market", "MPOB stocks data", "CPO futures moves", "USDA updates"],
+    "cadence": { "frequency": "daily", "days_of_week": [1, 2, 3, 4, 5], "delivery_time_local": "07:30" },
+    "entities": { "tickers": [], "companies": [], "commodities": ["CPO", "FCPO"] },
+    "language": "ms",
+    "rss_feeds": [],
+    "data_addons": { "fx_pairs": ["MYR/USD"], "show_prices": false, "show_7d_change": false, "show_24h_change": true },
+    "tone_preset": "casual_newsletter",
+    "length_target": "short",
+    "schema_version": 1,
+    "keywords_exclude": [],
+    "keywords_include": ["MPOB", "USDA"]
+  }
+}

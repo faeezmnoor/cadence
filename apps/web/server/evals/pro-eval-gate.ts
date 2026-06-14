@@ -36,6 +36,7 @@
  */
 import { sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
+import { isAdvancedStack, normalizeStack } from "@/lib/research-stack";
 
 export type EvalGateMetrics = {
   proCount: number;
@@ -123,28 +124,48 @@ export async function proTierAlphaReady(): Promise<EvalGateResult> {
     GROUP BY ds.tier
   `)) as unknown as AggRow[];
 
+  // CTO P1 (CAD-225): bucket the ADVANCED arm by isAdvancedStack, not the
+  // literal "pro" string — migration 0028 retired "pro", and the live
+  // advanced stack is "pro_websearch". Aggregate every advanced tier into
+  // one arm with count-weighted axis means so the gate keeps working as
+  // stacks evolve. Rows whose tier normalizes to "default" are the
+  // baseline arm.
   let proCount = 0;
   let defaultCount = 0;
-  let proAxes: EvalGateMetrics["proAxes"] = null;
-  let defaultAxes: EvalGateMetrics["defaultAxes"] = null;
+  // Count-weighted axis accumulators (sum of axis*n) per arm.
+  const acc = {
+    pro: { g: 0, s: 0, f: 0, n: 0 },
+    def: { g: 0, s: 0, f: 0, n: 0 },
+  };
 
   for (const r of rows) {
     const n = num(r.n) ?? 0;
     const g = num(r.avg_g);
     const s = num(r.avg_s);
     const f = num(r.avg_f);
-    const axes =
-      g !== null && s !== null && f !== null
-        ? { grounding: round(g, 3)!, specificity: round(s, 3)!, fit: round(f, 3)! }
-        : null;
-    if (r.tier === "pro") {
-      proCount = n;
-      proAxes = axes;
-    } else if (r.tier === "default") {
-      defaultCount = n;
-      defaultAxes = axes;
+    if (n === 0) continue;
+    const advanced = isAdvancedStack(normalizeStack(r.tier));
+    const bucket = advanced ? acc.pro : acc.def;
+    if (advanced) proCount += n;
+    else defaultCount += n;
+    if (g !== null && s !== null && f !== null) {
+      bucket.g += g * n;
+      bucket.s += s * n;
+      bucket.f += f * n;
+      bucket.n += n;
     }
   }
+
+  const axesOf = (b: { g: number; s: number; f: number; n: number }) =>
+    b.n > 0
+      ? {
+          grounding: round(b.g / b.n, 3)!,
+          specificity: round(b.s / b.n, 3)!,
+          fit: round(b.f / b.n, 3)!,
+        }
+      : null;
+  const proAxes: EvalGateMetrics["proAxes"] = axesOf(acc.pro);
+  const defaultAxes: EvalGateMetrics["defaultAxes"] = axesOf(acc.def);
 
   const proCompositeAvg =
     proAxes !== null

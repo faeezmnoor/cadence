@@ -38,7 +38,7 @@ of their entry file — this doc is the index and the system-level glue.
                   ├── getProviders(spec.tier) (ai/providers/index.ts)
                   │       ├── default → Brave + RSS + scrapers + Haiku 4.5
                   │       └── pro     → Perplexity Sonar Reasoning Pro
-                  │                     + Claude Sonnet 4.6 (gated by PRO_TIER_ALPHA)
+                  │                     + Claude Sonnet 4.5 (gated by PRO_TIER_ALPHA)
                   │
                   ├── composer.compose() (ai/composer/compose.ts)
                   │       └── prompt + few-shots → JSON → render markdown
@@ -113,7 +113,7 @@ The tier abstraction layer. See README "Provider abstraction" for the rule:
 - `index.ts` — entry point + `isProTierAlphaEnabled()` helper.
 - `types.ts` — `SearchProvider`, `ComposerProvider`, `Tier`, `ProviderBundle`.
 - `default.ts` — bundles Brave + RSS + scrapers + Haiku 4.5.
-- `anthropic-pro.ts` + `anthropic-pro-prompt.ts` — Pro composer (Sonnet 4.6).
+- `anthropic-pro.ts` + `anthropic-pro-prompt.ts` — Pro composer (Sonnet 4.5).
 - `perplexity.ts` — Pro search (Sonar Reasoning Pro).
 
 **To extend**: add a new provider module + new tier label in `types.ts`
