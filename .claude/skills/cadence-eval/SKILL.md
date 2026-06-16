@@ -12,7 +12,7 @@ Produces the verdict that gates VERIFY: **did the subsystem metric move-or-hold?
 |---|---|---|
 | research-search | query → expected sources | recall / precision / freshness |
 | retrieval-consolidation | raw bundle → expected ranked/deduped | dedup rate, salience@k |
-| llm-composer | spec+sources → scored output | 5-pt rubric, faithfulness, length |
+| llm-composer | spec+sources → scored output | composite (grounding/specificity/fit, gates) + 5 diagnostic sub-scores, faithfulness, length |
 | multi-llm-provider | spec across models | quality-per-dollar, p50/p95 latency |
 | channels-delivery | ComposedBrief IR → per-channel render | delivery success, render fidelity |
 | content-format | structured brief → rendered artifact | fidelity, $/asset, latency |
