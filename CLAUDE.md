@@ -39,3 +39,19 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## Delivery pipeline & agent team
+
+Cadence is built by a 3-layer agent team. **Full playbook: `docs/AGENT_TEAM.md`** (read it before non-trivial work).
+
+- **Layer I — delivery squad** (`.claude/agents/cadence-{architect,builder,reviewer,qa,designer,bookkeeper,security,debugger}.md`): owns the lifecycle.
+- **Layer II — specialist bench** (`.claude/agents/cadence-{research-search,retrieval-consolidation,llm-composer,multi-llm-provider,channels-delivery,content-format,self-learning,eval-quality,agent-harness}.md`): one deep, research-equipped owner per subsystem; pulled onto a ticket by subsystem tag.
+- **Layer III — harnesses**: the **eval harness** (`cadence-eval-quality` + `/cadence-eval`) and the product **agent runtime harness** (`cadence-agent-harness`).
+
+**Pipeline:** `INTAKE → PLAN → BUILD (+DESIGN) → REVIEW (+SECURITY) → VERIFY → SHIP → CLOSE`, gates G-plan / G-review / **G-eval** / G-verify / G-cadence. The main session is the Orchestrator/PM and never delegates ship.
+
+**Run it:** `/cadence-deliver <CAD-N> "<brief>"` (plan-first, then `phase:build` after you approve) → committed workflow `.claude/workflows/cadence-deliver.js`. Escape hatch: `@cadence-<role> ...` for a single-agent consult.
+
+**Rule: no subsystem change ships without a move-or-hold eval metric (G-eval).** Specialists are evidence-first — `/deep-research` before recommending on the 9 subsystems.
+
+Ported Cadence skills (Claude-Code-native): `cadence-build-wave`, `cadence-fix-pass`, `cadence-handover`, `cadence-bookkeeping`.
