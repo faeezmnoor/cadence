@@ -40,5 +40,10 @@ venv/
 coverage/
 .cache/
 .turbo/
-.claude/
 .gstack/
+
+# Claude Code: ignore local/transient artifacts, but TRACK the committed agent team
+.claude/*
+!.claude/agents/
+!.claude/skills/
+!.claude/workflows/
