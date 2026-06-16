@@ -27,7 +27,7 @@ Mapped to the real codebase plus the capabilities to be added. Each subsystem ha
 |---|---|---|---|---|---|
 | 1 | **Research & Search** (ingestion) | `server/sources/{scrape,rss}`, `connectors/`, Perplexity Sonar | `cadence-research-search` | source recall, precision, freshness, coverage per ICP | mature; expanding (6b/6c) |
 | 2 | **Consolidation & Ranking** | `server/sources/index.ts` (router, dedup, interleave) | `cadence-retrieval-consolidation` | dedup rate, salience@k, freshness-window adherence | mature; tuning |
-| 3 | **Summarization & Composition** | `server/ai/composer/{compose,schema,render}.ts` | `cadence-llm-composer` | rubric score (accuracy/depth/actionability/freshness/readability), faithfulness/hallucination rate, length adherence | mature; quality push |
+| 3 | **Summarization & Composition** | `server/ai/composer/{compose,schema,render}.ts` | `cadence-llm-composer` | rubric composite (grounding/specificity/fit, gates) + diagnostic sub-scores (accuracy/depth/actionability/freshness/readability), faithfulness/hallucination rate, length adherence | mature; quality push |
 | 4 | **Multi-LLM provider layer** | `server/ai/providers/*` (`Provider` iface) | `cadence-multi-llm-provider` | $/brief, p50/p95 latency, quality-per-dollar, routing correctness | mature; bake-offs ongoing (CAD-222) |
 | 5 | **Channels & Delivery** | `server/channels/*` (ChannelAdapter) | `cadence-channels-delivery` | delivery success, render fidelity per channel, split correctness | Telegram done; **WhatsApp/Messenger NEW** |
 | 6 | **Content formats** | composer render + new renderers | `cadence-content-format` | format fidelity, render latency/cost, accessibility | text+TTS done; **video/infographic NEW** |
@@ -79,7 +79,7 @@ All **opus**, all **research-equipped** (WebSearch, WebFetch, `/deep-research`, 
 These are **capabilities the team builds and maintains**, each with a named owner — not just roles.
 
 **(A) Eval harness** *(owner: cadence-eval-quality)* — the quality backbone that makes every gate mean something and unblocks the Pro eval gate. A *strong* eval harness for Cadence =
-- **Per-subsystem golden sets:** retrieval (query → expected sources; recall/precision); composer (spec+sources → 5-point rubric: accuracy/depth/actionability/freshness/readability); personalization (feedback → next-brief lift); channel (input → render fidelity); provider (same spec across models → quality-per-dollar).
+- **Per-subsystem golden sets:** retrieval (query → expected sources; recall/precision); composer (spec+sources → hybrid rubric: 3-axis composite grounding/specificity/fit that *gates* + 5 diagnostic sub-scores accuracy/depth/actionability/freshness/readability); personalization (feedback → next-brief lift); channel (input → render fidelity); provider (same spec across models → quality-per-dollar).
 - **Scorers (3 tiers):** deterministic metrics → **LLM-judge** (Haiku rides log-only today per CAD-222) → **blinded human** (Faeez) for release gates.
 - **Regression gates in CI:** a change cannot merge if it drops a subsystem's metric past threshold. Generalizes `server/evals/pro-eval-gate.ts` from "Pro vs default" into a per-subsystem framework.
 - **Surfaced** at `/admin/evals`; runnable via the new `/cadence-eval` skill.

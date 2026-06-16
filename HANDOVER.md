@@ -74,7 +74,7 @@ This is Cadence's moat. The mechanism in pieces:
 2. **Tune signal.** Replying `/tune <text>` or even a short freeform reply (planned heuristic per UX audit §3) writes a row to `learning_log` with `source='tune_command'`.
 3. **Distill.** Weekly Inngest cron `learning.distill` calls Claude Haiku to condense the last N raw notes into ≤5 stable preference bullets → `users.distilled_prefs` jsonb.
 4. **Composer injection.** Every brief composer call injects `distilled_prefs` + last 5 raw notes into the system prompt template (`apps/web/server/ai/composer/prompt.ts`).
-5. **Eval.** Per-spec eval harness exists (`/admin/evals`). Pro tier ships only after a blinded golden-set scoring shows Pro mean ≥ default mean + 1σ.
+5. **Eval.** Per-spec eval harness exists (`/admin/evals`). Pro tier ships only after blinded golden-set scoring shows the Pro composite leading the default composite by ≥ 0.5 (`MIN_LEAD`, canonical as of 2026-06-14 — supersedes the earlier "mean + 1σ"). See `docs/plans/eval-harness-upgrade.md`.
 
 ### Positioning rules (locked)
 - **DO** lead with "your own market researcher / industry researcher at a fraction of the cost."
@@ -401,8 +401,8 @@ Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; cur
 - **Source resolve rate** — % of sources that returned data (not zero rows). Tracked for scraper-health alerting.
 - **Fallback / downgrade** — when Pro tier providers fail, the run auto-routes to default tier + refunds 2 credits.
 - **Sample brief** — the on-demand first brief sent immediately after Telegram linkage. Per UX audit, should carry a "✨ Sample brief — your real briefs land at 07:00 daily" banner.
-- **Manual rating** — Faeez's eval-gate scoring of briefs on the 5-point rubric (accuracy / depth / actionability / freshness / readability).
-- **Eval gate** — blocking quality bar Pro must clear (Pro mean ≥ default mean + 1σ on blinded golden set) before public toggle exposure.
+- **Manual rating** — Faeez's eval-gate scoring of briefs. Canonical rubric (2026-06-14, hybrid): a 3-axis **composite** (grounding / specificity / fit) that *gates*, plus 5 **diagnostic** sub-scores (accuracy / depth / actionability / freshness / readability) that are advisory only. See `docs/plans/eval-harness-upgrade.md`.
+- **Eval gate** — blocking quality bar Pro must clear (Pro composite − default composite ≥ 0.5 `MIN_LEAD`, ≥5 ratings/tier over a 7-day window, on blinded golden set; canonical 2026-06-14, supersedes "mean + 1σ") before public toggle exposure.
 - **Pattern A/B/C/D/E** — the five source-fetch patterns from free-data-source-plan-v1: Playwright scraper, SERP scrape, RSS aggregator, Perplexity Sonar, LLM-only-with-transparency.
 - **Streak** — count of consecutive days the user received a brief without missing. Surfaced in the brief footer post-Phase 6a.
 - **Curated RSS pack** — named bundle of RSS feeds keyed to an industry (e.g., `commodity-sme-my`, `ops-saas`, `crypto`). Auto-attached by ICP detection.
