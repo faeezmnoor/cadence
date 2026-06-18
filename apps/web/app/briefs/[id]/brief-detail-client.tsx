@@ -42,12 +42,18 @@ import {
   stackLabel,
   type ResearchStack,
 } from "@/lib/research-stack";
+import {
+  SEARCHER_OPTIONS,
+  normalizeSearcherId,
+  type SearcherId,
+} from "@/lib/search-providers";
 
 export type BriefRow = {
   id: string;
   name: string;
   status: string;
   tier: string;
+  searcher: string;
   version: number;
   scheduling: unknown;
   spec: unknown;
@@ -104,6 +110,7 @@ export function BriefDetailClient({
       name: String(row.name ?? initialBrief.name),
       status: String(row.status ?? initialBrief.status),
       tier: String(row.tier ?? initialBrief.tier),
+      searcher: String(row.searcher ?? initialBrief.searcher),
       version: Number(row.version ?? initialBrief.version),
       scheduling: row.scheduling ?? initialBrief.scheduling,
       spec: row.spec ?? initialBrief.spec,
@@ -370,6 +377,11 @@ function AdvancedTab({
         <ResearchDepthPausedCard />
       )}
 
+      {/* CAD-165: web-search provider for the Standard stack — ungated (the
+          standard search runs for everyone, and the chosen provider is also
+          the fallback chain anchor). Advanced tiers run their own search. */}
+      <SearchProviderSettings brief={brief} />
+
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Raw spec (JSON)
@@ -574,6 +586,103 @@ function VersionsSection({
  *
  * Saved-state is the existing setTier mutation (idempotent, no version bump).
  */
+/**
+ * CAD-165 — per-watch web-search provider picker for the Standard stack.
+ * Data-driven from SEARCHER_OPTIONS (lib/search-providers.ts) so adding a
+ * provider is a registry change, not UI surgery. Ungated: the standard
+ * search runs for every watch and the selection also anchors the auto-
+ * fallback chain. Reuses briefs.setSearcher (no version bump).
+ */
+function SearchProviderSettings({ brief }: { brief: BriefRow }) {
+  const utils = trpc.useUtils();
+  const current = normalizeSearcherId(brief.searcher);
+  const [draft, setDraft] = useState<SearcherId>(current);
+  useEffect(() => {
+    setDraft(current);
+  }, [current]);
+
+  const setSearcher = trpc.briefs.setSearcher.useMutation({
+    onSuccess: () => utils.briefs.getById.invalidate({ id: brief.id }),
+  });
+  const dirty = draft !== current;
+  const isArchived = brief.status === "archived";
+
+  return (
+    <section
+      aria-label="Web search provider"
+      className="rounded-xl border border-border bg-card p-4 text-card-foreground"
+    >
+      <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Web search provider
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Which web-search engine the standard stack uses for this watch. If it
+        ever fails or returns nothing, Cadence automatically falls back to
+        DuckDuckGo so your brief still arrives.
+      </p>
+
+      <div
+        className="mt-4 grid gap-2 sm:grid-cols-2"
+        role="radiogroup"
+        aria-label="Choose web search provider"
+      >
+        {SEARCHER_OPTIONS.map((opt) => {
+          const selected = draft === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setDraft(opt.id)}
+              disabled={setSearcher.isPending || isArchived}
+              data-testid={`searcher-option-${opt.id}`}
+              className={`rounded-md border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
+                selected
+                  ? "border-foreground bg-foreground/5 ring-1 ring-foreground"
+                  : "border-border bg-transparent hover:bg-muted"
+              }`}
+            >
+              <span className="block text-sm font-medium text-foreground">
+                {opt.label}
+                {opt.keyless ? (
+                  <span className="ml-1.5 inline-flex rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    no key
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {opt.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSearcher.mutate({ id: brief.id, searcher: draft })}
+          disabled={!dirty || setSearcher.isPending || isArchived}
+          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:opacity-50"
+          data-testid="save-searcher-button"
+        >
+          {setSearcher.isPending
+            ? "Saving…"
+            : dirty
+              ? "Switch provider"
+              : "Saved"}
+        </button>
+        {setSearcher.isError && (
+          <span className="text-xs text-destructive">
+            Couldn&apos;t save — try again.
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ConfigurableStackSettings({
   brief,
   tier,

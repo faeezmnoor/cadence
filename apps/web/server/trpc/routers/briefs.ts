@@ -253,6 +253,7 @@ export const briefsRouter = router({
         status: digestSpecs.status,
         scheduling: digestSpecs.scheduling,
         tier: digestSpecs.tier,
+        searcher: digestSpecs.searcher,
         nextRunAt: digestSpecs.nextRunAt,
         pausedAt: digestSpecs.pausedAt,
         createdAt: digestSpecs.createdAt,
@@ -732,6 +733,34 @@ export const briefsRouter = router({
         .returning({ id: digestSpecs.id, tier: digestSpecs.tier });
       if (updated.length === 0) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Brief not found." });
+      }
+      return updated[0]!;
+    }),
+
+  /**
+   * CAD-165: per-brief web-search provider for the Standard stack. Like
+   * setTier this is a delivery-stack preference, not spec content — no
+   * version bump. The pipeline auto-falls back to DuckDuckGo if the chosen
+   * provider errors/empties (server/ai/providers/searchers.ts). The enum
+   * mirrors SEARCHER_IDS — a structural test guards the drift.
+   */
+  setSearcher: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        searcher: z.enum(["brave", "duckduckgo"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await db
+        .update(digestSpecs)
+        .set({ searcher: input.searcher, updatedAt: new Date() })
+        .where(
+          and(eq(digestSpecs.id, input.id), eq(digestSpecs.userId, ctx.user.id))
+        )
+        .returning({ id: digestSpecs.id, searcher: digestSpecs.searcher });
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Watch not found." });
       }
       return updated[0]!;
     }),

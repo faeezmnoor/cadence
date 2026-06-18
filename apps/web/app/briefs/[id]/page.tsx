@@ -75,6 +75,7 @@ export default async function BriefDetailPage({
     name: brief.name,
     status: brief.status,
     tier: brief.tier,
+    searcher: brief.searcher,
     version: brief.version,
     scheduling: brief.scheduling,
     spec: brief.spec,

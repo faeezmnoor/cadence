@@ -67,7 +67,7 @@ import {
   type TelegramTarget,
 } from "@/server/channels/telegram";
 import { buildFeedbackKeyboard } from "@/server/channels/telegram/keyboard";
-import { isBraveConfigured, braveSearch, BraveKeyMissingError } from "@/server/connectors/brave-search";
+import { resolveSearcher, searchWithFallback } from "@/server/ai/providers/searchers";
 import { recentRssForSpec } from "@/server/connectors/rss";
 import { gatherSources, normalizeSourceUrl } from "@/server/sources";
 import { scrapeMpobStocks } from "@/server/sources/scrape/scrapers/mpob-stocks";
@@ -416,26 +416,23 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
       entities?: { companies?: string[] };
     }
   );
-  try {
-    if (isBraveConfigured()) {
-      for (const query of searchQueries) {
-        // CAD-213 (P0-2): attribute search spend to this run + user.
-        const res = await braveSearch(query, {
-          count: 10,
-          userId,
-          digestRunId: runRowId,
-        });
-        sources.search.push({ query, results: res.results });
-      }
-    }
-  } catch (err) {
-    if (err instanceof BraveKeyMissingError) {
-      // expected when CAD-56 not provisioned; continue with no search
-    } else if (!tolerateSourceFailures) {
-      throw err;
-    } else {
-      console.warn("[digest:brave]", err);
-    }
+  // CAD-165: resolve the spec's selected web-search provider (registry in
+  // server/ai/providers/searchers.ts) and run it with a keyless DuckDuckGo
+  // fallback — a lapsed Brave key or a flaky provider never denies the brief
+  // its web search. searchWithFallback never throws; a fully-failed search
+  // degrades to no web results and the brief still ships on RSS/scrapers
+  // (CAD-102 spirit: research enrichment must never deny the brief).
+  const webSearcher = resolveSearcher(specRow.searcher);
+  let webSearchFellBack = false;
+  for (const query of searchQueries) {
+    // CAD-213 (P0-2): attribution to run + user happens inside each provider.
+    const { hits, usedFallback } = await searchWithFallback(webSearcher, query, {
+      count: 10,
+      userId,
+      digestRunId: runRowId,
+    });
+    if (usedFallback) webSearchFellBack = true;
+    if (hits.length > 0) sources.search.push({ query, results: hits });
   }
 
   // CAD-221 (S2): legacy spec-declared RSS is collected into a holding
@@ -561,6 +558,14 @@ export async function runDigestPipeline(params: RunDigestParams): Promise<RunDig
   // on `digest_runs.metadata.sourceResolve`. Never blocks delivery — a low
   // rate is a logged warning, not a failure.
   let runMetadata: Record<string, unknown> = {};
+  // CAD-165: record which web-search provider ran for the Standard step +
+  // whether the keyless DuckDuckGo fallback engaged (reliability visibility
+  // at /admin). webSearcher/webSearchFellBack are computed in the sources
+  // step above.
+  runMetadata.webSearch = {
+    provider: webSearcher.id,
+    fellBackToDuckDuckGo: webSearchFellBack,
+  };
   try {
     const composerInput: ComposerInput = {
       spec: specRow.spec as ComposerInput["spec"],
