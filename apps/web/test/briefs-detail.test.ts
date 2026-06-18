@@ -20,8 +20,8 @@ function read(rel: string): string {
   return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 }
 
-const pageSource = read("../app/briefs/[id]/page.tsx");
-const clientSource = read("../app/briefs/[id]/brief-detail-client.tsx");
+const pageSource = read("../app/watches/[id]/page.tsx");
+const clientSource = read("../app/watches/[id]/brief-detail-client.tsx");
 const routerSource = read("../server/trpc/routers/briefs.ts");
 const specRedirectSource = read("../app/spec/page.tsx");
 
@@ -97,9 +97,9 @@ describe("briefs router — per-brief Wave 6 procedures", () => {
   });
 });
 
-describe("/spec → /briefs redirect (legacy bookmark compat)", () => {
-  it("/spec/page.tsx is a server redirect to /briefs", () => {
-    expect(specRedirectSource).toMatch(/redirect\(["']\/briefs["']/);
+describe("/spec → /watches redirect (legacy bookmark compat)", () => {
+  it("/spec/page.tsx is a server redirect to /watches", () => {
+    expect(specRedirectSource).toMatch(/redirect\(["']\/watches["']/);
   });
 
   it("the legacy spec-client.tsx has been deleted", () => {

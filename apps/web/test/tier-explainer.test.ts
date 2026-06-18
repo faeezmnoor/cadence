@@ -30,7 +30,7 @@ const explainerSource = read("../components/billing/tier-explainer.tsx");
 const billingClientSource = read("../app/settings/billing/billing-client.tsx");
 // Wave 6 Bug 13: TierExplainer's per-spec mount moved from the legacy
 // /spec page into the new /briefs/[id] Advanced tab.
-const briefDetailClientSource = read("../app/briefs/[id]/brief-detail-client.tsx");
+const briefDetailClientSource = read("../app/watches/[id]/brief-detail-client.tsx");
 const pricingSource = read("../app/(marketing)/pricing/page.tsx");
 
 describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {

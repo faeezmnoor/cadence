@@ -57,7 +57,7 @@ export function DangerZoneClient({ userEmail }: { userEmail: string }) {
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground/80">
         <li>Remove <span className="font-mono text-xs">{userEmail}</span> from Cadence.</li>
-        <li>Pause and remove your active brief spec and chat history.</li>
+        <li>Pause and remove your active watch and chat history.</li>
         <li>Remove your linked Telegram chat and stop all future briefs.</li>
         <li>Sign you out of every device and revoke your auth session.</li>
         <li>

@@ -17,7 +17,7 @@ function read(rel: string): string {
   return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 }
 
-const clientSource = read("../app/briefs/[id]/brief-detail-client.tsx");
+const clientSource = read("../app/watches/[id]/brief-detail-client.tsx");
 
 describe("CAD-203 — Configurable Stack Settings wiring", () => {
   it("imports the research-stack helpers (SSoT)", () => {

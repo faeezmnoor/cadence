@@ -124,10 +124,10 @@ export function BriefsClient({
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Your briefs
+            Your watches
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Each brief is an ongoing research thread. You set the topic, language, and schedule — Cadence delivers it.
+            Each watch is an ongoing research thread. You set the topic, language, and schedule — Cadence delivers a brief.
           </p>
         </div>
         <NewBriefButton canCreate={canCreate} />
@@ -148,7 +148,7 @@ export function BriefsClient({
              * rendered multiple cards.
              */}
             {sorted.length} of {canCreate.max}{" "}
-            {canCreate.max === 1 ? "brief" : "briefs"} · sorted by next delivery
+            {canCreate.max === 1 ? "watch" : "watches"} · sorted by next delivery
           </p>
           <ul className="space-y-3">
             {sorted.map((b) => (
@@ -178,11 +178,11 @@ function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
     // honestly instead of implying that archiving frees up a slot ladder.
     return (
       <span
-        title="Multiple briefs are coming soon."
+        title="Multiple watches are coming soon."
         className="inline-flex h-9 cursor-not-allowed items-center rounded-md border border-border bg-muted px-3 text-sm font-medium text-muted-foreground"
         aria-disabled="true"
       >
-        + New brief
+        + New watch
       </span>
     );
   }
@@ -191,7 +191,7 @@ function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
       href={"/chat" as never}
       className="inline-flex h-9 items-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
     >
-      + New brief
+      + New watch
     </Link>
   );
 }
@@ -199,7 +199,7 @@ function NewBriefButton({ canCreate }: { canCreate: CanCreate }) {
 function EmptyState({ canCreate }: { canCreate: CanCreate }) {
   return (
     <section className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-card-foreground">
-      <h2 className="text-lg font-medium text-foreground">No briefs yet</h2>
+      <h2 className="text-lg font-medium text-foreground">No watches yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
         Tell Cadence what to track — an industry, a ticker, a route, anything — and we&apos;ll deliver a brief on your schedule.
       </p>
@@ -239,7 +239,7 @@ function BriefCard({
     () => (row.lastRun ? formatLast(row.lastRun.runDate) : null),
     [row.lastRun]
   );
-  const displayName = row.name?.trim() || (topics[0] ? `${capitalize(topics[0])} brief` : "Untitled brief");
+  const displayName = row.name?.trim() || (topics[0] ? `${capitalize(topics[0])} watch` : "Untitled watch");
 
   return (
     <li
@@ -330,7 +330,7 @@ function BriefCard({
 
         {archiving ? (
           <span className="inline-flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            Archive this brief?
+            Archive this watch?
             <button
               type="button"
               onClick={() => {
@@ -454,7 +454,7 @@ function PortfolioBurnCard() {
       </div>
       {data.skipped > 0 && (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          {data.skipped} brief{data.skipped === 1 ? "" : "s"} skipped (invalid schedule).
+          {data.skipped} watch{data.skipped === 1 ? "" : "es"} skipped (invalid schedule).
         </p>
       )}
     </section>

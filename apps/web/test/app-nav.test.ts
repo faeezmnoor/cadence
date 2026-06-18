@@ -24,7 +24,7 @@ const navSource = read("../components/nav/app-nav.tsx");
 describe("AppNav (Designer #4)", () => {
   it("declares the four user-facing tabs with the correct hrefs", () => {
     expect(navSource).toMatch(/label:\s*"Chat",\s*href:\s*"\/chat"/);
-    expect(navSource).toMatch(/label:\s*"Briefs",\s*href:\s*"\/briefs"/);
+    expect(navSource).toMatch(/label:\s*"Watches",\s*href:\s*"\/watches"/);
     expect(navSource).toMatch(/label:\s*"Delivery",\s*href:\s*"\/app\/link"/);
     expect(navSource).toMatch(
       /label:\s*"Billing",\s*href:\s*"\/settings\/billing"/
@@ -64,20 +64,20 @@ describe("AppNav mount points", () => {
     expect(src).toMatch(/<AppNav active="chat" \/>/);
   });
 
-  it("is rendered on /briefs", () => {
-    const src = read("../app/briefs/page.tsx");
+  it("is rendered on /watches", () => {
+    const src = read("../app/watches/page.tsx");
     expect(src).toMatch(/import \{ AppNav \} from/);
     expect(src).toMatch(/<AppNav active="briefs" \/>/);
   });
 
-  it("is rendered on /briefs/[id] (per-brief detail; tab highlights Briefs)", () => {
-    const src = read("../app/briefs/[id]/page.tsx");
+  it("is rendered on /watches/[id] (per-watch detail; tab highlights Watches)", () => {
+    const src = read("../app/watches/[id]/page.tsx");
     expect(src).toMatch(/<AppNav active="briefs" \/>/);
   });
 
-  it("/spec page is a redirect to /briefs (legacy bookmark compat)", () => {
+  it("/spec page is a redirect to /watches (legacy bookmark compat)", () => {
     const src = read("../app/spec/page.tsx");
-    expect(src).toMatch(/redirect\(["']\/briefs["']/);
+    expect(src).toMatch(/redirect\(["']\/watches["']/);
   });
 
   it("is rendered on /app/link", () => {

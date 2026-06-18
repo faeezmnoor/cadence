@@ -36,7 +36,7 @@ const TABS: TabDef[] = [
   // from the brief detail (CAD follow-up), but it is no longer a top-level
   // tab. We pass tab key "briefs" from /briefs and keep "spec" so the
   // legacy /spec page still renders an active tab when visited directly.
-  { key: "briefs", label: "Briefs", href: "/briefs" },
+  { key: "briefs", label: "Watches", href: "/watches" },
   { key: "link", label: "Delivery", href: "/app/link" },
   // Stream E #4 — "What I've learned about you" surface (PM audit G3).
   { key: "learning", label: "Learning", href: "/settings/learning" },

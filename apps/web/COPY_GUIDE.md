@@ -45,7 +45,8 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 
 | Concept | Canonical | UI chrome forms | Banned variants |
 |---|---|---|---|
-| Product output | **the brief** | "Briefs" (nav) · "Brief drafted/saved" | digest, spec, report, newsletter, alert, "message" (as the output noun) |
+| Product output (delivered) | **the brief** | "Brief drafted/saved" · public permalink · the credit sentence | digest, spec, report, newsletter, alert, "message" (as the output noun) |
+| Standing config (what you manage) | **a watch** (D-005, 2026-06-16) | "Watches" (nav) · "New watch" · "3 active watches" · pause/resume a watch | "brief" as the *standing* noun, monitor, tracker, alert, subscription |
 | The configuration | **setup** ("your brief setup", "Setup saved") | "Raw setup (JSON)" allowed only behind the power-user disclosure | spec, config, draft spec |
 | Research depths | **standard research / advanced research** (lowercase mid-sentence; sentence case standalone). The footnote concept is **research depth** | Badge: 🔬 Advanced · Header: Advanced research · Toggle: Standard / Advanced | Pro, Pro tier, Default tier, deep research, default, premium, research mode |
 | Credit packs | Quantity-words only (see §9 pending: Taste vs Starter; Everyday/Power/Max locked). **Packs use quantity words; depths use quality words — the two vocabularies may never overlap.** | Tile = pack name + price | "Standard"/"Pro" as pack names, tier, plan, subscription |
@@ -63,9 +64,15 @@ Where this guide conflicts with locked product canon (wedge doc 2026-05-29, ICP 
 
 The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_runs`, `lib/digest-spec/`, `runDigestPipeline`). That is **internal vocabulary only** — telemetry-load-bearing, don't rename. In **every user-facing string it is a "brief."** Never surface `digest`/`spec`/`DigestSpec` to a user. (UX audit v3, doc 03.)
 
-### 4b. DECIDED (founder, 2026-06-11) — the "brief" overload: keep "brief" for both layers, no rename
+### 4b. DECIDED (founder, 2026-06-16, D-005) — adopt "watch" for the standing layer
 
-"Brief" names both the **delivered artifact** (locked by "1 credit = 1 brief") and the **standing, pausable configuration** (the `/briefs` cards). The audit's proposed rename of the standing layer ("watch") was **rejected by the founder** — "watch" drags in the alert/monitoring mental model §4 bans, and "brief" works like "newsletter": *my brief* (standing) vs *today's brief* (delivered), disambiguated by context. **The binding rule that replaces the rename:** the brief list counts in **briefs** ("3 active briefs"); billing counts in **credits** only — never "73 briefs" as a balance. "1 credit = 1 brief" is the only sentence where the two meet. Enforce this before multi-brief GA. (UX audit v3, doc 03 §3; founder ruling 2026-06-11.)
+> **Supersedes the 2026-06-11 ruling** (which kept "brief" for both layers). On 2026-06-16 the founder **locked "watch"** as the standing-config noun (Decisions Log D-005, rollout CAD-227). The earlier "watch brings alert/monitoring baggage" concern was reconsidered now that multi-brief shipped and the "brief" overload became a counting/trust bug on the billing-adjacent surface.
+
+**Two distinct concepts, two nouns:**
+- **a watch** = the standing, pausable thing you set up and manage (formerly the `/briefs` cards). You *create*, *pause*, *resume*, and *count* watches ("3 active watches").
+- **a brief** = the delivered, billable morning artifact. **"1 credit = 1 brief" is untouched** — credits and briefs still meet only in that one sentence.
+
+**Net model:** *set up a **watch** → get a **brief** every morning → 1 credit per brief.* User-facing nav/CTAs use "watch" for the standing layer ("Watches", "New watch", "3 active watches"); "brief" stays for the delivered artifact, the credit sentence, and the public permalink. Internal code stays `digest_*` / `brief` (telemetry-load-bearing — §4a; never surfaced). (UX audit v3 doc 03 §3 rename, re-locked by founder 2026-06-16.)
 
 ## 5. Honesty boundaries
 

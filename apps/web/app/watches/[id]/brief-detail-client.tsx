@@ -118,10 +118,10 @@ export function BriefDetailClient({
     <main className="safe-pb mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
         <Link
-          href={"/briefs" as never}
+          href={"/watches" as never}
           className="inline-flex items-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
-          ← All briefs
+          ← All watches
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {brief.name}
@@ -138,7 +138,7 @@ export function BriefDetailClient({
 
       <nav
         role="tablist"
-        aria-label="Brief detail tabs"
+        aria-label="Watch detail tabs"
         className="inline-flex rounded-md border border-border bg-card p-1 text-sm"
       >
         <TabButton
@@ -642,7 +642,7 @@ function ConfigurableStackSettings({
           </p>
         ) : (
           <p className="mt-1 text-xs text-muted-foreground">
-            Run-rate preview unavailable — set this brief&apos;s schedule
+            Run-rate preview unavailable — set this watch&apos;s schedule
             first.
           </p>
         )}

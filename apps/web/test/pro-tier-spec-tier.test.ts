@@ -108,8 +108,8 @@ describe("CAD-88 — digest/run.ts wiring", () => {
 });
 
 describe("CAD-88 — /briefs/[id] page UI gating (ported from /spec, Wave 6 Bug 13)", () => {
-  const page = read("app/briefs/[id]/page.tsx");
-  const client = read("app/briefs/[id]/brief-detail-client.tsx");
+  const page = read("app/watches/[id]/page.tsx");
+  const client = read("app/watches/[id]/brief-detail-client.tsx");
 
   it("page passes proTierAlphaEnabled prop from server check", () => {
     expect(page).toMatch(/isProTierAlphaEnabled/);
