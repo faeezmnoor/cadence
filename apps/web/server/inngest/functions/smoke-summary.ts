@@ -37,7 +37,7 @@
  *
  * Kill switch:
  *   Toggle `is_smoke=false` on the spec. The summary then ignores it.
- *   See docs/SMOKE.md.
+ *   See docs/runbooks/SMOKE.md.
  */
 import { and, desc, eq, gte, isNotNull } from "drizzle-orm";
 import { inngest } from "../client";

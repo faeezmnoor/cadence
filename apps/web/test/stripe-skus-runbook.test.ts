@@ -1,7 +1,7 @@
 /**
  * CAD-204 — Stripe SKUs v2 runbook drift guard.
  *
- * The runbook at `docs/stripe-skus-v2.md` is the manual-setup checklist Faeez
+ * The runbook at `docs/runbooks/stripe-skus-v2.md` is the manual-setup checklist Faeez
  * follows in the Stripe dashboard once MY KYC clears. The Cadence code never
  * mutates Stripe products, so the only way the runbook can drift from `packs.ts`
  * is if a human edits one and forgets the other.
@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { PACKS } from "@/server/billing/packs";
 
 const RUNBOOK = readFileSync(
-  path.join(__dirname, "..", "..", "..", "docs/stripe-skus-v2.md"),
+  path.join(__dirname, "..", "..", "..", "docs/runbooks/stripe-skus-v2.md"),
   "utf8"
 );
 

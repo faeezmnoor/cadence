@@ -20,7 +20,7 @@ export function isTelegramConfigured(): boolean {
 export function getBot(): Bot {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
     throw new Error(
-      "TELEGRAM_BOT_TOKEN not set. See docs/TELEGRAM_BOT_SETUP.md (CAD-24)."
+      "TELEGRAM_BOT_TOKEN not set. See docs/runbooks/TELEGRAM_BOT_SETUP.md (CAD-24)."
     );
   }
   if (!cached) {
