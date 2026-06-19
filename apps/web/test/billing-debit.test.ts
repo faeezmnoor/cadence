@@ -52,7 +52,10 @@ describe("T-505a — run.ts wiring guarantees", () => {
       "utf8"
     );
     const skipIdx = src.indexOf("shouldSkipForCredits");
-    const braveIdx = src.indexOf("braveSearch(");
+    // CAD-165: the default web search now routes through the searcher registry
+    // + DuckDuckGo fallback (searchWithFallback) instead of a direct
+    // braveSearch() call — same "gate before the search step" guarantee.
+    const braveIdx = src.indexOf("searchWithFallback(");
     // CAD-88: compose call now routes through providers.composer.compose(...)
     // via getProviders(spec.tier). Match the new call shape.
     const composeIdx = src.indexOf("providers.composer.compose(");

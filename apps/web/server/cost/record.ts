@@ -15,6 +15,8 @@ export type CostProvider =
   | "anthropic"
   | "openai"
   | "brave"
+  // CAD-165: keyless DuckDuckGo HTML search — logged at $0 for rollup parity.
+  | "duckduckgo"
   | "yfinance"
   // Pro-tier providers (CAD-86, CAD-87). cost_events.provider column
   // is `text`, not an enum, so adding values here is a type-only change.

@@ -162,6 +162,17 @@ export const digestSpecs = pgTable(
      * back to default until Faeez flips the env flag.
      */
     tier: text("tier").notNull().default("default"),
+    /**
+     * CAD-165 / CAD-228: which web-search provider the Standard stack uses
+     * for this spec (registry: server/ai/providers/searchers.ts). The
+     * pipeline resolves this id → SearchProvider; unknown/missing → 'brave'.
+     * DB CHECK restricts the vocabulary (migration 0028, grows per provider
+     * like tier did). The pipeline ALSO auto-falls-back to DuckDuckGo
+     * (keyless) if the selected provider errors/empties, so a lapsed Brave
+     * key never denies a brief. Advanced tiers run their own search and
+     * ignore this column.
+     */
+    searcher: text("searcher").notNull().default("brave"),
     // Brief-creation revamp PR 1 (migration 0026): provenance — copied from
     // chat_threads.template_id at confirm_and_save. NULL = freehand brief.
     // Powers D7-survival / 👍-rate segmentation by template (the starter-trio
