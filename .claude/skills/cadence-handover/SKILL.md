@@ -6,7 +6,7 @@ description: Build a cold-pickup artifact set (README / CLAUDE.md / ARCHITECTURE
 # Cadence Handover Artifact Wave — README + CLAUDE.md + ARCHITECTURE.md
 
 ## When to use
-A scope (project, phase, subsystem) needs a cold-pickup artifact set. Triggered after a major phase lands, on ownership transfer, or when sessions keep getting confused about context.
+A scope (project, phase, subsystem) needs a cold-pickup artifact set. Triggered after a major phase lands, on ownership transfer, or when sessions keep getting confused about context. **Also runs automatically at CLOSE** (`/cadence-deliver phase:close`) to regenerate `HANDOVER.md` from current Linear/Notion/git and re-cap the `cadence-*` memory primers — so live state never drifts. Memory primers are summaries regenerated from HANDOVER, never a parallel source of truth.
 
 ## Recipe (Claude Code on this Mac)
 1. **Scope the artifacts:**

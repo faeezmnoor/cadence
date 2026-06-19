@@ -7,6 +7,7 @@ export const meta = {
     { title: 'Build' },
     { title: 'Review' },
     { title: 'Verify' },
+    { title: 'Close' },
   ],
 }
 
@@ -47,6 +48,27 @@ const REVIEWERS = workType === 'epic' ? 3 : 1
 const CONTEXT = `Ticket ${ticket}. Work-type: ${workType}. Subsystems: ${subsystems.join(', ') || 'none'}.
 Brief: ${brief}
 Obey docs/AGENT_TEAM.md §7 guardrails. Repo /Users/faeez/dev/projects/cadence, app apps/web.`
+
+// ===================== CLOSE (automated, post-SHIP) =====================
+// Runs after Faeez ships. Auto-updates every doc + tracker so the next session
+// starts clean — NO per-step prompting. Touches docs/trackers only, not product code.
+if (phase === 'close') {
+  phase('Close')
+  log(`Closing ${ticket}: archive plan → regenerate HANDOVER + memory → sync Linear/Notion + decisions index + CHANGELOG → ratchet.`)
+  const close = await parallel([
+    () => agent(
+      `You are the Bookkeeper closing ${ticket} after SHIP. Per .claude/skills/cadence-bookkeeping/SKILL.md: (1) move the Linear CAD ticket to Done; (2) update the Notion Engineering mirror + the docs/decisions index page; (3) append the shipped change to CHANGELOG.md under [Unreleased] (Keep a Changelog categories); (4) archive docs/plans/${ticket}.md to docs/plans/_archive/ with header '> SHIPPED <date> | PR #N | ${ticket}'; (5) refresh ticket-map.json. If a decision changed, confirm a new ADR exists in docs/decisions/. Print URLs + counts. ${CONTEXT}`,
+      { agentType: 'cadence-bookkeeper', label: 'close:bookkeep', phase: 'Close' }),
+    () => agent(
+      `Regenerate HANDOVER.md from current Linear + Notion + git (last commits) per .claude/skills/cadence-handover/SKILL.md, and refresh the cadence-* memory primers (capped, summary-only — never a parallel source of truth). Cite paths. ${CONTEXT}`,
+      { agentType: 'cadence-bookkeeper', label: 'close:handover', phase: 'Close' }),
+  ])
+  const ratchet = await agent(
+    `Ratchet / harness-hardening pass for ${ticket} (Hashimoto "engineer the harness"). Review this cycle's review + verify findings. For each mistake or near-miss, name the HARNESS fix — AGENTS.md, CLAUDE.md, a skill, a hook, or a new ADR — not just a code fix. The harness only tightens. Output a concrete edit list for Faeez to approve. ${CONTEXT}`,
+    { agentType: 'cadence-cofounder', label: 'close:ratchet', phase: 'Close' })
+  log(`${ticket} CLOSE complete. If gbrain is set up: run /sync-gbrain. Apply the ratchet edits.`)
+  return { ticket, phase: 'close', close, ratchet, awaiting: 'apply ratchet edits' }
+}
 
 // ===================== PLAN =====================
 // Research spikes (parallel, read-only) for tagged subsystems on non-fix work, then the Architect synthesizes.
