@@ -760,7 +760,7 @@ export const briefsRouter = router({
         )
         .returning({ id: digestSpecs.id, searcher: digestSpecs.searcher });
       if (updated.length === 0) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Watch not found." });
+        throw new TRPCError({ code: "NOT_FOUND", message: "Brief not found." });
       }
       return updated[0]!;
     }),
