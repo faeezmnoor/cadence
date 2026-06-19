@@ -44,6 +44,7 @@ Key routing rules:
 
 Cadence is built by a 3-layer agent team. **Full playbook: `docs/AGENT_TEAM.md`** (read it before non-trivial work).
 
+- **Orchestrator** — `cadence-cofounder` (`.claude/agents/cadence-cofounder.md`): the delivery-orchestration & accountability brain backing the main session. Invoke it (or `@cadence-cofounder`) to route a request to the right work-type/subsystem/cast/skill/gates, or to run a standup that audits Linear/Notion/git and holds every agent + gate accountable. It plans + tracks; it never ships (human-only) and routes tracker writes through the bookkeeper.
 - **Layer I — delivery squad** (`.claude/agents/cadence-{architect,builder,reviewer,qa,designer,bookkeeper,security,debugger}.md`): owns the lifecycle.
 - **Layer II — specialist bench** (`.claude/agents/cadence-{research-search,retrieval-consolidation,llm-composer,multi-llm-provider,channels-delivery,content-format,self-learning,eval-quality,agent-harness}.md`): one deep, research-equipped owner per subsystem; pulled onto a ticket by subsystem tag.
 - **Layer III — harnesses**: the **eval harness** (`cadence-eval-quality` + `/cadence-eval`) and the product **agent runtime harness** (`cadence-agent-harness`).

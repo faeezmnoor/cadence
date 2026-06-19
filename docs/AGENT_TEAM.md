@@ -43,10 +43,11 @@ Mapped to the real codebase plus the capabilities to be added. Each subsystem ha
 
 ### Layer I — Delivery squad (lifecycle/process)
 
-The **Orchestrator/PM** = your main VS Code session (you + Claude). Not a subagent file. Owns intake, grilling (`/grill-me`), routing, ship/no-ship, and is the only actor that talks to you.
+The **Orchestrator/PM** = your main VS Code session (you + Claude). Owns intake, grilling (`/grill-me`), routing, ship/no-ship, and is the only actor that talks to you. It is backed by a standing **cadence-cofounder** agent — the delivery-orchestration & accountability brain you invoke (or `@cadence-cofounder`) to route a request to the right cast/process and to run a standup that holds every agent + gate accountable end-to-end. The cofounder *plans and tracks*; it never ships (SHIP stays human) and cannot spawn subagents itself — it names the cast, the main session / `/cadence-deliver` workflow dispatches it.
 
 | Agent | Phase | Wraps | Model |
 |---|---|---|---|
+| **cadence-cofounder** | ORCHESTRATE (routing + accountability, all phases) | `/cadence-deliver` routing, Linear/Notion/git audit; routes mutations to bookkeeper | opus |
 | **cadence-architect** | PLAN | `/grill-me`, `/spec`, `/deep-research`, `/plan-eng-review`, `/plan-ceo-review`, `/office-hours` | opus |
 | **cadence-builder** | BUILD (plumbing/coordination) | ported *cadence-build-wave*, *cadence-fix-pass* | sonnet |
 | **cadence-reviewer** | REVIEW (correctness/reuse) | `/code-review`, `/review` | opus |
@@ -170,9 +171,9 @@ INTAKE/GRILL ▣→ PLAN ▣→ BUILD ─┬─ REVIEW ▣→ VERIFY ▣→ SHIP
 
 ## 7. Cadence guardrails (every agent obeys)
 
-1. **Terminology:** `digest_*` in code; **"a brief"** in UI. "Cadence" is a sacred brand noun. (Pending: rename standing config to **"watch"** before multi-brief GA.)
+1. **Terminology:** `digest_*` in code; **"a brief"** in UI — "brief" names BOTH the standing config and the delivered artifact (disambiguated by context). "Cadence" is a sacred brand noun. The proposed **"watch"** rename (D-005/CAD-227) was **REJECTED by the founder 2026-06-19** — do not use "watch" as the standing-config noun anywhere.
 2. **Positioning:** lead with *"your own market researcher at a fraction of the cost."* Never lead with Telegram. Anti-positioning: not Bloomberg, not a price/flight tracker, not a newsfeed, not a "Telegram bot," not a chat assistant, not a subscription.
-3. **Monetization:** credits-only, no subscriptions, **no plan-tier nouns**. "Pro" = per-brief deep-research toggle (3 credits) = "🔬 Deep research." `/tune` + feedback free forever.
+3. **Monetization:** credits-only, no subscriptions, **no plan-tier nouns**. Research modes = **Standard (1 credit) / Advanced (5 credits) / Custom** (D-006/D-008/D-010); **never "Pro" or "deep research" in any user-facing form** ("Pro" is retired). Advanced sells **specificity + fit, NOT better grounding** (D-007). Credit-pack display names = Taste/Everyday/Power/Max. `/tune` + feedback free forever.
 4. **Composer/Pro quality:** respect the eval gate (`server/evals/pro-eval-gate.ts`) + dogfood bar (CAD-209); Pro stays behind `PRO_TIER_ALPHA`.
 5. **Repo discipline:** never edit an applied `apply-NNNN.mjs` (forward-fix only); `docs/*` numbered files are a generated mirror — don't treat as canonical source; one logical change per commit, push per stage; no `git add -A`, no `--no-verify`.
 6. **Cadence ≠ LiveWheel.** Different repo, ICP, Linear team (CAD vs LWL), Notion tree.
