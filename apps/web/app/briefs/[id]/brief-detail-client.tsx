@@ -616,7 +616,7 @@ function SearchProviderSettings({ brief }: { brief: BriefRow }) {
         Web search provider
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Which web-search engine the standard stack uses for this watch. If it
+        Which web-search engine the standard stack uses for this brief. If it
         ever fails or returns nothing, Cadence automatically falls back to
         DuckDuckGo so your brief still arrives.
       </p>
