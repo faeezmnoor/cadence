@@ -43,7 +43,7 @@ Mapped to the real codebase plus the capabilities to be added. Each subsystem ha
 
 ### Layer I — Delivery squad (lifecycle/process)
 
-The **Orchestrator/PM** = your main VS Code session (you + Claude). Owns intake, grilling (`/grill-me`), routing, ship/no-ship, and is the only actor that talks to you. It is backed by a standing **cadence-cofounder** agent — the delivery-orchestration & accountability brain you invoke (or `@cadence-cofounder`) to route a request to the right cast/process and to run a standup that holds every agent + gate accountable end-to-end. The cofounder *plans and tracks*; it never ships (SHIP stays human) and cannot spawn subagents itself — it names the cast, the main session / `/cadence-deliver` workflow dispatches it.
+The **Orchestrator/PM** = your main VS Code session (you + Claude). Owns intake, grilling (`/grill-me`), routing, ship/no-ship, and is the only actor that talks to you. It is backed by a standing **cadence-cofounder** agent — the delivery-orchestration & accountability brain you invoke (or `@cadence-cofounder`) to route a request to the right cast/process and to run a standup that holds every agent + gate accountable end-to-end. The cofounder *plans and tracks*; it never ships (SHIP stays human). It may delegate one level when it helps (Claude Code now supports nested subagents, depth ≤5) but keeps depth ≤2 in practice — usually it names the cast and the main session / `/cadence-deliver` workflow dispatches it.
 
 | Agent | Phase | Wraps | Model |
 |---|---|---|---|

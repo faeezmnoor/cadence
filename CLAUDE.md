@@ -1,56 +1,29 @@
-# CLAUDE.md — Cadence app (nested repo)
+# CLAUDE.md — Cadence (Claude Code)
 
-This is the git repo for the Cadence web app — shippable code plus its own
-docs. Product direction (strategy, PRDs, decisions) lives in **Notion**
-("📡 Startup - Cadence") and **Linear** (team `CAD-`); this repo is canonical
-for code, architecture, and the operational runbooks under `docs/`.
+@AGENTS.md
 
-## Hard rules
-
-1. **Cadence ≠ LiveWheel.** Different repo, ICP, Linear team (CAD vs LWL), and
-   Notion tree. Never mix the two.
-2. App code, tests, migrations, `pnpm`, `git` — all run from the repo root (or `apps/web`).
-3. Deeper context: `apps/web/CLAUDE.md`, `apps/web/server/ARCHITECTURE.md`, `HANDOVER.md`, `README.md`.
-
-## Pointers
-
-- Product direction / strategy / PRDs / Decisions Log: **Notion** "📡 Startup - Cadence"
-- Tickets (source of truth for work): **Linear**, team `CAD-`
-- Live system state: `HANDOVER.md` · Architecture: `apps/web/server/ARCHITECTURE.md`
-- Agent team & delivery pipeline: `docs/AGENT_TEAM.md`
+The shared, tool-agnostic project context is in `AGENTS.md` (imported above — stack, commands, repo map, conventions, boundaries, locked guardrails, sources of truth). This file adds the **Claude-Code specifics**: skill routing, the agent team, and the doc/decision lifecycle agents must follow.
 
 ## Skill routing
+When a request matches a skill, invoke it via the Skill tool. When in doubt, invoke it.
+- Product ideas/brainstorming → `/office-hours` · Strategy/scope → `/plan-ceo-review` · Architecture → `/plan-eng-review`
+- Design system / plan review → `/design-consultation` or `/plan-design-review` · Full review pipeline → `/autoplan`
+- Bugs/errors → `/investigate` · QA/site behavior → `/qa` or `/qa-only` · Code review → `/review` · Visual polish → `/design-review`
+- Ship/deploy/PR → `/ship` or `/land-and-deploy` · Save/resume context → `/context-save` / `/context-restore` · Backlog-ready spec → `/spec`
+- Cadence pipeline → `/cadence-deliver` · subsystem eval → `/cadence-eval` · close-out sync → `/cadence-bookkeeping` · cold-pickup docs → `/cadence-handover`
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+## Agent team & delivery pipeline
+Cadence is built by a 3-layer, 18-agent team. **Full playbook: `docs/AGENT_TEAM.md`** (read before non-trivial work).
+- **Orchestrator** — `cadence-cofounder`: routes work (work-type × subsystem → cast/skill/gates) and runs accountability standups. Plans + tracks; never ships (human-only); routes tracker writes through the bookkeeper.
+- **Layer I — delivery squad:** architect, builder, reviewer, qa, designer, bookkeeper, security, debugger.
+- **Layer II — specialist bench (9):** one deep, research-equipped owner per subsystem, pulled in by subsystem tag.
+- **Layer III — harnesses:** eval harness (`cadence-eval-quality` + `/cadence-eval`) + the product agent-runtime harness (`cadence-agent-harness`).
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
-- Author a backlog-ready spec/issue → invoke /spec
+**Pipeline:** `INTAKE → PLAN → BUILD (+DESIGN) → REVIEW (+SECURITY) → VERIFY → SHIP → CLOSE`. Gates: G-plan / G-review / **G-eval** (no subsystem ships without a move-or-hold metric) / G-verify / G-cadence. **SHIP is human.**
+**Run it:** `/cadence-deliver <CAD-N> "<brief>"` → `phase:plan` (gate G-plan) → `phase:build` → `phase:close`. Escape hatch: `@cadence-<role>` for a single consult.
 
-## Delivery pipeline & agent team
-
-Cadence is built by a 3-layer agent team. **Full playbook: `docs/AGENT_TEAM.md`** (read it before non-trivial work).
-
-- **Orchestrator** — `cadence-cofounder` (`.claude/agents/cadence-cofounder.md`): the delivery-orchestration & accountability brain backing the main session. Invoke it (or `@cadence-cofounder`) to route a request to the right work-type/subsystem/cast/skill/gates, or to run a standup that audits Linear/Notion/git and holds every agent + gate accountable. It plans + tracks; it never ships (human-only) and routes tracker writes through the bookkeeper.
-- **Layer I — delivery squad** (`.claude/agents/cadence-{architect,builder,reviewer,qa,designer,bookkeeper,security,debugger}.md`): owns the lifecycle.
-- **Layer II — specialist bench** (`.claude/agents/cadence-{research-search,retrieval-consolidation,llm-composer,multi-llm-provider,channels-delivery,content-format,self-learning,eval-quality,agent-harness}.md`): one deep, research-equipped owner per subsystem; pulled onto a ticket by subsystem tag.
-- **Layer III — harnesses**: the **eval harness** (`cadence-eval-quality` + `/cadence-eval`) and the product **agent runtime harness** (`cadence-agent-harness`).
-
-**Pipeline:** `INTAKE → PLAN → BUILD (+DESIGN) → REVIEW (+SECURITY) → VERIFY → SHIP → CLOSE`, gates G-plan / G-review / **G-eval** / G-verify / G-cadence. The main session is the Orchestrator/PM and never delegates ship.
-
-**Run it:** `/cadence-deliver <CAD-N> "<brief>"` (plan-first, then `phase:build` after you approve) → committed workflow `.claude/workflows/cadence-deliver.js`. Escape hatch: `@cadence-<role> ...` for a single-agent consult.
-
-**Rule: no subsystem change ships without a move-or-hold eval metric (G-eval).** Specialists are evidence-first — `/deep-research` before recommending on the 9 subsystems.
-
-Ported Cadence skills (Claude-Code-native): `cadence-build-wave`, `cadence-fix-pass`, `cadence-handover`, `cadence-bookkeeping`.
+## Doc & decision lifecycle (every agent obeys — automated; no per-step prompt needed)
+- **Decisions** → `docs/decisions/` (ADR, immutable, status lifecycle). A plan that changes a decision adds a *new* ADR — never edit an accepted one.
+- **Plans** → `docs/plans/CAD-N.md` from `_TEMPLATE.md`. Only promotable to BUILD when the **"Plan Review — ready for build"** gate is filled and Faeez approves (G-plan).
+- **CLOSE is automated.** After SHIP, `/cadence-deliver phase:close` (backed by `cadence-bookkeeper` + `cadence-handover`) auto-runs, no prompting per step: archive the plan to `docs/plans/_archive/` with a SHIPPED header → regenerate `HANDOVER.md` + the `cadence-*` memory primers → sync Linear/Notion + the Notion decisions index + `CHANGELOG.md` → `/sync-gbrain` → run the **Ratchet** pass.
+- **Ratchet rule (harness-hardening):** when an agent makes a mistake, fix the *harness* — `AGENTS.md`, this file, a skill, a hook, or an ADR — not just the code. The harness only tightens, never loosens.
