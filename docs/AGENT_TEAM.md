@@ -104,6 +104,15 @@ The rigor mechanism you asked for. **No subsystem change ships without an eval v
 
 This is what turns "we think it's better" into "the recall golden set went 0.45 → 0.71, composer rubric held at 4.2, $/brief +$0.003 — ship."
 
+### 3.1 Operating principles (harness discipline)
+Drawn from how frontier practitioners actually run agent teams (Karpathy, Garry Tan/gstack, Hashimoto, Willison, Osmani):
+- **Thin harness · fat skills · fat code** (Garry Tan). Push fuzzy human judgment into markdown **skills**; push must-be-perfect deterministic work into **code**; keep the harness (CLAUDE.md/AGENTS.md) **thin**. Skills and code carry the weight, not a bloated prompt.
+- **Ratchet — engineer the harness, not just the code** (Hashimoto). When an agent makes a mistake, fix the *harness* — `AGENTS.md`, `CLAUDE.md`, a skill, a hook, or a new ADR — so it can't recur. The harness only tightens. This is an explicit step of the automated CLOSE phase (§4).
+- **Keep AI on a leash** (Karpathy). Small, verifiable increments; the human owns architecture, taste, and review of every diff. "LLMs automate what you can verify" — so make the generate→verify loop fast (tests + `/qa` + the eval gate).
+- **Specs/plans are the source of truth** (Willison/Osmani/Kiro). One plan per ticket from `docs/plans/_TEMPLATE.md`; it is only promotable to BUILD when the machine-checkable "Plan Review — ready for build" gate is filled (G-plan).
+- **Lethal trifecta** (Willison). A sub-agent with private data **+** untrusted content **+** external comms is an injection risk — require a human checkpoint (e.g. the Telegram webhook path); `cadence-security` flags it.
+- **Doc/decision lifecycle.** Decisions → immutable ADRs in `docs/decisions/`; plans → `docs/plans/` then `_archive/` on ship; `HANDOVER.md` + memory primers are regenerated, never hand-maintained. The CLOSE phase owns all of this automatically — no per-step prompt.
+
 ---
 
 ## 4. The delivery pipeline
@@ -125,7 +134,7 @@ INTAKE/GRILL ▣→ PLAN ▣→ BUILD ─┬─ REVIEW ▣→ VERIFY ▣→ SHIP
 3. **REVIEW** *(Reviewer + eval-quality; + Security on sensitive diffs)* — correctness/reuse review **and** eval verdict. Security auto-gate fires for auth/billing/secrets/RLS/webhook/BYO-key/admin diffs. **G-review: zero unresolved P0/P1. G-eval: metric moved-or-held.**
 4. **VERIFY** *(QA + eval-quality)* — runtime acceptance (`/verify`, `/qa`, `/browse`) + eval re-run on the preview. **G-verify: criteria pass; composer/Pro respect eval gate + dogfood bar.**
 5. **SHIP** *(Orchestrator)* — `/ship` or `/land-and-deploy`, Vercel deploy, optional `/canary`.
-6. **CLOSE** *(Bookkeeper)* — Linear `Done`, Notion mirror, `ticket-map.json`, memory if a stance changed.
+6. **CLOSE** *(Bookkeeper, automated via `/cadence-deliver phase:close`)* — runs with no per-step prompting: archive the plan to `docs/plans/_archive/` (SHIPPED header) → Linear `Done` + Notion mirror + decisions index → append `CHANGELOG.md` → regenerate `HANDOVER.md` + memory primers → `/sync-gbrain` → **Ratchet** harness-hardening pass (§3.1).
 
 ### Gates
 | Gate | Blocks | Owner |
