@@ -6,7 +6,7 @@
  * three things:
  *
  *   1. The canonical copy ("1 credit per brief", "3 credits per brief",
- *      the "more specific" value framing (CAD-225: not sourcing claims), footer
+ *      the honest specificity/fit value framing (D-007), footer
  *      marker note) actually appears in the shared component — so a
  *      drive-by edit can't quietly delete a positioning beat.
  *   2. All three consumers actually import and render the component, so
@@ -41,23 +41,35 @@ describe("TierExplainer canonical copy (CAD-95 + CAD-96 + CAD-202)", () => {
     expect(explainerSource).toMatch(/Smart enough for most briefs/);
   });
 
-  it("names advanced research price + value prop", () => {
+  it("names advanced research price + honest (D-007) value prop", () => {
     expect(explainerSource).toMatch(/🔬 Advanced research/);
     // CAD-225: advanced is now a SINGLE option (pro_websearch, 5 credits) —
     // the dominated 3-credit Sonar stack is retired, so the copy names one
     // price, not "3 or 5".
     expect(explainerSource).toMatch(/5 credits/);
     expect(explainerSource).not.toMatch(/3 or 5 credits/);
-    // CAD-225 (CPO review): advanced sells SPECIFICITY/FIT, not better
-    // sourcing — the eval proved grounding is tied with standard, so any
-    // "reads more sources / cross-checks" claim would over-promise.
+    // D-007 honesty (CAD-234): advanced's measured premium is specificity +
+    // fit (denser / more specific / tailored), NOT better grounding. It must
+    // not claim more/better sources or cross-checking — grounding ties
+    // Standard at the structural ceiling.
     expect(explainerSource).toMatch(/more specific/);
-    expect(explainerSource).not.toMatch(/cross-check/i);
+    expect(explainerSource).toMatch(/tailored/);
     expect(explainerSource).not.toMatch(/reads more sources/i);
+    expect(explainerSource).not.toMatch(/cross.?check/i);
   });
 
-  it("calls out the advanced footer marker so users can self-verify which research mode they got", () => {
+  it("calls out the advanced footer marker so users can self-verify which research depth they got", () => {
     expect(explainerSource).toMatch(/footer marker/i);
+  });
+
+  it("keeps COPY_GUIDE-banned research-depth variants out of user-facing copy (CAD-234)", () => {
+    // COPY_GUIDE §3: canonical is "standard research / advanced research"
+    // (footnote concept "research depth"). "research mode" and "deep/deeper
+    // research" are banned variants and must not leak into user surfaces.
+    for (const src of [explainerSource, briefDetailClientSource]) {
+      expect(src).not.toMatch(/research mode/i);
+      expect(src).not.toMatch(/deep(er)? research/i);
+    }
   });
 
   it("retires plan-tier nouns from user-facing copy (CAD-202 — no Pro plan, no Default tier)", () => {

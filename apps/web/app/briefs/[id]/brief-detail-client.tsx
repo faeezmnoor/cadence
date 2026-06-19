@@ -731,7 +731,7 @@ function ConfigurableStackSettings({
 
       <p className="mt-2 text-sm text-muted-foreground">
         Switch research depth per brief. Credits are the only billing — you
-        spend more credits when you point this brief at deeper research, and
+        spend more credits when you point this brief at advanced research, and
         nothing else changes about how you&apos;re billed.
       </p>
 

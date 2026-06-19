@@ -78,8 +78,7 @@ export function TierExplainer({
         </p>
         <p>
           <span className="font-medium text-foreground">🔬 Advanced research · 5 credits</span>{" "}
-          — it digs into more angles and writes a denser, more specific
-          brief, tuned tighter to what you asked for.
+          — a denser, more specific, more tightly tailored brief.
         </p>
       </div>
     );
@@ -105,15 +104,15 @@ export function TierExplainer({
           🔬 Advanced research · 5 credits per brief
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          It digs into more angles and writes a denser, more specific brief,
-          tuned tighter to what you asked for. Best for topics where a generic
-          summary won&apos;t cut it.
+          It produces a denser, more specific, more tightly tailored brief.
+          Best for high-signal topics where a generic summary won&apos;t cut
+          it.
         </p>
       </div>
 
       <p className="text-xs text-muted-foreground">
         Advanced briefs include a 🔬 footer marker on delivery, so you always
-        know which research mode you got.
+        know which research depth you got.
       </p>
     </div>
   );
