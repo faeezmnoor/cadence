@@ -11,7 +11,7 @@
  * The behavioural fixtures from plan §6's migration row (jsonb-null
  * savedSpecId skip, two-sided ambiguity rule, per-phase double-run
  * idempotency, reactivation NOT-EXISTS skip) require a real Postgres and
- * are scripted for the ship operator in scripts/REHEARSAL-0029.md — no
+ * were rehearsed on a branch DB before the (now-applied) 0029 prod migration — no
  * DATABASE_URL exists in this environment by design.
  */
 import { describe, it, expect } from "vitest";

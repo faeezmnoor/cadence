@@ -356,8 +356,7 @@ A manual run before risky migrations: Actions → DB backup → Run workflow.
 
 ## Where to ask for help
 
-- Blueprint (the "what should this be?"): `cadence/blueprint/`
-- PM audits / decisions: `cadence/blueprint/pm-audit-v1.md`,
-  `design-audit-v1.md`, `chat-ux-v2.md`
-- Ticket map (Linear ↔ T-NNN): `cadence/ticket-map.json`
-- Operational runbook: `cadence/blueprint/operational-runbook.md`
+- Product direction / PRDs / decisions: Notion "📡 Startup - Cadence" + Linear (team `CAD-`)
+- Copy, voice & terminology: `apps/web/COPY_GUIDE.md`
+- Live system state: `HANDOVER.md` · Architecture: `apps/web/server/ARCHITECTURE.md`
+- Platform decisions (Wave 1–3): `PLATFORM-AUDIT-2026-06-11.md`
