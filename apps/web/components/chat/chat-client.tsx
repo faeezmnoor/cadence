@@ -1259,7 +1259,7 @@ export function ChatClient({
  * /chat?new=1, gated by the SAME briefs.canCreate rule as /briefs. At cap
  * it renders the shipped disabled state ("Multiple briefs are coming
  * soon." title) — founder sign-off checkpoint on this more visible
- * placement is logged in proposals/brief-manage-mode-pr-notes.md.
+ * placement is covered in proposals/brief-manage-mode-plan.md.
  */
 function NewBriefHeaderButton() {
   const canCreate = trpc.briefs.canCreate.useQuery(undefined, {

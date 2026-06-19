@@ -1,6 +1,6 @@
 # Stripe SKUs v2 — credit-pack-only runbook
 
-> ⚠️ **READ-ONLY MIRROR.** Canonical source lives at `cadence/blueprint/stripe-skus-v2.md` in the outer workspace. Edits here will be overwritten on next sync. See `docs/CANONICAL_OWNER.md`.
+> **Stripe credit-pack SKU spec** — the implementation runbook Faeez follows once Stripe MY KYC clears. This repo is canonical (companions: `HANDOVER.md` §6, `apps/web/server/billing/`).
 
 
 **Status:** Canonical SKU shape for Cadence Stripe Checkout. Implementation BLOCKED on Faeez MY KYC clearance.
