@@ -13,20 +13,16 @@ overnight and sends a short, sourced brief in the morning. Reply to it — 👍,
 
 ## What a brief looks like
 
-The sample on the landing page is written for a Johor feed mill buying palm kernel
-and soymeal:
+This one is written for a Johor feed mill buying palm kernel and soymeal.
 
-> 🌾 **Cadence · Daily · 10 Jun 2026 — Palm oil & feedstock**
-> *Tuned for: Johor feed mill buying palm kernel + soymeal*
->
-> **TL;DR** — CPO holds RM3,920 (▼0.4%); MPOB lifts June export quota 12%; soyoil
-> firms on US dryness `[1][2]`
->
-> **Why this matters to you** — Both of your main inputs moved the same direction
-> this week — worth checking supplier quotes before Friday.
+<img src="docs/screenshots/02-brief.png" alt="A Cadence brief in Telegram: palm oil and feedstock, tuned for a Johor feed mill" width="370">
 
-Everything above that last line can be found in a dozen places. The sentence that
-connects two price moves to *your* purchasing decision cannot.
+Prices, then what moved, then the part that matters — *both of your main inputs
+moved the same direction this week, worth checking supplier quotes before Friday.*
+Everything above that line can be found in a dozen places. The sentence connecting
+two price moves to **your** purchasing decision cannot.
+
+The taps under it are the whole feedback loop: 👍, 👎, or `/tune` with a sentence.
 
 ## A brief is not a digest
 
@@ -65,7 +61,11 @@ mid-flight, or delivered late without a schedule drifting or colliding with itse
 
 Feedback is free forever and always will be. `/tune` and the reaction taps are what
 make the product improve, and metering them would mean charging people to make it
-better.
+better. Everything else is pre-paid credits that never expire — no subscription,
+because a periodical product with variable value per issue makes a monthly charge
+over-promise.
+
+![Cadence pricing: four credit packs, no subscription, credits never expire](docs/screenshots/04-pricing.png)
 
 ## Product decisions
 
