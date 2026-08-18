@@ -1,47 +1,105 @@
 # Cadence
 
-Periodical, self-learning market-research briefs delivered to Telegram.
-(In code the entity is `digest_*`; in all user-facing copy it is **a brief** — see `apps/web/COPY_GUIDE.md` §4a.)
-Configured via web chat. One-person ops, multi-tenant.
+**A daily research agent for people whose work turns on one specific thing moving.**
+
+[cadence-web-bice.vercel.app](https://cadence-web-bice.vercel.app)
+
+A commodity price. A competitor. A regulation that changes what you can import.
+You tell Cadence what matters in a web chat, link Telegram, and it researches
+overnight and sends a short, sourced brief in the morning. Reply to it — 👍, 👎, or
+`/tune` with a sentence — and the next one comes back closer to what you wanted.
+
+---
+
+## What a brief looks like
+
+The sample on the landing page is written for a Johor feed mill buying palm kernel
+and soymeal:
+
+> 🌾 **Cadence · Daily · 10 Jun 2026 — Palm oil & feedstock**
+> *Tuned for: Johor feed mill buying palm kernel + soymeal*
+>
+> **TL;DR** — CPO holds RM3,920 (▼0.4%); MPOB lifts June export quota 12%; soyoil
+> firms on US dryness `[1][2]`
+>
+> **Why this matters to you** — Both of your main inputs moved the same direction
+> this week — worth checking supplier quotes before Friday.
+
+Everything above that last line can be found in a dozen places. The sentence that
+connects two price moves to *your* purchasing decision cannot.
+
+## A brief is not a digest
+
+A digest tells you what happened. A brief tells you what changed for you — and past
+the first week they are different products, with different retrieval, different
+ranking, and a different reason to open them.
+
+A thousand users get a thousand different briefs, each shaped by what they asked
+for and how they have replied since. It is not a newsletter with segments, and the
+distinction is what the architecture is organised around. The reasoning is in
+[`docs/decisions/0003-brief-not-digest.md`](docs/decisions/0003-brief-not-digest.md).
+
+Telegram is where the brief lands, but the channel is deliberately kept out of the
+pitch — it is a delivery detail, and the value has to survive being moved to
+WhatsApp or email.
+
+## How it works
+
+```
+web chat (config agent)  →  brief spec stored per user
+                                  │
+                    Inngest cron ─┤  tz-aware, ticks every 5 min
+                                  ▼
+        retrieve  →  compose (LLM)  →  render  →  Telegram
+                                  │
+                    👍 / 👎 / /tune ─┘  →  weekly distill → distilled_prefs
+```
+
+You never fill in a settings form. An agent interviews you, and what it produces is
+a *brief* — the same noun as the thing that arrives, so there is nothing new to
+learn between configuring it and reading it.
+
+Each brief stores its own `next_run_at` as an exact scheduled instant rather than a
+recurrence rule evaluated at run time, which is what lets briefs be paused, edited
+mid-flight, or delivered late without a schedule drifting or colliding with itself.
+
+Feedback is free forever and always will be. `/tune` and the reaction taps are what
+make the product improve, and metering them would mean charging people to make it
+better.
+
+## Product decisions
+
+Thirteen are written up in [`docs/decisions/`](docs/decisions/), including pricing
+as pre-paid credits rather than a subscription (`0002`, `0008`), why research
+collapsed from three tiers to two (`0006`), why the advanced tier ships turned off
+(`0009`), and one rename that was tried and reversed (`0005`). Several supersede
+each other and the amendment trail is intact, which makes them more useful than a
+tidy set would be.
 
 ## Stack
 
-- Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui
-- tRPC v11
-- Supabase Postgres (Singapore) + Supabase Auth (magic link via Resend)
-- Drizzle ORM
-- Inngest (background jobs + cron)
-- Vercel AI SDK (composer = Claude Haiku; config agent = GPT-4o-mini)
-- grammY (Telegram bot, webhook on Vercel)
-- Fly.io Python sidecar (yfinance) — Phase 2
-
-See `/docs` (mirrors `cadence/blueprint/`) for the full plan.
-
-## Repo layout
+Next.js 15 (App Router) · tRPC v11 · Drizzle ORM on Supabase Postgres · Inngest for
+scheduling and background jobs · grammY for the Telegram webhook · Vercel AI SDK ·
+Tailwind and shadcn/ui. Deployed on Vercel, pnpm workspace.
 
 ```
-cadence/
-├── apps/
-│   └── web/                # Next.js app
-├── services/
-│   └── prices/             # Python yfinance microservice (Phase 2)
-└── docs/                   # mirrored blueprint
+apps/web/          Next.js app, tRPC routers, brief pipeline, evals
+services/prices/   Python yfinance sidecar
+docs/              decisions, plans, runbooks, roadmap
 ```
 
-## Local dev
+## Local development
 
-Prereqs: Node 20+, pnpm 9+.
+Node 20+, pnpm 9+.
 
 ```bash
 pnpm install
-cp apps/web/.env.example apps/web/.env.local  # fill in keys
-pnpm dev
+cp apps/web/.env.example apps/web/.env.local   # fill in keys
+pnpm dev                                        # → http://localhost:3000
 ```
 
-## Scripts
+`pnpm typecheck` · `pnpm lint` · `pnpm db:generate` (Drizzle migrations from schema
+changes) · `pnpm db:migrate`.
 
-- `pnpm dev` — run the web app
-- `pnpm build` / `pnpm start` — production build/serve
-- `pnpm typecheck` / `pnpm lint`
-- `pnpm db:generate` — generate Drizzle migrations from schema changes
-- `pnpm db:migrate` — apply migrations to the configured Postgres
+The web app and chat config run without Telegram configured; the full delivery
+pipeline needs a bot token and a model provider key.
