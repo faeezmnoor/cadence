@@ -38,6 +38,41 @@ Standard: house-standard 1.2.2 · Tier: standard · UI: yes · DB: yes · Lint: 
 
 ## Decisions (generated)
 <!-- gen-decision-index -->
+| No. | Title | Status | Date |
+| --- | --- | --- | --- |
+| 0000 | Record architecture & product decisions as ADRs | accepted | 2026-06-19 |
+| 0011 | Maintain a pluggable web-search registry; Standard default is eval-decided | accepted | 2026-06-16 |
+| 0005 | Standing-config noun stays "brief" ("watch" rename REVERSED) | accepted | 2026-06-16 |
+| 0012 | Eval rubric is hybrid; gate threshold is MIN_LEAD = 0.5 | accepted | 2026-06-14 |
+| 0010 | Research is three modes (Standard / Advanced / Custom); "Pro" is retired | accepted | 2026-06-14 |
+| 0009 | Advanced tier paused behind PRO_TIER_ALPHA | accepted | 2026-06-14 |
+| 0008 | Pricing: Standard 1 credit, Advanced 5 credits | accepted | 2026-06-14 |
+| 0007 | Advanced research sells specificity + fit, not grounding | accepted | 2026-06-14 |
+| 0006 | Research tiers reduced to two (Standard + Advanced) | accepted | 2026-06-13 |
+| 0004 | Brief-creation flow: starter cards + "Browse all briefs" gallery | accepted | 2026-06-11 |
+| 0003 | "Brief", not "digest", for the user-facing artifact | accepted | 2026-06-11 |
+| 0002 | Monetization: pre-paid credits, no subscriptions | accepted | 2026-06-02 |
+| 0001 | Positioning: lead with the value prop, never the channel | accepted | 2026-05-29 |
 
 ## Cast (generated)
 <!-- gen-roster -->
+| Agent | Model | Tier | Kind |
+| --- | --- | --- | --- |
+| cadence-agent-harness | opus | - | specialist |
+| cadence-architect | opus | - | specialist |
+| cadence-bookkeeper | haiku | - | specialist |
+| cadence-builder | sonnet | - | specialist |
+| cadence-channels-delivery | opus | - | specialist |
+| cadence-cofounder | opus | - | specialist |
+| cadence-content-format | opus | - | specialist |
+| cadence-debugger | sonnet | - | specialist |
+| cadence-designer | sonnet | - | specialist |
+| cadence-eval-quality | opus | - | specialist |
+| cadence-llm-composer | opus | - | specialist |
+| cadence-multi-llm-provider | opus | - | specialist |
+| cadence-qa | sonnet | - | specialist |
+| cadence-research-search | opus | - | specialist |
+| cadence-retrieval-consolidation | opus | - | specialist |
+| cadence-reviewer | opus | - | specialist |
+| cadence-security | opus | - | specialist |
+| cadence-self-learning | opus | - | specialist |
