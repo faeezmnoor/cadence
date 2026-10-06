@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 // @bun
-// standard-check-version: 1.2.2
+// standard-check-version: 1.3.0
 
 // scripts/standard-check.ts
 import { resolve, join as join4 } from "path";
 import { existsSync as existsSync3, statSync as statSync3, readFileSync as readFileSync3 } from "fs";
 
 // scripts/lib/version.ts
-var EMBEDDED_VERSION = "1.2.2";
+var EMBEDDED_VERSION = "1.3.0";
 
 // scripts/lib/common.ts
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -46,7 +46,17 @@ var RULES = {
   T6: "\xA77, \xA712",
   O1: "\xA77, \xA712",
   O2: "\xA77, \xA712",
-  O3: "\xA78, \xA712"
+  O3: "\xA78, \xA712",
+  K1: "\xA79, \xA712",
+  K2: "\xA79, \xA712",
+  K3: "\xA79, \xA712",
+  K4: "\xA79, \xA712",
+  K5: "\xA79, \xA712",
+  H4: "\xA712",
+  H5: "\xA712",
+  H6: "\xA712",
+  H7: "\xA712",
+  M1: "\xA713"
 };
 var LAYERS = ["state", "knowledge", "records"];
 var STATUSES = ["living", "frozen", "record", "archived"];
@@ -469,6 +479,229 @@ function links(p, files) {
   }
 }
 
+// scripts/lib/mdfiles.ts
+var SKIP = new Set(["node_modules", "dist", "fixtures"]);
+function repoFiles(p) {
+  if (p.exists(".git")) {
+    const r = Bun.spawnSync(["git", "-C", p.root, "ls-files", "-z", "--", "*.md", ".github/**", ".claude/**"]);
+    const list = r.exitCode === 0 ? r.stdout.toString().split("\x00").filter(Boolean) : [];
+    if (list.length)
+      return list.filter((f) => p.exists(f) && !f.startsWith("scripts/fixtures/")).filter(textual);
+  }
+  const root = p.walk(".", SKIP).map((f) => f.replace(/^\.\//, ""));
+  const dotted = [".github", ".claude"].flatMap((d) => p.walk(d, SKIP));
+  return [...new Set([...root.filter((f) => f.endsWith(".md")), ...dotted])].filter(textual);
+}
+var BINARY = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|woff2?|ttf|mp4|mov)$/i;
+var textual = (f) => !BINARY.test(f);
+
+// scripts/lib/gen-common.ts
+function frontmatter(text) {
+  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m)
+    return { fm: {}, body: text };
+  const fm = {};
+  for (const l of m[1].split(`
+`)) {
+    const kv = l.match(/^([A-Za-z-]+):\s*(.*)$/);
+    if (kv)
+      fm[kv[1].toLowerCase()] = kv[2].trim().replace(/^["']|["']$/g, "");
+  }
+  return { fm, body: m[2] };
+}
+
+// scripts/lib/decision-index.ts
+function decisionRows(files) {
+  return files.filter((f) => /^\d+-.*\.md$/.test(f.name)).map((f) => {
+    const { fm, body } = frontmatter(f.text);
+    const title = body.match(/^# (.+)$/m)?.[1].trim() ?? f.name.replace(/\.md$/, "");
+    return { no: f.name.match(/^\d+/)[0], title, status: fm.status ?? "unknown", date: fm.date ?? "" };
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.no.localeCompare(a.no));
+}
+
+// scripts/lib/generated.ts
+var GENERATED = ["docs/architecture/schema.md", "docs/architecture/code-map.md"];
+var SOURCES = ["**/migrations/**", "**/drizzle/**", "**/schema.prisma", "**/schema.ts", "**/schema.sql"];
+function generated(p) {
+  const run = (...a) => {
+    const r = Bun.spawnSync(["git", "-C", p.root, ...a]);
+    return r.exitCode === 0 ? r.stdout.toString().trim() : "";
+  };
+  for (const rel of GENERATED.filter((f) => p.exists(f))) {
+    const h = parseHeader(p.read(rel));
+    const gen = h?.fields.generated?.match(/@\s*([0-9a-f]{7,40})\b/i);
+    if (!h?.fields.generated || !gen) {
+      p.add(rel, h?.line ?? 1, "K4", "FAIL", "generated document has no `generated: <source> @ <commit>` header");
+      continue;
+    }
+    if (!p.exists(".git"))
+      continue;
+    const since = run("log", "-1", "--format=%ct", gen[1]);
+    const newest = run("log", "-1", "--format=%ct", "--", ...SOURCES.map((s) => `:(glob)${s}`));
+    if (since && newest && Number(newest) > Number(since))
+      p.add(rel, h.line, "K4", "WARN", "stale generated document: migrations or schema files changed after its header commit; regenerate it");
+  }
+}
+
+// scripts/lib/technical.ts
+var STATUSES2 = ["proposed", "accepted", "rejected", "deprecated", "superseded"];
+var ISO = /^\d{4}-\d\d-\d\d$/;
+var EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+var NAME_PAIR = /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
+var RUNBOOK_SECTIONS = [
+  ["When to use", /^when to use/i],
+  ["Preconditions", /^preconditions/i],
+  ["Steps", /^steps/i],
+  ["Verification", /^verification/i],
+  ["Rollback", /^rollback/i],
+  ["Last run", /^last run/i]
+];
+var today = () => process.env.STANDARD_GEN_DATE ?? new Date().toISOString().slice(0, 10);
+var days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+function ownerNames(p) {
+  const m = p.read("docs/workflow.md").match(/owner-names:\s*\[([^\]]*)\]/i);
+  return (m?.[1] ?? "").split(",").map((s) => s.trim()).filter((s) => s && !/[<>]/.test(s));
+}
+var wordRe = (names) => new RegExp(`(?<![\\w])(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\w])`, "i");
+function technical(p) {
+  const dir = p.walk("docs/decisions").filter((f) => /\/\d+-[^/]*\.md$/.test(f));
+  const names = ownerNames(p);
+  for (const rel of dir) {
+    const text = p.read(rel);
+    if (!/^---\n[\s\S]*?\n---(\n|$)/.test(text)) {
+      p.add(rel, 1, "K1", "FAIL", "no YAML frontmatter between `---` lines at the top of the file");
+      continue;
+    }
+    const { fm } = frontmatter(text);
+    if (!STATUSES2.includes(fm.status))
+      p.add(rel, 2, "K1", "FAIL", `status must be one of ${STATUSES2.join(", ")} (got "${fm.status ?? ""}")`);
+    if (!ISO.test(fm.date ?? "") || Number.isNaN(Date.parse(fm.date)))
+      p.add(rel, 2, "K1", "FAIL", `date must be ISO YYYY-MM-DD (got "${fm.date ?? ""}")`);
+    const dm = fm["decision-makers"];
+    if (!dm)
+      p.add(rel, 2, "K1", "FAIL", "decision-makers missing; use roles, e.g. `the owner (ruled by owner)`");
+    else if (EMAIL.test(dm))
+      p.add(rel, 2, "K1", "FAIL", "decision-makers contains an e-mail address; roles only");
+    else if (names.length && wordRe(names).test(dm))
+      p.add(rel, 2, "K1", "FAIL", "decision-makers contains a declared owner name; roles only");
+    else if (NAME_PAIR.test(dm))
+      p.add(rel, 2, "K1", "WARN", `decision-makers "${dm}" looks like a person's name; roles only`);
+    if (fm.status === "proposed" && ISO.test(fm.date ?? "") && days(fm.date, today()) > 30)
+      p.add(rel, 2, "K2", "FAIL", `proposed since ${fm.date} (${days(fm.date, today())} days); accept, reject or deprecate within 30 days`);
+  }
+  decisionIndex(p, dir);
+  generated(p);
+  for (const rel of p.walk("docs/runbooks").filter((f) => f.endsWith(".md"))) {
+    const heads = p.read(rel).split(`
+`).filter((l) => /^##\s/.test(l)).map((l) => l.replace(/^##\s+/, ""));
+    const missing = RUNBOOK_SECTIONS.filter(([, re]) => !heads.some((h) => re.test(h))).map(([n]) => n);
+    if (missing.length)
+      p.add(rel, 1, "K5", "FAIL", `runbook is missing section(s): ${missing.join(", ")}`);
+  }
+}
+function decisionIndex(p, files) {
+  const lines = p.read("docs/README.md").split(`
+`);
+  const at = lines.findIndex((l) => l.trim() === "<!-- gen-decision-index -->");
+  if (!p.exists("docs/README.md") || at < 0 && !files.length)
+    return;
+  if (at < 0) {
+    p.add("docs/README.md", 1, "K3", "FAIL", "decisions exist but docs/README.md has no `<!-- gen-decision-index -->` block");
+    return;
+  }
+  const rows = (rest) => {
+    const out = [];
+    for (const l of rest) {
+      if (/^#{1,6}\s/.test(l))
+        break;
+      const c = l.match(/^\|\s*(\d+)\s*\|.*\|\s*([^|]*?)\s*\|\s*[^|]*\|\s*$/);
+      if (c)
+        out.push(`${c[1]} ${c[2]}`);
+    }
+    return out;
+  };
+  const want = decisionRows(files.map((f) => ({ name: f.split("/").pop(), text: p.read(f) }))).map((r) => `${r.no} ${r.status}`);
+  const have = rows(lines.slice(at + 1));
+  if (want.join(`
+`) !== have.join(`
+`))
+    p.add("docs/README.md", at + 1, "K3", "FAIL", `decision index does not match docs/decisions/ (expected ${want.length} row(s) [${want.join("; ")}], found ${have.length} [${have.join("; ")}]); run gen-decision-index`);
+}
+
+// scripts/lib/archive.ts
+var clean = (c) => c.trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
+function archiveIndex(p) {
+  const idx = "docs/_archive/index.md";
+  const files = p.walk("docs/_archive").filter((f) => f !== idx);
+  if (!files.length && !p.exists(idx))
+    return;
+  const rows = p.read(idx).split(`
+`).map((t, i) => ({ cells: t.split("|").slice(1, -1).map(clean), n: i + 1, t })).filter((r) => /^\s*\|/.test(r.t) && r.cells.length >= 2 && !/^[-: ]+$/.test(r.cells[0]) && !/^original path$/i.test(r.cells[0]));
+  const dest = (c) => c.startsWith("docs/_archive/") ? c : `docs/_archive/${c}`;
+  const counts = new Map;
+  for (const r of rows)
+    counts.set(dest(r.cells[1]), (counts.get(dest(r.cells[1])) ?? 0) + 1);
+  for (const f of files) {
+    const n = counts.get(f) ?? 0;
+    if (n !== 1)
+      p.add(p.exists(idx) ? idx : f, 1, "H7", "FAIL", `${f} has ${n} row(s) in docs/_archive/index.md; one row per archived file`);
+  }
+  for (const r of rows)
+    if (!p.exists(dest(r.cells[1])))
+      p.add(idx, r.n, "H7", "FAIL", `row points at ${r.cells[1]}, which does not exist; no row without a file`);
+}
+
+// scripts/lib/hygiene-repo.ts
+var EMAIL2 = /[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})/g;
+var SECRETS = [
+  [/(?<![\w])\d{8,10}:[A-Za-z0-9_-]{35}(?![\w-])/, "Telegram bot token"],
+  [/\bsk_live_[A-Za-z0-9]{10,}/, "Stripe live key"],
+  [/\bwhsec_[A-Za-z0-9]{10,}/, "Stripe webhook secret"],
+  [/\bghp_[A-Za-z0-9]{20,}/, "GitHub token"],
+  [/\bxox[bap]-[A-Za-z0-9-]{10,}/, "Slack token"],
+  [/\bAKIA[0-9A-Z]{16}\b/, "AWS access key id"],
+  [/(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])/, "64-character hex value"],
+  [/\b[a-z][a-z0-9+.-]*:\/\/[^\s:@\/<>\[\]{}$*]+:[^\s@\/<>\[\]{}$*]+@[^\s\/]+/i, "connection string with credentials"]
+];
+function visibility(p) {
+  const line = p.read("docs/README.md").split(`
+`).find((l) => /^\s*standard:\s*house-standard\s/i.test(l)) ?? "";
+  return line.match(/\bvisibility:\s*(public|private)\b/i)?.[1].toLowerCase();
+}
+function hygieneRepo(p) {
+  const names = ownerNames(p);
+  const nameRe = names.length ? wordRe(names) : null;
+  const level = visibility(p) === "public" ? "FAIL" : "WARN";
+  for (const rel of repoFiles(p)) {
+    const lines = p.read(rel).split(`
+`);
+    let mail = false, secret = false, name = false;
+    lines.forEach((t, i) => {
+      if (!mail) {
+        for (const m of t.matchAll(EMAIL2))
+          if (!/^example\.com$/i.test(m[1]) && !t.slice(0, m.index).split(/\s/).pop().includes("://")) {
+            p.add(rel, i + 1, "H4", "FAIL", `e-mail address ${m[0]}; use example.com or [redacted]`);
+            mail = true;
+            break;
+          }
+      }
+      if (!secret) {
+        for (const [re, what] of SECRETS)
+          if (re.test(t)) {
+            p.add(rel, i + 1, "H5", "FAIL", `secret-shaped value (${what}); redact it and rotate the secret`);
+            secret = true;
+            break;
+          }
+      }
+      if (!name && nameRe && !(rel === "docs/workflow.md" && /owner-names:/i.test(t)) && nameRe.test(t)) {
+        p.add(rel, i + 1, "H6", level, `owner name found${level === "FAIL" ? " in a public repository" : " (visibility not declared public)"}; refer to "the owner"`);
+        name = true;
+      }
+    });
+  }
+  archiveIndex(p);
+}
+
 // scripts/lib/hygiene.ts
 var HOME_PATH = /(?<![\w.\-\/])\/(?:Users|home)\/[^\/\s]+\//;
 var ROOT_FILES = ["AGENTS.md", "CLAUDE.md", "STATE.md", "DESIGN.md", "README.md", "CHANGELOG.md"];
@@ -494,6 +727,7 @@ function hygiene(p) {
     if (!LAYERS.includes(layer) || !STATUSES.includes(status))
       p.add(rel, h.line, "H3", "FAIL", `layer/status invalid (layer=${h.fields.layer}, status=${h.fields.status})`);
   }
+  hygieneRepo(p);
 }
 
 // scripts/lib/entry.ts
@@ -581,7 +815,7 @@ function git(p) {
 
 // scripts/lib/state.ts
 var VERIFIED = /^verified:\s*(\d{4}-\d\d-\d\d) at ([0-9a-f]{7,40}) by (\S.*?)\s*(?:<!--.*)?$/;
-var days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+var days2 = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 function state(p) {
   const g = git(p);
   if (p.exists("STATE.md")) {
@@ -598,8 +832,8 @@ function state(p) {
       else if (behind > 20)
         p.add("STATE.md", at + 1, "T2", "FAIL", `verified commit is ${behind} commits behind HEAD (limit 20)`);
       const head = g.headDate();
-      if (head && days(m[1], head) > 14)
-        p.add("STATE.md", at + 1, "T3", "FAIL", `verified ${m[1]} is ${days(m[1], head)} days behind HEAD (${head}); limit 14`);
+      if (head && days2(m[1], head) > 14)
+        p.add("STATE.md", at + 1, "T3", "FAIL", `verified ${m[1]} is ${days2(m[1], head)} days behind HEAD (${head}); limit 14`);
     }
     const tier = readDeclaration(p).tier;
     if (tier === "standard" || tier === "full") {
@@ -660,6 +894,54 @@ function queue(p) {
   }
 }
 
+// scripts/lib/disposition.ts
+var clean2 = (c) => c.trim().replace(/^`+|`+$/g, "").replace(/^\.\//, "").replace(/#.*$/, "");
+var none = (c) => c === "" || /^(-|\u2014|\u2013|n\/a|none)$/i.test(c);
+function dispositionRows(text) {
+  const lines = text.split(`
+`);
+  const cells = (l) => l.split("|").slice(1, -1).map((c) => c.trim());
+  const hdrAt = (from) => lines.findIndex((l, i) => i >= from && /^\s*\|/.test(l) && ["source", "destination", "action"].every((k) => cells(l).some((c) => c.toLowerCase() === k)));
+  const h = lines.findIndex((l) => /^#{1,6}\s.*disposition/i.test(l));
+  const at = hdrAt(h < 0 ? 0 : h);
+  if (at < 0)
+    return null;
+  const head = cells(lines[at]).map((c) => c.toLowerCase());
+  const col = (k) => head.indexOf(k);
+  const rows = [];
+  for (let i = at + 2;i < lines.length && /^\s*\|/.test(lines[i]); i++) {
+    const c = cells(lines[i]);
+    rows.push({ source: clean2(c[col("source")] ?? ""), dest: clean2(c[col("destination")] ?? ""), action: (c[col("action")] ?? "").toLowerCase().replace(/[*`]/g, "").trim(), line: i + 1 });
+  }
+  return rows;
+}
+function checkDisposition(p, planRel) {
+  const rows = dispositionRows(p.read(planRel));
+  if (!rows)
+    return false;
+  const idxCells = p.read("docs/_archive/index.md").split(`
+`).filter((l) => /^\s*\|/.test(l)).map((l) => l.split("|").slice(1, -1).map(clean2));
+  const fail = (line, msg) => p.add(planRel, line, "M1", "FAIL", msg);
+  for (const r of rows) {
+    const retire = /^(retire|archive)/.test(r.action);
+    const label = r.source || "(no source)";
+    if (retire) {
+      if (none(r.dest) || !p.exists(r.dest))
+        fail(r.line, `${label}: ${r.action} row has no archive file at "${r.dest}"`);
+      if (!idxCells.some((c) => c.includes(r.source) || r.dest !== "" && c.slice(1).includes(r.dest) && c.some((x) => x === r.source)))
+        fail(r.line, `${label}: ${r.action} row has no row in docs/_archive/index.md`);
+    } else if (none(r.dest) || !p.exists(r.dest))
+      fail(r.line, `${label}: destination "${r.dest}" is missing`);
+    if (/^move/.test(r.action) && r.source && p.exists(r.source))
+      fail(r.line, `${label}: move row, but the source still exists`);
+  }
+  return true;
+}
+function dispositionAll(p) {
+  for (const rel of p.walk("docs/slices").filter((f) => /\/plan\.md$/.test(f) && !/\/_/.test(f)))
+    checkDisposition(p, rel);
+}
+
 // scripts/standard-check.ts
 if (process.argv.includes("--version")) {
   console.log(EMBEDDED_VERSION ?? readFileSync3(join4(import.meta.dir, "../VERSION"), "utf8").trim());
@@ -677,6 +959,8 @@ budgets(p);
 entry(p);
 state(p);
 onehome(p);
+technical(p);
+dispositionAll(p);
 hygiene(p);
 var rows = p.findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 console.log("| file | line | rule | spec | level | message |");

@@ -31,6 +31,9 @@ Tier: standard. UI: yes. DB: yes. The generic contract (stages, roles, review, g
 - Dogfood bar: 14 consecutive clean daily briefs before public signup opens (CAD-209).
 - Security lane: required on the paths listed under the cadence-security specialist.
 
+## Hygiene
+- owner-names: [the owner's first name and GitHub handle are declared in the standard repo's private registry; this public repo declares none]
+
 ## Tracking
 - Linear team: CAD (`CAD-<n>`); the repo wins on conflict and the bookkeeper fixes Linear in the same run.
 - Notion: none.

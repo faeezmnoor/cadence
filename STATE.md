@@ -1,8 +1,9 @@
 # STATE — Cadence
 <!-- layer: state · status: living · budget: 80 lines -->
-verified: 2026-10-06 at 0ef8b28 by pnpm typecheck, lint, test (1224 passed), bun .standard/standard-check.mjs . (0 FAIL), gates G1, G2, G4-G6, G8-G14, G16, G18 (exit 0), two independent reviews (correctness, hygiene: APPROVE)
+verified: 2026-10-06 at 8afb459 by CI on PR #52 (check, standard-check, Vercel preview all green), production deployment success, two independent reviews over two rounds (correctness, hygiene: APPROVE)
 
 ## Now
+- Adopted the house standard at Standard tier (PR #52, merged 2026-10-06): entry file, state, 13 decisions in MADR, architecture overview and generated schema, DESIGN.md phase one, lessons, two specialist agents plus the shared plugin, CI lint required on main.
 - Production (Vercel, from main 001508c, 2026-10-06): chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
 - main 001508c (2026-10-06, slice 002): CI test-path fix and dependency security patches (Next.js 15.5.27, transitive overrides in pnpm-workspace.yaml); CI green including `pnpm audit --prod --audit-level=high`.
 - Not live: card checkout (no Stripe integration in code); Advanced research paused behind `PRO_TIER_ALPHA` (decision 0009); Custom mode deferred (decision 0010).
@@ -30,8 +31,8 @@ verified: 2026-10-06 at 0ef8b28 by pnpm typecheck, lint, test (1224 passed), bun
 see docs/OWNER-QUEUE.md
 
 ## Measurements
-<!-- filled by the orchestrator at CLOSE from the harness figures; builders leave this table alone -->
-| Slice | Builder tokens | Reviewer tokens | Fix rounds |
-| --- | --- | --- | --- |
-| 001-adopt-standard | | | |
-Owner minutes this week: not recorded. Last cold-start test: not run.
+| Slice | Planner tokens | Builder tokens | Reviewer tokens | Fix rounds |
+| --- | --- | --- | --- | --- |
+| 002-fix-ci | — | ~55k + ~63k + ~78k (test fix, audit scope, security patches) | ~83k + challenger ~74k | 0 |
+| 001-adopt-standard | ~257k | ~401k + ~121k (fix round) | ~178k + ~104k, re-reviews ~195k + ~112k (two lanes) | 1 |
+Owner minutes this week: 0 so far (the owner queue holds 10 items). Last cold-start test: 2026-10-06, pass (independent reviewer).
