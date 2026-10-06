@@ -58,21 +58,5 @@ Standard: house-standard 1.2.2 · Tier: standard · UI: yes · DB: yes · Lint: 
 <!-- gen-roster -->
 | Agent | Model | Tier | Kind |
 | --- | --- | --- | --- |
-| cadence-agent-harness | opus | - | specialist |
-| cadence-architect | opus | - | specialist |
-| cadence-bookkeeper | haiku | - | specialist |
-| cadence-builder | sonnet | - | specialist |
-| cadence-channels-delivery | opus | - | specialist |
-| cadence-cofounder | opus | - | specialist |
-| cadence-content-format | opus | - | specialist |
-| cadence-debugger | sonnet | - | specialist |
-| cadence-designer | sonnet | - | specialist |
 | cadence-eval-quality | opus | - | specialist |
-| cadence-llm-composer | opus | - | specialist |
-| cadence-multi-llm-provider | opus | - | specialist |
-| cadence-qa | sonnet | - | specialist |
-| cadence-research-search | opus | - | specialist |
-| cadence-retrieval-consolidation | opus | - | specialist |
-| cadence-reviewer | opus | - | specialist |
 | cadence-security | opus | - | specialist |
-| cadence-self-learning | opus | - | specialist |
