@@ -1,6 +1,6 @@
 # STATE — Cadence
 <!-- layer: state · status: living · budget: 80 lines -->
-verified: 2026-10-06 at 146c495 by bun .standard/standard-check.mjs . (exit 0 at the next commit), pnpm typecheck && pnpm lint && pnpm test (exit 0, 1224 tests), CI run 37481884290 green on main 001508c, Vercel production deployment of 001508c successful
+verified: 2026-10-06 at f3c4cee by bun .standard/standard-check.mjs . (exit 0, 0 FAIL), pnpm typecheck && pnpm lint && pnpm test (exit 0), CI run 37481884290 green on main 001508c, Vercel production deployment of 001508c successful
 
 ## Now
 - Production (Vercel, from main 001508c, 2026-10-06): chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
