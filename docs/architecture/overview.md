@@ -51,7 +51,7 @@ flowchart TB
 ```
 | Container | Technology | Code | Deployed by |
 | --- | --- | --- | --- |
-| Web app (pages, chat, settings, admin) | Next.js 15 App Router, React, Tailwind, shadcn/ui | apps/web/app/, apps/web/components/ | Vercel on push to main |
+| Web app (pages, chat, settings, admin) | Next.js 15 App Router, React, Tailwind (shadcn/ui configured in apps/web/components.json; no primitives installed) | apps/web/app/, apps/web/components/ | Vercel on push to main |
 | API | tRPC 11, route handlers, Zod | apps/web/server/trpc/, apps/web/app/api/ | Vercel |
 | Pipeline and jobs | Inngest functions, Vercel AI SDK | apps/web/server/inngest/, server/digest/, server/ai/, server/sources/ | Vercel (Inngest calls the endpoint) |
 | Telegram webhook | grammY, channel adapter | apps/web/app/api/telegram/webhook/, server/channels/telegram/ | Vercel |

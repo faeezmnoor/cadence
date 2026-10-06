@@ -75,7 +75,7 @@ Flat by default: borders (`border` token) separate surfaces; `shadow-sm` on rais
 Radius token 0.5rem (`rounded-lg`), with `md` and `sm` 2px and 4px smaller; `rounded-full` for pills, avatars and badges.
 
 ## Components
-No shared primitive library is installed (no components/ui); feature folders under apps/web/components/ (chat, billing, settings, marketing, telegram, nav, delivery, auth) compose Tailwind classes on the tokens above. Named uses: primary action on `brand`, the "Best value" badge on `brand`, status text on `success`, `warning` and `destructive`. A components register (docs/design/components.md) is a Full-tier document and is not kept here.
+No shared primitive library is installed: apps/web/components.json configures shadcn/ui, but no component has been added (no components/ui, no Radix packages in apps/web/package.json); feature folders under apps/web/components/ (chat, billing, settings, marketing, telegram, nav, delivery, auth) compose Tailwind classes on the tokens above. Named uses: primary action on `brand`, the "Best value" badge on `brand`, status text on `success`, `warning` and `destructive`. A components register (docs/design/components.md) is a Full-tier document and is not kept here.
 
 ## Do's and Don'ts
 - Do use the semantic tokens; don't use raw palette colours or `dark:` colour variants for status.

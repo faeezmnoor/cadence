@@ -94,7 +94,7 @@ Node 20+, pnpm 9+.
 
 ```bash
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in keys
+cp .env.example apps/web/.env.local            # fill in keys
 pnpm dev                                        # → http://localhost:3000
 ```
 

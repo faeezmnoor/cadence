@@ -26,7 +26,7 @@ workspace root and build only the web app.
 4. **Framework preset**: Next.js (auto-detected).
 5. **Region**: Singapore (`sin1`) — set under Project → Settings → Functions.
 6. Build/install commands: leave default; `vercel.json` overrides them.
-7. Add env vars from `apps/web/.env.example` once the values exist.
+7. Add env vars from the root `.env.example` once the values exist.
 8. First deploy will fail until env vars are populated — that's expected.
 
 #### Autodeploy contract

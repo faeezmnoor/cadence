@@ -19,7 +19,7 @@ For LLM-specific orientation (Claude Code / Cursor / GPT), read
 ```bash
 # from cadence/app (the nested git repo root)
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in keys (see Env vars)
+cp .env.example apps/web/.env.local            # fill in keys (see Env vars)
 pnpm --filter web dev                          # http://localhost:3000
 ```
 
