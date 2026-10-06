@@ -107,4 +107,29 @@ Result: 27 rows ticked, 1 finding (F1). Content is lost from the live set in one
 - The security lane's scope: for example, the seed script still has the owner's e-mail as a built-in default, according to SMOKE.md line 27.
 - Linear issues outside the export.
 
-VERDICT: BLOCK — one rule (F1) lost its live home with no recorded retirement. Every gate passes; the fix is one line plus a ledger row.
+## Round 2 (fix round 1 at 518fddd, re-verified 2026-10-06)
+
+### Findings re-checked
+| Finding | Result |
+| --- | --- |
+| F1: brand-noun rule | ✓ Closed. AGENTS.md §6 has the line "Cadence" is the brand noun (lesson L-21). docs/lessons.md has an L-21 row citing the two original sources. Both ledger rows in notes.md now name it |
+| F2: Stripe runbook | ✓ Closed. A dated note says decisions 0008 and 0010 win. Pack names now read Everyday and Max, matching `PACK_LABELS` in packs.ts. "Pro pack" and "3×" are gone, and Advanced is described as 5 credits against Standard's 1. Every step and table row is kept, and G13 passes. Residual (minor, not blocking): the test checklist (lines 128–129) still says "Buy Standard pack" and "Refund the Standard pack"; the top note covers it, and it should read Everyday |
+| F3: new runbooks | ✓ Closed. grant-credits.md restores the handover's four §8 steps word for word (each line compared with main) and keeps the admin flow read from the code below them, with the positive-only form noted. "Webhook deducts" is gone. stuck-user.md step 4 names `server/ai/providers/default.ts` again (the file exists) |
+| Minor: shadcn/ui wording | ✓ Closed. The overview and DESIGN.md now agree: components.json is configured, but no primitives are installed |
+| Minor: `.env.example` path | ✓ Closed. README.md, apps/web/README.md and DEPLOY.md cite the root file |
+| G15: STATE verified line | ✓ Closed. The line names f3c4cee, the commit before the STATE commit 518fddd. This review commit moves HEAD, so G15 fails again until the orchestrator rewrites the line after the review lanes (L-10) |
+
+### Re-run on 518fddd (as gates.md is now written)
+- Lint: 0 FAIL, 1 WARN (the missing LICENSE).
+- G1, G2 (1224 tests passed), G4, G5, G6 (now widened to every tracked Markdown file), G8 to G16 and G18 (new e-mail gate): all exit 0.
+
+### Scope notes (not blocking)
+The hygiene commit edited four files outside the planned documents, each to redact a name, e-mail or home path or to reword a placeholder:
+- proposals/brief-manage-mode-plan.md (classified frozen)
+- the merged slice 002's brief
+- services/prices/README.md
+- apps/web/COPY_GUIDE.md's placeholder example (the rule itself is unchanged)
+
+Ruling OQ-8 (public repository; hygiene applies in full) justifies these edits. The owner's contact values in code and tests are queued as OQ-10, not changed.
+
+VERDICT: APPROVE — F1 to F3 and the minors are closed, nothing is lost, and the lint and every gate run pass. One cosmetic leftover remains: "Standard pack" in the Stripe test checklist.
