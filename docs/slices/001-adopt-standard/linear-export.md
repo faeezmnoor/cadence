@@ -1,4 +1,4 @@
-<!-- layer: records · status: record · verified: 2026-10-06 -->
+<!-- layer: knowledge · status: living (while open) · verified: 2026-10-06 -->
 # Linear CAD export — 2026-10-06
 | Id | Title | State | Priority | Updated |
 | --- | --- | --- | --- | --- |
