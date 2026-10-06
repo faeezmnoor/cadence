@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: docs/plans/_archive/README.md -->
 # Archived plans
 
 Shipped/superseded per-ticket plans land here. The `cadence-deliver` **CLOSE** phase moves a plan here automatically after SHIP and stamps a header:

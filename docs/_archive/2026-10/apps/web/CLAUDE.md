@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: apps/web/CLAUDE.md -->
 # CLAUDE.md — Cadence orientation for LLM agents
 
 You are looking at the Cadence web app (`apps/web/`). Cadence delivers

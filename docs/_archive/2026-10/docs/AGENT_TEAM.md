@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: docs/AGENT_TEAM.md -->
 # Cadence — Agent Team & Delivery Pipeline
 
 > **Reading time:** ~18 min (full) / ~5 min (TL;DR + §1 + §2).
@@ -81,7 +82,7 @@ These are **capabilities the team builds and maintains**, each with a named owne
 
 **(A) Eval harness** *(owner: cadence-eval-quality)* — the quality backbone that makes every gate mean something and unblocks the Pro eval gate. A *strong* eval harness for Cadence =
 - **Per-subsystem golden sets:** retrieval (query → expected sources; recall/precision); composer (spec+sources → hybrid rubric: 3-axis composite grounding/specificity/fit that *gates* + 5 diagnostic sub-scores accuracy/depth/actionability/freshness/readability); personalization (feedback → next-brief lift); channel (input → render fidelity); provider (same spec across models → quality-per-dollar).
-- **Scorers (3 tiers):** deterministic metrics → **LLM-judge** (Haiku rides log-only today per CAD-222) → **blinded human** (Faeez) for release gates.
+- **Scorers (3 tiers):** deterministic metrics → **LLM-judge** (Haiku rides log-only today per CAD-222) → **blinded human** (the owner) for release gates.
 - **Regression gates in CI:** a change cannot merge if it drops a subsystem's metric past threshold. Generalizes `server/evals/pro-eval-gate.ts` from "Pro vs default" into a per-subsystem framework.
 - **Surfaced** at `/admin/evals`; runnable via the new `/cadence-eval` skill.
 
@@ -161,7 +162,7 @@ INTAKE/GRILL ▣→ PLAN ▣→ BUILD ─┬─ REVIEW ▣→ VERIFY ▣→ SHIP
 
 **Reuse as-is (already run in Claude Code):** `/grill-me` · `/spec` · `/office-hours` · `/deep-research` · `/plan-ceo-review` · `/plan-eng-review` · `/plan-design-review` · `/plan-devex-review` · `/autoplan` · `/design-consultation` · `/design-review` · `/code-review` · `/review` · `/security-review` · `/investigate` · `/qa` · `/qa-only` · `/verify` · `/ship` · `/land-and-deploy` · `/canary` · `/browse` · `/benchmark` · `/benchmark-models` · `/cso` · `/skill-creator`
 
-**Port to Claude-Code-native** (strip OpenClaw cron/heartbeat/Telegram/Linux-path machinery; target this Mac's single repo `/Users/faeez/dev/projects/cadence`, app at `apps/web`, Linear/Notion via MCP):
+**Port to Claude-Code-native** (strip OpenClaw cron/heartbeat/Telegram/Linux-path machinery; target this Mac's single repo `<repo>`, app at `apps/web`, Linear/Notion via MCP):
 
 | Original | Port | Key changes |
 |---|---|---|
@@ -257,7 +258,7 @@ cadence/
 
 - **Generalist building a hard subsystem** → the subsystem tag was missing at INTAKE; the owning specialist wasn't pulled in. Re-tag and re-route.
 - **"It's better" with no number** → G-eval was skipped. No subsystem ship without a metric delta.
-- **Agent reading stale OpenClaw paths** → use the *ported* skills; repo is `/Users/faeez/dev/projects/cadence`, app in `apps/web`.
+- **Agent reading stale OpenClaw paths** → use the *ported* skills; repo is `<repo>`, app in `apps/web`.
 - **Workflow spawned the whole bench for a typo fix** → wrong work-type tag; re-tag `fix` or use the `@agent` escape hatch.
 - **New content format / channel proposed from memory** → run the `/deep-research` spike first (evidence-first); provider APIs (WhatsApp templates, Messenger policy) have hard constraints that must shape the plan.
 - **Two agents editing the same files in parallel** → only BUILD mutates the tree; give parallel builders `isolation: 'worktree'` or serialize.

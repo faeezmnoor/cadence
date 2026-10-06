@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: docs/plans/_TEMPLATE.md -->
 # CAD-N — <title>
 
 > Status: proposed → accepted → shipped → superseded
@@ -32,8 +33,8 @@ Observable behaviour that proves success (what QA verifies at G-verify).
 
 ---
 ## ✅ Plan Review — ready for build
-*(This section is the machine-checkable gate: the plan is NOT promotable to BUILD until this is filled in and Faeez approves — G-plan.)*
+*(This section is the machine-checkable gate: the plan is NOT promotable to BUILD until this is filled in and the owner approves — G-plan.)*
 - [ ] Sections 1–9 complete; metric + golden set named (§6)
 - [ ] Constitution check passed (§2); any decision change has/needs an ADR
 - [ ] Reviewer note: <who reviewed, verdict>
-- [ ] **G-plan approved by Faeez:** <date>
+- [ ] **G-plan approved by the owner:** <date>

@@ -1,9 +1,10 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: HANDOVER.md -->
 # Cadence — Handover Doc v1
 
-**Owner:** Faeez (faeezmnoor@gmail.com, Asia/Kuala_Lumpur, solo founder)
+**Owner:** the owner ([redacted], Asia/Kuala_Lumpur, solo founder)
 **Co-founder agent:** `cadence-cofounder`
 **Last updated:** 2026-06-09
-**Status:** **Paid-GA ready on the engineering side.** All Pro-tier alpha tickets shipped, eval gate live but blocked on `READY=false, reason=no_data` (0 Pro briefs ever rated). Phase 6a closed out — every implementation ticket (CAD-157..164) Done; the old duplicate epic CAD-113..121 swept to Canceled. Two user-side blockers remain: (a) Stripe MY KYC, (b) Faeez running ≥25 blinded Pro ratings to clear the eval gate.
+**Status:** **Paid-GA ready on the engineering side.** All Pro-tier alpha tickets shipped, eval gate live but blocked on `READY=false, reason=no_data` (0 Pro briefs ever rated). Phase 6a closed out — every implementation ticket (CAD-157..164) Done; the old duplicate epic CAD-113..121 swept to Canceled. Two user-side blockers remain: (a) Stripe MY KYC, (b) the owner running ≥25 blinded Pro ratings to clear the eval gate.
 **Reading time for a cold pickup:** 25–30 min. If you only have 10, read sections 1, 5, 8, 11, 12.
 
 ---
@@ -17,13 +18,13 @@
 **Where it is today:**
 - Web app live at `cadence-web-bice.vercel.app` (custom domain pending — `cadence.news` is the front-runner).
 - Phase 1–4 (MVP) shipped: magic-link auth, chat-config wedge, Telegram linkage, scheduled cron delivery at 06:30 MYT, feedback loop with `/tune`, weekly distill into `distilled_prefs`.
-- Phase 5 (monetization) shipped the credit ledger, 4 pack tiers, billing UI, low-balance nudges, refund/admin grant tooling. **Stripe checkout is NOT live** — Faeez's Stripe MY KYC is the open blocker.
+- Phase 5 (monetization) shipped the credit ledger, 4 pack tiers, billing UI, low-balance nudges, refund/admin grant tooling. **Stripe checkout is NOT live** — the owner's Stripe MY KYC is the open blocker.
 - Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6) is engineering-complete and gated behind `PRO_TIER_ALPHA`. Eval gate at `server/evals/pro-eval-gate.ts` is live and reports `READY=false, reason=no_data` — needs ≥25 Pro briefs + blinded ratings before public toggle.
 - Phase 6a (free-data-source plan — Playwright scrapers + curated RSS packs) is **fully shipped**. Tickets CAD-157..164: 7 Done, 1 Backlog (CAD-162 deferred — composer-time TOPIC_KEYWORDS router handles topic routing implicitly; user-facing pack suggester is scope creep).
 - No paying users yet. Two validated commodity-SME design partners on standby for first paid checkout.
 
 **Three things any new owner MUST know before touching code:**
-1. **Cadence is a nested git repo at `/home/abd_f/.openclaw/workspace/cadence/app`** — the outer workspace has planning files (`blueprint/`, `strategy/`, `BRIEF.md`, etc.) that are NOT part of the deployed code. `cd cadence/app` before running anything. Sub-agents that miss this die.
+1. **Cadence is a nested git repo at `<old-workspace>/cadence/app`** — the outer workspace has planning files (`blueprint/`, `strategy/`, `BRIEF.md`, etc.) that are NOT part of the deployed code. `cd cadence/app` before running anything. Sub-agents that miss this die.
 2. **Cadence ≠ LiveWheel.** Different project, different stack decisions, different ICP, different Notion tree. Never blend the two.
 3. **The chat-config wedge + self-learning loop is the moat — not the data or the channel.** Every architectural decision should preserve those two surfaces' agility. Treat the rest as commodity.
 
@@ -88,7 +89,7 @@ This is Cadence's moat. The mechanism in pieces:
 
 ## 3. Personas & ICPs
 
-The full taxonomy lives in `cadence/strategy/pm-icp-and-usecases-v1.md` §1. Faeez's directive (per free-data-source-plan-v1 §0) is to **keep the wider ICP surface in the product** even if marketing narrows. Summary:
+The full taxonomy lives in `cadence/strategy/pm-icp-and-usecases-v1.md` §1. the owner's directive (per free-data-source-plan-v1 §0) is to **keep the wider ICP surface in the product** even if marketing narrows. Summary:
 
 | # | ICP | WTP/mo | Channel pref | Stack fit today | GA narrative? | First-brief example |
 |---|-----|--------|--------------|-----------------|---------------|---------------------|
@@ -103,7 +104,7 @@ The full taxonomy lives in `cadence/strategy/pm-icp-and-usecases-v1.md` §1. Fae
 | 9 | Government / tender watcher | $50–500 | Email | ❌ Stack gap | NO at GA (Phase 6c) | "Daily MY tender notices: ePerolehan + MyProcurement" |
 | 10 | Recruiter / talent watcher | $25–50 | Email + Slack | ⚠️ News-mention only | NO at GA | "Weekly exec-moves brief at target companies" |
 
-**The wider ICP surface IS supported by the product** — chat-config is industry-agnostic. The narrowing is purely a *marketing-copy* decision. Per Faeez's override, do not strip ICPs 4–10 out of the product. The escape valve on the landing page is "Watch literally anything else? Try a custom brief →".
+**The wider ICP surface IS supported by the product** — chat-config is industry-agnostic. The narrowing is purely a *marketing-copy* decision. Per the owner's override, do not strip ICPs 4–10 out of the product. The escape valve on the landing page is "Watch literally anything else? Try a custom brief →".
 
 ---
 
@@ -115,7 +116,7 @@ The full taxonomy lives in `cadence/strategy/pm-icp-and-usecases-v1.md` §1. Fae
 | Frontend | **Next.js 15.5 (App Router)** + React 19 RC + TypeScript | Server components + tRPC client. |
 | UI | **Tailwind + shadcn/ui + Radix UI** | Wordmark + coral brand accent landed in brand-v2. |
 | API | **tRPC v11** | Type-safe end-to-end; lives at `apps/web/app/api/trpc/[trpc]`. |
-| DB | **Supabase Postgres (Singapore)** project `ezhlrawimuryundpmtpm` | RLS on all user-scoped tables. |
+| DB | **Supabase Postgres (Singapore)** project `[redacted]` | RLS on all user-scoped tables. |
 | Auth | **Supabase Auth** — magic link via Resend, plus Google OAuth | 30-day sessions. |
 | ORM | **Drizzle ORM** + Drizzle Kit migrations | Schema in `apps/web/server/db/schema.ts`. |
 | Background jobs | **Inngest** cloud (free tier) | Cron + retries + queue. Functions live in `server/inngest/`. |
@@ -132,7 +133,7 @@ The full taxonomy lives in `cadence/strategy/pm-icp-and-usecases-v1.md` §1. Fae
 | Email | **Resend** | Magic-link + transactional. |
 | Hosting | **Vercel** (web) + **Fly.io** (yfinance) + **Inngest cloud** (jobs) | Zero ops. |
 | Observability | **Sentry** + **Axiom** | Sentry wired but **DSN may not be set in prod — flag for verification** (`SENTRY_DSN` env var). Axiom dataset `cadence`. |
-| Payments | **Stripe Checkout (hosted)** — pending MY KYC | Hard-blocked on Faeez's KYC. Pre-Stripe ledger & UI are live. |
+| Payments | **Stripe Checkout (hosted)** — pending MY KYC | Hard-blocked on the owner's KYC. Pre-Stripe ledger & UI are live. |
 | Repo | pnpm 11 monorepo at `cadence/app` | `apps/web` (Next.js) + `services/prices` (Python). |
 
 ### Architecture diagram (Mermaid)
@@ -194,11 +195,11 @@ Ticket-map says 72 of 84 tracked tickets `Done`. Highlights:
 - **P0 Foundation:** monorepo, Next.js, Vercel autodeploy, Supabase, magic-link auth, tRPC v11, Inngest, Drizzle schema for all MVP tables, RLS, CI typecheck/lint. (T-001 → T-012 all done.)
 - **P1 Config wedge:** landing, auth UI, `/chat` streaming, config-agent prompt v1, all 5 tools (`propose_spec`, `update_spec_field`, `ask_user`, `confirm_and_save`, `add_rss_feed`), DigestSpec Zod schema, thread persistence, `/spec` view, config-agent eval harness. (T-101 → T-111 all done.)
 - **P2 Telegram + manual digest:** Telegram bot registered, grammY webhook with secret verification, link-token flow, Brave search connector + `source_cache`, yfinance Fly.io service, RSS connector, JSON-then-render composer, formatter+splitter, `sampleNow` mutation, `digest.run` handler, `cost_events` tracking. (T-201 → T-212 — T-207 marked `Todo` historically but RSS *is* shipped via Phase 6a path; T-206 yfinance was deferred but is now live.)
-- **P3 Scheduled delivery:** tz-aware minute cron, idempotency on `(user_id, run_date)`, 3× retry + `delivery_broken` flag, `/admin/runs` listing, `replayRun`. (T-301 → T-306 done. Faeez's 14-day dogfood streak is the launch gate per QUEUED-WORK.md #1.)
+- **P3 Scheduled delivery:** tz-aware minute cron, idempotency on `(user_id, run_date)`, 3× retry + `delivery_broken` flag, `/admin/runs` listing, `replayRun`. (T-301 → T-306 done. the owner's 14-day dogfood streak is the launch gate per QUEUED-WORK.md #1.)
 - **P4 Feedback loop:** inline keyboard, callback → `feedback_events`, `/tune` command, composer prompt injection, weekly distill function, eval harness. (T-401–T-405, T-407 done. T-406 — bot echo confirmation — **Canceled** because the per-UX-audit "got it, what was off?" follow-up is the better pattern and is being respec'd.)
 
 ### Phase 5 (monetization base): **DONE**
-Pre-paid credit ledger live, dogfooded on Faeez's spec. Schema: `users.credits_balance + cost_to_us_micro_usd + country_code + trial_credits_granted_at`, `transactions` table, `pricing_snapshots` table. UI: `/settings/billing` with balance hero, packs grid (currently disabled — "coming soon"), ledger with mobile card-stack. Low-balance Telegram nudges shipping at <7/<3/0-credit thresholds. Admin grant tool works. **Stripe Checkout itself is NOT live — KYC blocked.**
+Pre-paid credit ledger live, dogfooded on the owner's spec. Schema: `users.credits_balance + cost_to_us_micro_usd + country_code + trial_credits_granted_at`, `transactions` table, `pricing_snapshots` table. UI: `/settings/billing` with balance hero, packs grid (currently disabled — "coming soon"), ledger with mobile card-stack. Low-balance Telegram nudges shipping at <7/<3/0-credit thresholds. Admin grant tool works. **Stripe Checkout itself is NOT live — KYC blocked.**
 
 ### Phase 5.1 (Pro tier — Sonar Reasoning Pro + Sonnet 4.6, 3-cr multiplier): **engineering-complete; user-side eval gate blocks public exposure**
 Per `project_cadence_pro_tier` memory. Epic = CAD-100. As of 2026-06-09 (post Linear reconciliation):
@@ -206,7 +207,7 @@ Per `project_cadence_pro_tier` memory. Epic = CAD-100. As of 2026-06-09 (post Li
 - **CAD-94..97, CAD-101, CAD-102** all moved Backlog → Done after code audit (Pro burn-rate dashboard, billing/spec/pricing tier explainers, provider timeouts, `PRO_TIER_ALPHA` flag + safety-net downgrade, cost-overrun circuit breaker, Pro→default refund-2-credit fallback).
 - **Still Backlog (truly open):** CAD-91 (T-526 public toggle exposure — gated on eval pass), CAD-93 (T-528 per-account default-to-Pro), CAD-99 (T-534 landing copy + `/pro` tour).
 
-Pro is behind `PRO_TIER_ALPHA=true` env flag and admin-grant-only. **The gate is now Faeez's time to dogfood + rate Pro briefs, not engineering.**
+Pro is behind `PRO_TIER_ALPHA=true` env flag and admin-grant-only. **The gate is now the owner's time to dogfood + rate Pro briefs, not engineering.**
 
 ### Phase 5.2 (BYO API Keys): **DEFERRED**
 PRD locked at `strategy/byo-keys-prd-v1.md`. Epic = CAD-103. 6 tickets queued, all `Backlog`. Defer trigger: 50 paying users on Phase 5.1.
@@ -222,7 +223,7 @@ Pre-Phase-5 leftovers still marked `Todo`/`Backlog` (probably superseded by newe
 - T-408–T-415 (CAD-70–CAD-77) — chat-UX hardening tickets, several already incorporated into chat-ux-v2 lock; check before re-implementing.
 - CAD-78 — "Move trial grant to signup" — small `Todo`.
 
-### Faeez's queued non-ticketed work (per `cadence/QUEUED-WORK.md`)
+### the owner's queued non-ticketed work (per `cadence/QUEUED-WORK.md`)
 1. Chat agent additive-request refusal (prompt-only change after Stream A merges).
 2. **Brief-quality dogfood gate** — 14 consecutive personal briefs at quality bar (no JSON failures, no source dropouts ≥2/day, no personalization regressions) **BEFORE public signup opens.** Non-negotiable launch gate.
 3. Composer Telegram-footer to append `<share_url>` from getBriefShareUrl(shortId).
@@ -248,13 +249,13 @@ All four packs clear the 60% gross-margin discipline floor. Display currency is 
 ### Trial: **3 free credits**, one-shot per user, granted after first brief delivery (not at signup). Brief 1 must demonstrate specificity, Brief 2 demonstrate self-learning, Brief 3 close with paywall preview of next brief.
 
 ### Launch gates (G1–G7)
-- **G1** Credit ledger in prod, 7-day Faeez dogfood. ✅
+- **G1** Credit ledger in prod, 7-day the owner dogfood. ✅
 - **G2** Trial grant fires + trial content passes checklist. In progress.
 - **G3** `/settings/billing` UI renders. ✅
-- **G4** Stripe Checkout webhook idempotently credits. **❌ Blocked on Faeez KYC.**
+- **G4** Stripe Checkout webhook idempotently credits. **❌ Blocked on the owner KYC.**
 - **G5** Low-balance Telegram nudges. ✅ (text-only minimum).
 - **G6** Final-brief paywall with preview-of-next. In progress.
-- **G7** Refund policy text written + linked. Pending Faeez.
+- **G7** Refund policy text written + linked. Pending the owner.
 
 ### What's free forever
 `/tune` taps, feedback buttons, weekly distill output, signup/spec config/admin UI, trial briefs 1–3, re-deliveries on our failure.
@@ -263,7 +264,7 @@ All four packs clear the 60% gross-margin discipline floor. Display currency is 
 
 ## 7. Open questions / unblocked decisions
 
-Aggregated across all PRDs/audits. Each line: **decision** → *default if Faeez doesn't choose* → *impact of getting it wrong*.
+Aggregated across all PRDs/audits. Each line: **decision** → *default if the owner doesn't choose* → *impact of getting it wrong*.
 
 ### From `pm-icp-and-usecases-v1.md` §7
 1. Drop travel + equity-investor ICPs from GA marketing? → *Default: drop from copy, keep in product* → *Wrong: stack-honesty problem at GA.*
@@ -282,7 +283,7 @@ Aggregated across all PRDs/audits. Each line: **decision** → *default if Faeez
 ### From `pro-tier-prd-v1.md` §Open questions
 1. 3-cr multiplier confirmed? → *Default: 3× until 50 paying Pro users, then test 2×* → *Wrong: margin compression at scale.*
 2. Stack B (Sonar Reasoning Pro + Sonnet 4.6) vs Stack D (Sonar Pro + GPT-5)? → *Default: Stack B (chosen)* → *Wrong: pay 20% more than needed.*
-3. Second eval scorer beyond Faeez? → *Default: validated palm-oil trader from May interviews* → *Wrong: bias in eval, Pro ships on vibes.*
+3. Second eval scorer beyond the owner? → *Default: validated palm-oil trader from May interviews* → *Wrong: bias in eval, Pro ships on vibes.*
 4. Pro available on 3-credit trial? → *Default: no, locked* → *Wrong: trains users to expect free Pro.*
 5. Pro alpha user gift — admin_grant or promo code? → *Default: promo code (cleaner audit)* → *Wrong: messy refund ledger.*
 6. Publish "≤60s" latency SLA? → *Default: no, just say "best research quality, takes a bit longer"* → *Wrong: SLA exposure.*
@@ -310,7 +311,7 @@ Aggregated across all PRDs/audits. Each line: **decision** → *default if Faeez
 
 ## 8. Runbook — "how do I do X"
 
-> All paths absolute unless stated. App lives at `/home/abd_f/.openclaw/workspace/cadence/app`. **Always `cd` there before pnpm/npm/git commands** — outer workspace is planning-only.
+> All paths absolute unless stated. App lives at `<old-workspace>/cadence/app`. **Always `cd` there before pnpm/npm/git commands** — outer workspace is planning-only.
 
 ### Add a new digest spec template
 1. Edit `apps/web/server/ai/config-agent/templates.ts` (verify path; check `prompts/` if not found).
@@ -337,7 +338,7 @@ Aggregated across all PRDs/audits. Each line: **decision** → *default if Faeez
 ### Apply a Supabase migration
 The repo uses **runner scripts** named `apply-XXXX.mjs` (sequential numbering). Pattern:
 ```bash
-cd /home/abd_f/.openclaw/workspace/cadence/app
+cd <old-workspace>/cadence/app
 # Generate (after schema.ts edit):
 pnpm db:generate
 # Apply with service-role key from .env.local:
@@ -359,7 +360,7 @@ Redeploy. The Pro toggle appears in `/chat` above the input. **Do NOT flip witho
 - `/admin/feedback` — recent feedback events stream.
 - `/admin/missing-capabilities` — config-agent hits where the agent couldn't satisfy a user request (use to find Phase 6 opportunities).
 
-Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; current allow = `faeezmnoor@gmail.com`.
+Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; current allow = `[redacted]`.
 
 ### Manually grant credits / refund a user
 1. `/admin` → user lookup by email or telegram_chat_id.
@@ -401,7 +402,7 @@ Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; cur
 - **Source resolve rate** — % of sources that returned data (not zero rows). Tracked for scraper-health alerting.
 - **Fallback / downgrade** — when Pro tier providers fail, the run auto-routes to default tier + refunds 2 credits.
 - **Sample brief** — the on-demand first brief sent immediately after Telegram linkage. Per UX audit, should carry a "✨ Sample brief — your real briefs land at 07:00 daily" banner.
-- **Manual rating** — Faeez's eval-gate scoring of briefs. Canonical rubric (2026-06-14, hybrid): a 3-axis **composite** (grounding / specificity / fit) that *gates*, plus 5 **diagnostic** sub-scores (accuracy / depth / actionability / freshness / readability) that are advisory only. See `docs/plans/eval-harness-upgrade.md`.
+- **Manual rating** — the owner's eval-gate scoring of briefs. Canonical rubric (2026-06-14, hybrid): a 3-axis **composite** (grounding / specificity / fit) that *gates*, plus 5 **diagnostic** sub-scores (accuracy / depth / actionability / freshness / readability) that are advisory only. See `docs/plans/eval-harness-upgrade.md`.
 - **Eval gate** — blocking quality bar Pro must clear (Pro composite − default composite ≥ 0.5 `MIN_LEAD`, ≥5 ratings/tier over a 7-day window, on blinded golden set; canonical 2026-06-14, supersedes "mean + 1σ") before public toggle exposure.
 - **Pattern A/B/C/D/E** — the five source-fetch patterns from free-data-source-plan-v1: Playwright scraper, SERP scrape, RSS aggregator, Perplexity Sonar, LLM-only-with-transparency.
 - **Streak** — count of consecutive days the user received a brief without missing. Surfaced in the brief footer post-Phase 6a.
@@ -411,18 +412,18 @@ Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; cur
 - **Cost_to_us_micro_usd** — hidden COGS in micro-USD (1e-6). Operator-only.
 - **`delivery_broken`** — `users.state` flag set after 3 consecutive Telegram send failures. Disables further attempts.
 - **G1–G7** — the 7 launch-gating conditions from monetization-strategy-v1 §7.
-- **MUST-SHIP** — Faeez-tagged tickets that block public signup opening. Tracked in QUEUED-WORK.md.
+- **MUST-SHIP** — the owner-tagged tickets that block public signup opening. Tracked in QUEUED-WORK.md.
 
 ---
 
 ## 10. People & external accounts
 
-- **Faeez Noor** — `faeezmnoor@gmail.com`, KL (`Asia/Kuala_Lumpur`), solo founder. Main project = LiveWheel; Cadence is the side-income project.
+- **the owner** — `[redacted]`, KL (`Asia/Kuala_Lumpur`), solo founder. Main project = LiveWheel; Cadence is the side-income project.
 - **Vercel** — project `cadence-web-bice` → `cadence-web-bice.vercel.app`. Custom domain target: **cadence.news** (pending).
-- **Supabase** — project ref `ezhlrawimuryundpmtpm`, Singapore region. PITR upgrade pending (see `blueprint/operational-runbook.md` §1).
-- **Linear** — team `CAD`, team ID `9453dad3-e027-4db7-89ad-21f488a36b4a`. Issues at `https://linear.app/faeezmnoor/issue/CAD-N/...`.
-- **Notion** — Cadence root: https://www.notion.so/36f2fa6da5b881c48485d1568ea808a9. Children include Validation & Customer Discovery DB, Roadmap & Ideas DB, Engineering Backlog DB. Strategy docs live under "Cadence > Strategy."
-- **Telegram bot** — `@FaeezOpenClaw_bot`. **RENAME BEFORE LAUNCH** — current handle is placeholder. Webhook secret: `4b0be1aebc21bc7448360b73bb542dbd4074b9796701234accaebff66a1d043f`.
+- **Supabase** — project ref `[redacted]`, Singapore region. PITR upgrade pending (see `blueprint/operational-runbook.md` §1).
+- **Linear** — team `CAD`, team ID `[redacted]`. Issues at `https://linear.app/[redacted]/issue/CAD-N/...`.
+- **Notion** — Cadence root: [redacted]. Children include Validation & Customer Discovery DB, Roadmap & Ideas DB, Engineering Backlog DB. Strategy docs live under "Cadence > Strategy."
+- **Telegram bot** — `[redacted]`. **RENAME BEFORE LAUNCH** — current handle is placeholder. Webhook secret: `[redacted]`.
 - **Inngest** — cloud free tier. Functions auto-discovered via `/api/inngest`.
 - **Fly.io** — yfinance Python sidecar (machine size 256MB, ~$0–3/mo).
 - **Stripe** — account in MY KYC review. Test mode usable; production blocked.
@@ -443,7 +444,7 @@ Email allowlist gates these — see `apps/web/lib/auth-admin.ts` or similar; cur
 - `PRO_TIER_ALPHA` (boolean string)
 - `NEXT_PUBLIC_APP_URL`
 
-All secrets canonically live in `~/.openclaw/secrets.env` chmod 600 per `reference_secrets_env` memory. Do NOT scatter into `~/.config/openclaw/*.env`.
+All secrets canonically live in `<old-workspace>/secrets.env` chmod 600 per `reference_secrets_env` memory. Do NOT scatter into `<old-workspace>/config/*.env`.
 
 ---
 
@@ -451,11 +452,11 @@ All secrets canonically live in `~/.openclaw/secrets.env` chmod 600 per `referen
 
 The opinionated co-founder sequence — do these in this order:
 
-1. **Stripe MY KYC + checkout flow** (G4). Single biggest revenue blocker. Faeez completes KYC → wire Stripe Checkout webhook → run end-to-end test charge in prod → flip pack tiles from disabled to enabled → ship. Until this lands, every conversion is leaking through the "Email me to top up" banner.
+1. **Stripe MY KYC + checkout flow** (G4). Single biggest revenue blocker. The owner completes KYC → wire Stripe Checkout webhook → run end-to-end test charge in prod → flip pack tiles from disabled to enabled → ship. Until this lands, every conversion is leaking through the "Email me to top up" banner.
 
-2. **Pro tier eval gate dogfood** (user-side, Faeez). Code is done; data isn't. Eval gate at `server/evals/pro-eval-gate.ts` reports `READY=false, reason=no_data` — needs ≥25 Pro briefs paired with default-tier baselines + blinded rubric ratings before public Pro toggle (CAD-91/T-526) can ship. This is the single largest hold on going wide.
+2. **Pro tier eval gate dogfood** (user-side, the owner). Code is done; data isn't. Eval gate at `server/evals/pro-eval-gate.ts` reports `READY=false, reason=no_data` — needs ≥25 Pro briefs paired with default-tier baselines + blinded rubric ratings before public Pro toggle (CAD-91/T-526) can ship. This is the single largest hold on going wide.
 
-3. **Verify Sentry DSN in prod.** 30-minute check. If `SENTRY_DSN` isn't set in Vercel prod env, set it and confirm the next deploy emits a test error. Sentry is the only thing standing between Faeez and silent prod regressions when he's sleeping.
+3. **Verify Sentry DSN in prod.** 30-minute check. If `SENTRY_DSN` isn't set in Vercel prod env, set it and confirm the next deploy emits a test error. Sentry is the only thing standing between the owner and silent prod regressions when he's sleeping.
 
 4. **Remaining truly-open Phase 5.1 Pro tier tickets** (after eval-gate data lands):
    - **CAD-91 / T-526** Public Pro toggle (depends on eval pass).
@@ -479,7 +480,7 @@ The opinionated co-founder sequence — do these in this order:
    - `/spec` JSON behind a `<details>` toggle.
    - Brief template `sections: min 1` (allow quiet-day shape).
 
-8. **Faeez's 14-day dogfood streak.** Before public signup opens. No JSON failures, no source dropouts ≥2/day, no personalization regressions. This is the launch gate, not a feature.
+8. **the owner's 14-day dogfood streak.** Before public signup opens. No JSON failures, no source dropouts ≥2/day, no personalization regressions. This is the launch gate, not a feature.
 
 9. **WhatsApp channel POC.** ICP-1 validated users prefer WA; 30-day fast-follow after TG GA. Long pole is Meta Cloud API approval, not the integration.
 
@@ -493,7 +494,7 @@ The opinionated co-founder sequence — do these in this order:
 
 - **Notion Engineering Backlog `Status` is type `status`, not `select`.** Killed at least one agent (T-404 path). When writing via `ntn` CLI, use `--status` flag, not `--select`. Memory: `feedback_notion_status_property`.
 
-- **Cadence app is a NESTED git repo at `cadence/app`.** Outer workspace `/home/abd_f/.openclaw/workspace/cadence` has planning files only. `cd cadence/app` for any code/pnpm/git operation. Sub-agents that skip this end up confused running git against the outer workspace. Memory: `feedback_cadence_nested_repo_path`.
+- **Cadence app is a NESTED git repo at `cadence/app`.** Outer workspace `<old-workspace>/cadence` has planning files only. `cd cadence/app` for any code/pnpm/git operation. Sub-agents that skip this end up confused running git against the outer workspace. Memory: `feedback_cadence_nested_repo_path`.
 
 - **Test runner — prefer `npx vitest run` if `pnpm test` wrapper hangs.** Known wrapper flakiness; direct invocation works.
 
@@ -503,7 +504,7 @@ The opinionated co-founder sequence — do these in this order:
 
 - **Compaction model must stay at `opus-4-7`.** `opus-4-8` is not in the installed AI SDK registry — compaction breaks, context overflows. Memory: `feedback_compaction_model_registry`.
 
-- **`@FaeezOpenClaw_bot` is NOT the production handle.** Rename pre-launch — appears in Telegram link CTAs and bot replies.
+- **`[redacted]` is NOT the production handle.** Rename pre-launch — appears in Telegram link CTAs and bot replies.
 
 - **PITR is OFF on Supabase (free tier).** Per `blueprint/operational-runbook.md` §1, upgrade to Pro before accepting paid users. Without PITR, worst-case data loss is 24h.
 
@@ -511,11 +512,11 @@ The opinionated co-founder sequence — do these in this order:
 
 - **`telegram_chat_id` is unique across users.** Re-signup with a different email but same Telegram account → blocked. This is the trial-grant abuse fence. Don't relax without a counter-fence.
 
-- **OpenClaw gateway runs from global npm install, NOT `~/openclaw` git clone.** Upgrade via `npm i -g openclaw@latest`. Memory: `feedback_openclaw_install_layout`.
+- **OpenClaw gateway runs from global npm install, NOT `<old-workspace>/openclaw` git clone.** Upgrade via `npm i -g openclaw@latest`. Memory: `feedback_openclaw_install_layout`.
 
 - **`apps/web/server/db/apply-NNNN.mjs` migrations are sequential and one-way.** Never edit a past one. Write a new forward-fix.
 
-- **Faeez says "status?" in Telegram → run `patrick-status.sh`.** Don't interpret as a freeform question. Memory: `feedback_status_telegram_shortcut`.
+- **The owner says "status?" in Telegram → run `patrick-status.sh`.** Don't interpret as a freeform question. Memory: `feedback_status_telegram_shortcut`.
 
 - **Cadence ≠ LiveWheel.** This is *the* most-repeated rule in memory. Different dirs, different agents, different Notion, different Linear teams. If a request seems to conflate the two, stop and ask.
 

@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: apps/web/server/ARCHITECTURE.md -->
 # `server/` Architecture
 
 Module-by-module overview of the backend. Read this after `README.md` and
