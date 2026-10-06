@@ -1,3 +1,4 @@
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: AGENTS.md -->
 # AGENTS.md — Cadence
 
 Tool-agnostic instructions for any AI coding agent. Claude Code reads this via `@AGENTS.md` in `CLAUDE.md`; Codex/Cursor/openclaude read it natively. Keep this lean — retrieve detail just-in-time from the linked docs.
