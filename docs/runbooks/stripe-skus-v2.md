@@ -125,8 +125,8 @@ Redeploy after env changes.
 #### E. Test end-to-end (test mode)
 - [ ] Use test card `4242 4242 4242 4242` (any future expiry, any 3-digit CVC, any postcode).
 - [ ] Buy Taste pack → check Supabase `users.credits_balance` increments by 30 → check `transactions` row with `type='topup'` and `stripe_session_id` populated → check receipt email arrived.
-- [ ] Buy Standard pack while logged in as same user → balance should be 100 (30 + 70). Verify idempotency: replay the same webhook delivery from the Stripe dashboard and confirm balance does NOT double-increment (the `transactions_stripe_session_id_uq` UNIQUE index is the fence).
-- [ ] Refund the Standard pack from Stripe dashboard → confirm 70 credits get deducted via `charge.refunded` handler → confirm ledger row `type='refund'` is written.
+- [ ] Buy Everyday pack while logged in as same user → balance should be 100 (30 + 70). Verify idempotency: replay the same webhook delivery from the Stripe dashboard and confirm balance does NOT double-increment (the `transactions_stripe_session_id_uq` UNIQUE index is the fence).
+- [ ] Refund the Everyday pack from Stripe dashboard → confirm 70 credits get deducted via `charge.refunded` handler → confirm ledger row `type='refund'` is written.
 
 #### F. Flip live
 - [ ] Repeat steps B+C+D against the **live** dashboard.
