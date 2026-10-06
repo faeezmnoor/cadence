@@ -47,3 +47,5 @@ coverage/
 !.claude/agents/
 !.claude/skills/
 !.claude/workflows/
+!.claude/rules/
+!.claude/settings.json
