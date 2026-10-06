@@ -123,3 +123,51 @@ Source line numbers are those of the original files at 001508c (archived copies 
 - gen-decision-index and gen-roster ran (exit 0) and filled docs/README.md; the roster is regenerated after T050. The roster lists local agents only; it found no plugin agents to list (inferred: the generator reads the plugin from a path not present here).
 - Lint findings fixed in documents only: overview "Key runtime flows" 65 > 60 lines (two prose lines moved to Cross-cutting, two diagram lines merged; diagrams re-rendered, exit 0); three dead links in the archived app instruction file (path-only); E5 on the archived AGENTS.md.
 - Plan deviation (documents only): plan.md and STANDARD.md §12 archive a file at `docs/_archive/<yyyy-mm>/<original path>`, but lint rule E5 fails any file named AGENTS.md outside a package folder, the archive included. The archived copy is named docs/_archive/2026-10/AGENTS.pre-standard.md; the index row keeps the original path and says why. Finding for the standard repo: E5 should skip docs/_archive/ (or the archive rule should allow a suffix).
+
+## Builder decisions
+- Redaction reached beyond the archive: the live runbooks DEPLOY.md, SMOKE.md and stripe-skus-v2.md, the decision 0000 "Deciders" line and the three records files carried the owner's name, and SMOKE.md the owner's e-mail and Telegram chat id. Names became "the owner", the e-mail and chat id `[redacted]` or `<owner e-mail>` placeholders, with the overriding environment variable named (verified: G5 scans docs/; the brief bans names in any committed file). SMOKE.md's SQL and sample output use the placeholder, so the commands need the real address typed in.
+- Decisions: every status is `accepted`, `decision-makers: the owner (ruled by owner)` for all thirteen (verified: each is a product ruling from the former Notion log; 0000 named the owner as decider). The original status and date lines are kept as one body line, so nuances such as "reversed" (0005) and "gate threshold superseded by 0012" (0009) are not lost. "Considered options" lists only options each text names.
+- The new runbooks wrap only procedures the code confirms (verified by reading the runners, admin router, grant and refund modules, feature flags). Stuck-user step 3's "user blocked the bot" cause is inferred from the handover.
+- Viewports 360×800 and 1440×900 (360 verified from the archived designer agent; 1440 inferred from the template), replacing plan.md's inferred 390×844.
+- Advanced fallback refunds: written from apps/web/server/billing/refund.ts, not the handover's "2 credits" (verified; lesson L-14).
+- Advanced composer model: the code uses Claude Sonnet 4.5 while decision 0006 says Sonnet 4.6; recorded as a debt in the overview, decision text untouched (verified: `PRO_COMPOSER_MODEL_ID`).
+- No TTS (voice-note) code exists although the handover and an agent described one; recorded as a debt (verified by search).
+- The .gitignore lines for `.claude/rules/` and `.claude/settings.json` landed with T007 instead of T052 because the rule files could not be committed otherwise; `!.claude/workflows/` was dropped at T052 (folder retired).
+- CHANGELOG.md: besides the header and the dated entry, the preamble sentence naming the retired automated CLOSE phase now says the bookkeeper adds entries at CLOSE (inferred as in scope: it described retired machinery).
+- Owner queue: the dogfood streak (CAD-209) is not a row because its Linear state is not in the export (not verified); the refund-policy launch gate is not a row because the terms page already states the refund rule (verified: apps/web/app/(marketing)/terms/page.tsx line 37). PITR and the bot rename are rows from the archived handover (state not machine-checkable; inferred still open).
+- Roadmap CAD-238 row: kept because tasks.md T017 names it, marked "state not in the export".
+- G3: `pnpm build` fails locally only because `DATABASE_URL` is absent from apps/web/.env.local ("DATABASE_URL is required in production" while collecting page data for the webhook route). Per ruling OQ-6 the Vercel preview build of the PR head is G3's evidence (pending: the PR is not open). Production's Vercel deployment of 001508c reported success (verified: commit status "Vercel success").
+
+## Tasks skipped (not the builder's)
+- T062 (orchestrator: rebase, push, PR), T063 (reviewers: correctness and security lanes, G17), T064 (orchestrator: branch protection with `check` and `standard-check`), T065 (orchestrator: cold-start test, STATE.md Measurements), T066 (bookkeeper: Linear issues for this slice and each owner-queue row), T067 (bookkeeper: CLOSE, CHANGELOG entry, move this folder to docs/records/slices/), T068 (orchestrator: LEARN in the standard repo).
+
+## Gate results at the builder's last pre-STATE head (run by hand; EVIDENCE left empty)
+- G1 lint: exit 1 before STATE.md exists (its only FAIL is "STATE.md missing"); re-run after the STATE commit (see the report). LICENSE WARN only.
+- G2 `pnpm typecheck && pnpm lint && pnpm test`: exit 0 (130 files passed, 4 skipped; 1224 tests passed, 25 skipped).
+- G3 `pnpm build`: exit 1, environment only (see Builder decisions); evidence moves to the Vercel preview.
+- G4, G5, G6: exit 0; each planted once (home path, name, 64-hex string in a scratch docs file) and exited 1, then the plant was removed.
+- G7, G8 (`gen-schema --check`), G9, G10, G11 (with `_claude`), G12, G13 (5 tests passed), G14, G16: exit 0.
+- G15: needs STATE.md; run after the STATE commit.
+- G17: reviewers' gate; exits 1 until their verdict lines exist.
+
+## Not checked
+- Whether `PRO_TIER_ALPHA`, `SENTRY_DSN` and `MANAGE_MODE` are set in production (no Vercel access; owner queue OQ-03).
+- Linear issues outside the export (CAD-209, CAD-238, Backlog and Done states).
+- Whether the shared plugin is installed and enabled for this repository (assumption A2); gen-roster listed no plugin agents.
+- The Vercel preview build of the PR head (G3) — the PR does not exist yet.
+- Mermaid parsing by the lint (not in bundle 1.2.2); checked with mermaid-cli instead.
+
+## Findings for LEARN (standard, templates, lint, plan)
+- Lint E5 fails an archived AGENTS.md under docs/_archive/, contradicting §12's "<original path>" archive rule.
+- Lint T5 needs a link in every owner-queue row, while public repos may hold no URLs: relative links to runbooks and decisions satisfy it; the standard should say so.
+- gen-schema reports "none found" for policies on a Supabase repo whose policies live in SQL migrations (known, L-20 in the standard).
+- gen-roster lists only local agents when the plugin is not visible, so the "Cast" table understates the cast.
+- The migration plan assumed names only in the handover and agents; live runbooks and decisions carried them too. A planner check: run the G5 grep over the whole tree at inventory.
+- docs/runbooks/ file names are upper case (pinned by code and a test) while the map wants lower case under docs/.
+- The template's 600-line chain and the lint count the current slice's brief; a migration brief near 100 lines is fine, but STATE plus README plus AGENTS for a Standard repo already sit near 200.
+- Code comments citing "CLAUDE.md" (the archived app file) in six application files are outside a migration's allowed edits; the standard could allow comment-only path fixes found by grep, not only those the plan names.
+
+## Cold-start answer (builder's own, from AGENTS.md, CLAUDE.md, STATE.md, docs/README.md and this brief)
+1. What is live? The web app on Vercel (production deployed from main 001508c on 2026-10-06), Telegram delivery with feedback and weekly distillation, and the credit ledger with admin grants and refunds; card checkout is not live (Stripe KYC) and Advanced research is paused behind its flag.
+2. What is next? This slice's review and PR; then the owner's triage of the four stale In Progress issues (CAD-222, CAD-215, CAD-216, CAD-210); then CAD-70 to CAD-72 (Urgent) and CAD-228 (High).
+3. What waits on the owner? In order: rotate the webhook secret; set the `DATABASE_URL` Actions secret; confirm Sentry and Inngest traces after the dependency update; look at the social preview image; decide the four stale issues; rate Advanced briefs; finish Stripe KYC; enable PITR; rename the bot.
