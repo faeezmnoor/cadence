@@ -1,3 +1,4 @@
+<!-- layer: records · status: record · verified: 2026-10-06 -->
 # Cadence Platform Audit & Joint Ship Proposal — 2026-06-11
 
 **Process:** 4-agent board — Senior PM + Senior SWE independent audits → CPO + CTO challenge rounds (claims re-verified in code) → joint CPO×CTO negotiation. All findings cite file:line, verified this date against `main`.
@@ -49,7 +50,7 @@ Additional confirmed: scraper price data truncated out of prompts on busy days (
 ### Not doing (with consent of both execs)
 `*/5` standalone · in-bot /pause /resume · L3 structured-prefs routing · L4 regenerate gate · paid Brave (trigger: key death or revenue) · agentic loop / GDELT / DDG / SearXNG · prompt-caching & parallelization polish (backlog) · multi-brief engine + marketing (out until P0-3 proven live) · share-link on samples · lowConfidence footer · self-serve credits · timezone capture (unless a non-MY partner joins).
 
-## D. Founder asks (only Faeez)
+## D. Founder asks (only the owner)
 
 1. Run the dogfood with 2 specs, 14 days, vote on everything (first real data through the learning pipe; live test of P0-3).
 2. Push Stripe KYC to completion.

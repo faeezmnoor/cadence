@@ -1,3 +1,4 @@
+<!-- layer: records · status: record · verified: 2026-10-06 -->
 # Eval Harness Upgrade — PLAN
 
 **Epic:** `CAD-EVAL` (placeholder — file in Linear on reconnect)
@@ -47,7 +48,7 @@ auto-rating); the `cost_events` table + `server/cost/record.ts` infra already ex
 
 | # | Gap | Consequence |
 |---|---|---|
-| G1 | **Human-only ratings = launch bottleneck** | CAD-209 dogfood bar + CAD-222 Pro gate both wait on Faeez's manual time |
+| G1 | **Human-only ratings = launch bottleneck** | CAD-209 dogfood bar + CAD-222 Pro gate both wait on the owner's manual time |
 | G2 | **No automated faithfulness / grounding eval** | Hallucinations in a brief are caught only if a human happens to read that brief |
 | G3 | **No composer golden set; nothing in CI** | Composer prompt/model changes ship with zero regression guard |
 | G4 | **Personalization-lift / loop efficacy unmeasured** | The moat is unproven — we can't show feedback → better next brief |
@@ -124,7 +125,7 @@ demand the judge be indistinguishable from the human (which no LLM-judge reliabl
 
 | Item | Detail |
 |---|---|
-| **Dataset created** | `datasets/inter-rater/v1/` — briefs rated by both Faeez and the second rater; ongoing prod-sample dataset feeding the monitor. |
+| **Dataset created** | `datasets/inter-rater/v1/` — briefs rated by both the owner and the second rater; ongoing prod-sample dataset feeding the monitor. |
 | **Files / areas touched** | Rater onboarding into `admin.rateBrief` (second `ratedBy`); `server/eval/inter-rater.ts` (κ between the two humans); a prod-quality monitor (sampled briefs auto-scored by the validated judge, alert on drift); `server/cost/record.ts` extension for the eval-cost tier. |
 | **Plugs into** | Continuous monitoring runs on a cron over sampled prod briefs; feeds `/admin/evals`. Inter-rater κ raises confidence in the human gate (mitigates G5). |
 | **Acceptance criteria** | (a) Second rater = the **validated palm-oil trader** from the May interviews (per HANDOVER open-decision #3); (b) inter-rater quadratic-weighted κ computed and reported; (c) prod monitor alerts when sampled rubric drifts > 0.3 from the rolling baseline; (d) tiered eval-cost policy active and logging to `cost_events`. |
@@ -153,7 +154,7 @@ Tiered scorers — cheapest scorer that can answer runs first:
 |---|---|---|---|---|
 | 0 | **Deterministic** (P/R, length, dedup, render fidelity) | Every CI run, free | ~$0 | n/a |
 | 1 | **Validated LLM-judge** (Haiku) | CI on subsystem-touching PRs; sampled in prod | extractor ≈ **$0.002/run**; composer judge bounded to a **per-PR ceiling** (cap N cases) | **`cost_events` row per judge invocation**, provider string, via `server/cost/record.ts` |
-| 2 | **Blinded human** (Faeez; P3 + 2nd rater) | Release gates only (Pro toggle, dogfood bar) | human time, not $ | rating persisted to run metadata |
+| 2 | **Blinded human** (the owner; P3 + 2nd rater) | Release gates only (Pro toggle, dogfood bar) | human time, not $ | rating persisted to run metadata |
 
 Policy:
 - **CI** runs Tier 0 + a **bounded** Tier 1 (cap case count so a PR's eval cost is predictable
@@ -187,14 +188,14 @@ personalization lift +0.4, $/brief +$0.003 — ship." That sentence is the deliv
 
 | Risk | Mitigation |
 |---|---|
-| **Rubric drift (G6)** | **Reconciliation task (P2, must-do):** pick **ONE** rubric, define it **code-canonical** in a single module (e.g. `server/eval/rubric.ts`), **mirror it** in the Notion/doc set. All scorers + `admin.rateBrief` + `pro-eval-gate.ts` import the one definition. **RESOLVED (Faeez, 2026-06-14):** **hybrid** — the 3-axis composite (grounding/specificity/fit) is the canonical **gate** metric; the 5 axes (accuracy/depth/actionability/freshness/readability) become **diagnostic sub-scores** (advisory, never gate). Canonical gate threshold = **`MIN_LEAD=0.5`** (absolute lead); "mean + 1σ" is retired. `server/eval/rubric.ts` defines both sets; only the composite gates. |
+| **Rubric drift (G6)** | **Reconciliation task (P2, must-do):** pick **ONE** rubric, define it **code-canonical** in a single module (e.g. `server/eval/rubric.ts`), **mirror it** in the Notion/doc set. All scorers + `admin.rateBrief` + `pro-eval-gate.ts` import the one definition. **RESOLVED (the owner, 2026-06-14):** **hybrid** — the 3-axis composite (grounding/specificity/fit) is the canonical **gate** metric; the 5 axes (accuracy/depth/actionability/freshness/readability) become **diagnostic sub-scores** (advisory, never gate). Canonical gate threshold = **`MIN_LEAD=0.5`** (absolute lead); "mean + 1σ" is retired. `server/eval/rubric.ts` defines both sets; only the composite gates. |
 | **Judge over-trust** | Judge stays log-only until it clears the §2.2 threshold; even then, human-at-gate for releases. Re-validate on any judge/rubric change. |
 | **Dataset rot** | Versioned datasets with manifests + last-calibrated dates; recalibrate thresholds when a dataset version bumps. |
 | **Eval cost overrun** | Tiered scorers + per-PR ceiling + monthly budget, all logged to `cost_events` (§5). |
 | **Single-rater bias (G5)** | Second validated rater + inter-rater κ in P3. |
 | **CI flakiness from LLM calls** | Tier 0 is deterministic and always-on; Tier 1 in CI is bounded and uses fixtures/snapshots where possible; never block a merge on a network blip — judge timeouts degrade to "advisory" not "fail-closed" with an alert. |
 
-**Resolved (Faeez, 2026-06-14): hybrid rubric.** The 3-axis composite (grounding/specificity/fit)
+**Resolved (the owner, 2026-06-14): hybrid rubric.** The 3-axis composite (grounding/specificity/fit)
 remains the canonical **gate** metric (no migration of the live gate); the 5 axes
 (accuracy/depth/actionability/freshness/readability) are added as **diagnostic sub-scores**
 (advisory only, never gate). Canonical gate threshold = **`MIN_LEAD=0.5`**. P2 implements this in

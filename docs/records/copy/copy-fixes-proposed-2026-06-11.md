@@ -1,6 +1,7 @@
+<!-- layer: records · status: record · verified: 2026-10-06 -->
 # Cadence copy fixes — proposed backlog (2026-06-11)
 
-Output of the CMO + UX-writer cross-audit. Companion to [COPY_GUIDE.md](./COPY_GUIDE.md) — every fix below applies a guide rule. Status: **proposed, awaiting founder go-ahead.** Verified against live source this date; line numbers may drift.
+Output of the CMO + UX-writer cross-audit. Companion to [COPY_GUIDE.md](../../../apps/web/COPY_GUIDE.md) — every fix below applies a guide rule. Status: **proposed, awaiting founder go-ahead.** Verified against live source this date; line numbers may drift.
 
 Severity key: 🔴 honesty/factual bug · 🟠 banned noun or enum leak · 🟡 voice/consistency.
 
