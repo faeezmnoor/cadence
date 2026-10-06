@@ -93,3 +93,22 @@ Source line numbers are those of the original files at 001508c (archived copies 
 | 18 agent bodies | Cadence-specific rules | Two specialists kept and trimmed; eight subsystem bodies → .claude/rules/<subsystem>.md; security hot spots → cadence-security.md; eval/evals distinction → L-18; designer viewports and contrast → DESIGN.md; sensitive server areas → docs/workflow.md security lane; debugger triage → docs/runbooks/stuck-user.md; QA core flows → docs/workflow.md runtime checks; the rest retired, replaced by shared roles |
 | 6 skill bodies | Pipeline procedures | cadence-eval kept; deliver, bookkeeping, build-wave, fix-pass, handover retired (replaced by the shared skills of the same purpose; handover by cold-start) |
 | .claude/workflows/cadence-deliver.js | Pipeline script | Retired, replaced by the shared deliver skill |
+
+## T013 Mermaid check
+- All six Mermaid blocks in docs/architecture/overview.md render with `npx -y @mermaid-js/mermaid-cli` (exit 0 each; verified 2026-10-06). The vendored lint 1.2.2 does not parse Mermaid (its Planning group is not in the bundle).
+
+## T014 DESIGN.md token-to-source table (equality checked by hand)
+| Frontmatter key | Value | Source |
+| --- | --- | --- |
+| colors.background … colors.ring (17 keys) | as written | apps/web/app/globals.css lines 7–23 (`:root`) |
+| colors.brand, brand-foreground | hsl(14 72% 45%), hsl(0 0% 100%) | globals.css lines 29–30 |
+| colors.success … warning-foreground | as written | globals.css lines 35–38 |
+| dark values (prose) | as written | globals.css lines 42–65 |
+| typography.display | serif stack | apps/web/tailwind.config.ts lines 74–84 |
+| typography.body | Tailwind `font-sans` default | apps/web/app/layout.tsx line 33 (`font-sans`); no `fontFamily.sans` override |
+| spacing.container | 2rem, 1400px | tailwind.config.ts lines 10–14 |
+| rounded.lg / md / sm | 0.5rem, calc −2px, calc −4px | globals.css line 24; tailwind.config.ts lines 63–67 |
+| shadows | Tailwind defaults in use | `grep shadow-` over apps/web/app and components (shadow-sm ×2, shadow-xl ×1) |
+| motion | typing-dot 1.4s, chat-fade-in 120ms | tailwind.config.ts lines 85–98 |
+| components | brand button, best-value badge, status text | inferred from token comments in globals.css lines 25–34 |
+- Viewports 360×800 and 1440×900: 360px from the archived designer agent ("mobile parity at 360px", verified); 1440×900 from the standard template (inferred).
