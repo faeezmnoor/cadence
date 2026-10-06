@@ -2,6 +2,7 @@
 name: cadence-build-wave
 description: Cadence vertical-slice build — schema → server → tRPC → UI → tests, one commit per stage. Use for a multi-ticket feature or any change with a DB migration (≥3 tickets or a schema change). NOT for single-file fixes (use cadence-fix-pass) or pure UI polish. Claude-Code-native port of the OpenClaw build-wave.
 ---
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: .claude/skills/cadence-build-wave/SKILL.md -->
 
 # Cadence Build Wave — schema → tRPC → page → tests
 
@@ -9,7 +10,7 @@ description: Cadence vertical-slice build — schema → server → tRPC → UI 
 A multi-ticket build with a vertical stack: DB migration → server logic → tRPC procedure → UI page → tests. Examples: a new source connector + UI, a Pro-tier change, a channel adapter. NOT for single-file fixes (`cadence-fix-pass`) or pure polish.
 
 ## Recipe (Claude Code on this Mac — single repo, no OpenClaw machinery)
-1. **Stage 0 — orient.** Repo root is `/Users/faeez/dev/projects/cadence`; app is `apps/web`; run pnpm/git from the repo root. Read the approved `docs/plans/CAD-N.md`, `HANDOVER.md` §4 (stack) + §8 (runbook), and the Linear epic. Confirm green baseline: `git status` clean, `git pull --ff-only`, `pnpm typecheck`.
+1. **Stage 0 — orient.** Repo root is `<repo>`; app is `apps/web`; run pnpm/git from the repo root. Read the approved `docs/plans/CAD-N.md`, `HANDOVER.md` §4 (stack) + §8 (runbook), and the Linear epic. Confirm green baseline: `git status` clean, `git pull --ff-only`, `pnpm typecheck`.
 2. **Stage 1 — schema.** Edit `apps/web/server/db/schema.ts`. `pnpm db:generate`. Write `apps/web/server/db/apply-NNNN.mjs` (next sequential number — check the dir for the highest). Apply with the service-role key from `.env.local`: `node apps/web/server/db/apply-NNNN.mjs`. Commit + push.
 3. **Stage 2 — server logic.** Add provider/source/composer/channel logic under `apps/web/server/<area>/`. Conform to existing interfaces (`Provider` in `providers/types.ts`, `NormalizedSourceItem` for sources, `ChannelAdapter` for channels). The owning Layer-II specialist writes this; unit tests in sibling `*.test.ts`. Commit + push.
 4. **Stage 3 — tRPC procedure.** Add to the right router under `apps/web/server/trpc/`. Zod-validate inputs. Commit + push.

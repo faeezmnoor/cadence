@@ -2,6 +2,7 @@
 name: cadence-fix-pass
 description: Cadence surgical fix pass — 2 to 8 small, well-scoped, independently revertable fixes shipped in one session, one commit per fix. Use for a UX P0 batch, post-release polish, or accessibility cleanup. NOT for refactors, schema changes, or anything that could cascade. Claude-Code-native port.
 ---
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: .claude/skills/cadence-fix-pass/SKILL.md -->
 
 # Cadence Fix Pass — N small surgical fixes in sequence
 
@@ -9,7 +10,7 @@ description: Cadence surgical fix pass — 2 to 8 small, well-scoped, independen
 2–8 small, well-scoped bug fixes or UX polish items, each touching a few files with a clear acceptance criterion and independently revertable. NOT for refactors, schema changes, or cascading work (use `cadence-build-wave`).
 
 ## Recipe (Claude Code on this Mac)
-1. Repo root `/Users/faeez/dev/projects/cadence` (app in `apps/web`); run pnpm/git from root. `git status` clean; `git pull --ff-only`; confirm green: `pnpm typecheck` (or `npx vitest run --changed` if fast).
+1. Repo root `<repo>` (app in `apps/web`); run pnpm/git from root. `git status` clean; `git pull --ff-only`; confirm green: `pnpm typecheck` (or `npx vitest run --changed` if fast).
 2. For EACH fix in order:
    - Read the affected file(s) on the exact range before editing.
    - Make the minimal change — no drive-by formatting, no "while I'm here" cleanups.

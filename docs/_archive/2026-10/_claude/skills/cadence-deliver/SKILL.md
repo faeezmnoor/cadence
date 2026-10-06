@@ -2,6 +2,7 @@
 name: cadence-deliver
 description: Entry point for the Cadence delivery pipeline. Use to take a CAD-N ticket (or a brief) through PLAN → BUILD → REVIEW → VERIFY via the committed multi-agent workflow, with the cast scaled to work-type and subsystem. Run plan-first, gate, then proceed. The single command to run the agent team.
 ---
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: .claude/skills/cadence-deliver/SKILL.md -->
 
 # /cadence-deliver — run the delivery pipeline
 
@@ -18,7 +19,7 @@ The orchestration entry point for the Cadence agent team (see `docs/AGENT_TEAM.m
                       workType: "feature", subsystems: ["llm-composer","eval-quality"],
                       phase: "plan" } })
    ```
-   This runs the Architect (+ research spikes for tagged subsystems) and produces `docs/plans/CAD-N.md`. **Gate G-plan: Faeez approves the plan before any code.**
+   This runs the Architect (+ research spikes for tagged subsystems) and produces `docs/plans/CAD-N.md`. **Gate G-plan: the owner approves the plan before any code.**
 5. **PROCEED after approval.** Re-launch with `phase: "build"` — runs BUILD (Builder + owning specialists, Designer ∥ for UI) → REVIEW (Reviewer + eval-quality, +security if sensitive, adversarial) → VERIFY (QA + eval-quality). The workflow stops before SHIP.
 6. **SHIP + CLOSE (human-gated).** You decide ship; run `/ship` or `/land-and-deploy`, then `cadence-bookkeeper` closes out.
 

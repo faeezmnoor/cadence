@@ -2,6 +2,7 @@
 name: cadence-handover
 description: Build a cold-pickup artifact set (README / CLAUDE.md / ARCHITECTURE.md / HANDOVER.md) for a Cadence scope so a new session is productive in under 30 minutes. Use after a major phase lands, on ownership transfer, or when agents keep losing context. Claude-Code-native port.
 ---
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: .claude/skills/cadence-handover/SKILL.md -->
 
 # Cadence Handover Artifact Wave — README + CLAUDE.md + ARCHITECTURE.md
 

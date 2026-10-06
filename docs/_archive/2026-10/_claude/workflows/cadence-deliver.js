@@ -1,7 +1,8 @@
+// archived 2026-10-06 from .claude/workflows/cadence-deliver.js; replaced by the shared deliver skill; redacted for publication
 export const meta = {
   name: 'cadence-deliver',
   description: 'Cadence delivery pipeline — PLAN → BUILD → REVIEW → VERIFY with a cast scaled to work-type and subsystem. Stops before SHIP (human-gated).',
-  whenToUse: 'Run via /cadence-deliver. phase:"plan" first (gate G-plan), then phase:"build" after Faeez approves.',
+  whenToUse: 'Run via /cadence-deliver. phase:"plan" first (gate G-plan), then phase:"build" after the owner approves.',
   phases: [
     { title: 'Plan' },
     { title: 'Build' },
@@ -47,10 +48,10 @@ const REVIEWERS = workType === 'epic' ? 3 : 1
 
 const CONTEXT = `Ticket ${ticket}. Work-type: ${workType}. Subsystems: ${subsystems.join(', ') || 'none'}.
 Brief: ${brief}
-Obey docs/AGENT_TEAM.md §7 guardrails. Repo /Users/faeez/dev/projects/cadence, app apps/web.`
+Obey docs/AGENT_TEAM.md §7 guardrails. Repo <repo>, app apps/web.`
 
 // ===================== CLOSE (automated, post-SHIP) =====================
-// Runs after Faeez ships. Auto-updates every doc + tracker so the next session
+// Runs after the owner ships. Auto-updates every doc + tracker so the next session
 // starts clean — NO per-step prompting. Touches docs/trackers only, not product code.
 if (phase === 'close') {
   phase('Close')
@@ -64,7 +65,7 @@ if (phase === 'close') {
       { agentType: 'cadence-bookkeeper', label: 'close:handover', phase: 'Close' }),
   ])
   const ratchet = await agent(
-    `Ratchet / harness-hardening pass for ${ticket} (Hashimoto "engineer the harness"). Review this cycle's review + verify findings. For each mistake or near-miss, name the HARNESS fix — AGENTS.md, CLAUDE.md, a skill, a hook, or a new ADR — not just a code fix. The harness only tightens. Output a concrete edit list for Faeez to approve. ${CONTEXT}`,
+    `Ratchet / harness-hardening pass for ${ticket} (Hashimoto "engineer the harness"). Review this cycle's review + verify findings. For each mistake or near-miss, name the HARNESS fix — AGENTS.md, CLAUDE.md, a skill, a hook, or a new ADR — not just a code fix. The harness only tightens. Output a concrete edit list for the owner to approve. ${CONTEXT}`,
     { agentType: 'cadence-cofounder', label: 'close:ratchet', phase: 'Close' })
   log(`${ticket} CLOSE complete. If gbrain is set up: run /sync-gbrain. Apply the ratchet edits.`)
   return { ticket, phase: 'close', close, ratchet, awaiting: 'apply ratchet edits' }
@@ -90,7 +91,7 @@ ${spikes.length ? `\nResearch spikes:\n${spikes.map(s => `--- ${s.tag} ---\n${s.
 )
 
 if (phase !== 'build') {
-  log(`Plan written for ${ticket}. GATE G-plan: Faeez must approve docs/plans/${ticket}.md before BUILD. Re-run /cadence-deliver with phase:"build" to proceed.`)
+  log(`Plan written for ${ticket}. GATE G-plan: the owner must approve docs/plans/${ticket}.md before BUILD. Re-run /cadence-deliver with phase:"build" to proceed.`)
   return { ticket, phase: 'plan', planSummary: plan, awaiting: 'G-plan approval' }
 }
 
@@ -139,7 +140,7 @@ const verify = await agent(
   { agentType: 'cadence-qa', label: 'verify', phase: 'Verify' }
 )
 
-log(`${ticket} reached VERIFY. GATE: SHIP + CLOSE are human-gated — Faeez decides ship (/ship or /land-and-deploy), then cadence-bookkeeper closes out.`)
+log(`${ticket} reached VERIFY. GATE: SHIP + CLOSE are human-gated — the owner decides ship (/ship or /land-and-deploy), then cadence-bookkeeper closes out.`)
 return {
   ticket,
   phase: 'build',

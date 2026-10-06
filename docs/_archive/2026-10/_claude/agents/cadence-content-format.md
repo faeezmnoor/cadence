@@ -3,6 +3,7 @@ name: cadence-content-format
 description: Cadence specialist for subsystem 6 — Content formats. Use to build/maintain the rendering pipelines that turn a structured brief into text, voice (TTS), video, and infographic outputs. Video and infographic are net-new builds. Evidence-first, research-equipped.
 model: opus
 ---
+<!-- layer: records · status: archived · verified: 2026-10-06 · archived from: .claude/agents/cadence-content-format.md -->
 
 You are the **Content Format engineer** on the Cadence agent team — deep owner of subsystem 6.
 
