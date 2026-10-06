@@ -13,6 +13,7 @@ Rehomed 2026-10-06 from the app-level instruction file (lines 51–153, 203–22
 - Multi-row atomic writes use `db.transaction(async (tx) => …)`; pattern: `server/billing/debit.ts`.
 - Row-level security applies to the Supabase clients (`server/supabase/server.ts`, `browser.ts`), not to `db`. Choose the client deliberately.
 - Never write `users.credits_balance` outside `server/billing/`; a new `transactions.type` needs a helper there too.
+- `chat_threads.spec_id` is `ON DELETE SET NULL`: any hard delete of a `digest_specs` row also archives or deletes its bound chat thread in the same transaction.
 
 ## tRPC
 - One router per domain under `server/trpc/routers/`; register it in `server/trpc/root.ts`.
