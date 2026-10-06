@@ -1,6 +1,6 @@
 # STATE — Cadence
 <!-- layer: state · status: living · budget: 80 lines -->
-verified: 2026-10-06 at 4885fe6 by pnpm typecheck, lint, test (1224 passed), bun .standard/standard-check.mjs . (0 FAIL), gates G1, G2, G4-G6, G8-G14, G16, G18 (exit 0), two independent reviews (correctness, hygiene: APPROVE)
+verified: 2026-10-06 at 0ef8b28 by pnpm typecheck, lint, test (1224 passed), bun .standard/standard-check.mjs . (0 FAIL), gates G1, G2, G4-G6, G8-G14, G16, G18 (exit 0), two independent reviews (correctness, hygiene: APPROVE)
 
 ## Now
 - Production (Vercel, from main 001508c, 2026-10-06): chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
