@@ -45,7 +45,7 @@ Source line numbers are those of the original files at 001508c (archived copies 
 | AGENTS.md 13–16 | Repo map, read-first files, COPY_GUIDE | AGENTS.md §5, §8; .claude/rules/web-app.md "Read first"; docs/README.md |
 | AGENTS.md 18–21 | ESM, `@/*`, Drizzle client, tRPC procedures; Conventional Commits; no `git add -A`; branch off main | .claude/rules/web-app.md; docs/workflow.md (commit style); lesson L-20; AGENTS.md §4, §7 |
 | AGENTS.md 23–26 | Always / ask / never lists | AGENTS.md §4 (never list, flag-for-review list); §6 |
-| AGENTS.md 28–34 | Locked guardrails 1–6 | AGENTS.md §6 lines citing decisions 0001, 0002, 0003, 0005, 0007–0010, 0012; evidence-first → docs/workflow.md and each subsystem rule file; security trifecta → lesson L-17 |
+| AGENTS.md 28–34 | Locked guardrails 1–6 | "Cadence" brand noun → AGENTS.md §6 and lesson L-21 (fix round 1); AGENTS.md §6 lines citing decisions 0001, 0002, 0003, 0005, 0007–0010, 0012; evidence-first → docs/workflow.md and each subsystem rule file; security trifecta → lesson L-17 |
 | AGENTS.md 36 | Sources of truth | AGENTS.md §5; Notion retired (STANDARD.md §7: not machinery); live state → STATE.md |
 | HANDOVER.md 25–29 | Three things: nested repo path; Cadence ≠ LiveWheel; moat | Nested path retired (old machine; repo is a single checkout); L-15; brief "Bets in force" |
 | HANDOVER.md 79–87 | Positioning rules (locked) | Decision 0001 (already holds them); AGENTS.md §6; brief "Non-goals" and "Who it is for" (anchor audiences, product stays industry-agnostic) |
@@ -80,7 +80,7 @@ Source line numbers are those of the original files at 001508c (archived copies 
 | AGENT_TEAM.md 96–105 | Eval-driven development, G-eval | docs/workflow.md "G-eval"; decision 0012; skill cadence-eval |
 | AGENT_TEAM.md 107–114 | Operating principles | Thin harness, leash, specs → STANDARD.md §6, §8, §11; ratchet → lessons and improve skill; trifecta → L-17; doc lifecycle → STANDARD.md §12 |
 | AGENT_TEAM.md 139–149 | Gates G-plan, G-review, G-eval, G-verify, G-cadence | Shared roles' gates (planner, reviewer, qa); G-eval and the Advanced release gate → docs/workflow.md; G-cadence → AGENTS.md §6 |
-| AGENT_TEAM.md 181–191 | Guardrails 1–7 | AGENTS.md §6 (terminology, positioning, credits, Advanced gate, migrations, LiveWheel); anti-positioning list → brief "Non-goals"; pack names → brief; "numbered docs are a mirror" retired (no such files exist); evidence-first → docs/workflow.md |
+| AGENT_TEAM.md 181–191 | Guardrails 1–7 | AGENTS.md §6 (terminology, "Cadence" brand noun (L-21, fix round 1), positioning, credits, Advanced gate, migrations, LiveWheel); anti-positioning list → brief "Non-goals"; pack names → brief; "numbered docs are a mirror" retired (no such files exist); evidence-first → docs/workflow.md |
 | AGENT_TEAM.md 256–263 | Pitfalls | Specialist on hard subsystem → path-scoped rules load automatically; "better with no number" → decision 0012; stale old-machine paths retired; cast by work type and one writer per branch → STANDARD.md §11 |
 | apps/web/CLAUDE.md 10–15, 19–48 | Companion docs, read-first files, where-X-lives table | .claude/rules/web-app.md "Read first"; overview "Where code lives"; AGENTS.md §5 (COPY_GUIDE) |
 | apps/web/CLAUDE.md 51–118 | Drizzle, tRPC, errors, logging, testing, imports | .claude/rules/web-app.md; lessons L-03, L-11 |

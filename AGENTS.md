@@ -50,6 +50,7 @@ What is live, next and blocked today: STATE.md.
 - Change `pnpm-workspace.yaml` only on purpose: build approvals and security overrides live there (lesson L-09)
 - No Brave-only feature without an exit plan; DuckDuckGo is the keyless fallback (lesson L-13; decision 0011)
 - The user-facing noun is "brief" for the standing config and the delivered message; `digest_*` stays in code (decision 0003, 0005)
+- "Cadence" is the brand noun: never genericise, translate or rename it (lesson L-21)
 - Never "Pro" or "deep research" in user-facing text; Advanced sells specificity and fit, not better grounding (decision 0007, 0010)
 - Lead with the value, never the channel: Telegram is a delivery detail (decision 0001)
 - Credits only, no subscriptions: Standard 1 credit, Advanced 5; feedback and tune replies stay free (decision 0002, 0008)

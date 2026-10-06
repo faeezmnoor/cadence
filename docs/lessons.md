@@ -1,10 +1,11 @@
 <!-- layer: knowledge · status: living (append at top) · verified: 2026-10-06 -->
 # Lessons — Cadence
 
-Every AGENTS.md §6 rule links here or to a decision. A lesson without a home is not yet applied. Rows L-01 to L-20 were rehomed on 2026-10-06 (slice 001) from documents now archived under docs/_archive/2026-10/; line numbers are those of the original files at commit 001508c. "Incident not recorded" means the source states the rule without dating what happened.
+Every AGENTS.md §6 rule links here or to a decision. A lesson without a home is not yet applied. Rows L-01 to L-21 were rehomed on 2026-10-06 (slice 001) from documents now archived under docs/_archive/2026-10/; line numbers are those of the original files at commit 001508c. "Incident not recorded" means the source states the rule without dating what happened.
 
 | Id | Date | What happened | Cost | The rule | Where the rule lives |
 | --- | --- | --- | --- | --- | --- |
+| L-21 | carried over | The old entry files called "Cadence" a sacred brand noun without dating why (source: AGENTS.md:29, AGENT_TEAM.md:183); the rule was dropped in slice 001 and restored in its fix round 1 | Brand drift if the name is genericised | "Cadence" is the brand noun: never genericise, translate or rename it | AGENTS.md §6 |
 | L-20 | 2026-06-19 | Wide commits and skipped checks made changes hard to revert (source: AGENTS.md:20, AGENT_TEAM.md:187); incident not recorded | Unrevertable changes | Stage named paths; never `git add -A` or `--no-verify` | AGENTS.md §6 |
 | L-19 | 2026-06-01 | The config-agent system prompt is read from `prompts/` with `fs` at runtime; Vercel's trace dropped it and the chat route threw ENOENT in production (source: apps/web/next.config.mjs:7–14) | Production chat outage | `prompts/` stays in place and `outputFileTracingIncludes` in apps/web/next.config.mjs keeps covering it | AGENTS.md §4, §6 |
 | L-18 | 2026-06-16 | Two folders with near-identical names: `server/eval/` (feedback-loop evaluator, golden sets) and `server/evals/` (Advanced readiness gate); agents confused them (source: server/ARCHITECTURE.md:270–286; agent bodies) | Writes to the wrong folder | Golden sets and feedback evals go in `server/eval/`; the release gate lives only in `server/evals/pro-eval-gate.ts` | .claude/agents/cadence-eval-quality.md; .claude/skills/cadence-eval/SKILL.md |
