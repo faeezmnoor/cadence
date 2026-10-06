@@ -20,6 +20,7 @@ verified: 2026-10-06 at 146c495 by bun .standard/standard-check.mjs . (exit 0 at
 - Telegram webhook secret: exposed in git history until rotated (OQ-01).
 - Checkout: Stripe Malaysian KYC (OQ-07). Advanced: lead +0.26 against the 0.5 gate, needs owner ratings (OQ-06).
 - main has no branch protection (verified 2026-10-06; set at T064).
+- Reported: code and tests carry the owner's contact values; documents are redacted, code is not (OQ-10).
 
 ## Direction in force
 - Prove the brief before charging: dogfood bar and the Advanced eval gate come before checkout and public signup (decisions 0009, 0012).

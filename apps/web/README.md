@@ -154,7 +154,7 @@ Required for cron / Telegram / Pro tier in prod:
 - `PRO_TIER_ALPHA=false|true` (single feature-flag for the Pro arm)
 - `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`
 - `AXIOM_TOKEN`, `AXIOM_DATASET`
-- `CADENCE_ADMIN_EMAILS` (comma-sep, e.g. `faeezmnoor@gmail.com`)
+- `CADENCE_ADMIN_EMAILS` (comma-separated admin e-mail addresses, e.g. `admin@example.com`)
 - `SUPPORT_EMAIL` (override default; see `server/support/contact.ts`)
 - `NEXT_PUBLIC_APP_URL`
 
