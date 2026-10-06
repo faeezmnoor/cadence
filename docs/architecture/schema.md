@@ -1,4 +1,4 @@
-<!-- layer: knowledge · status: living · generated: drizzle (apps/web/server/db/schema.ts) @ 37b4d4b · verified: 2026-10-06 -->
+<!-- layer: knowledge · status: living · generated: drizzle (apps/web/server/db/schema.ts) @ 8afb459 · verified: 2026-10-06 -->
 # Schema
 
 Generated from drizzle (apps/web/server/db/schema.ts). Do not edit by hand: run `bun run scripts/gen-schema.ts <project-root>` and commit the result.

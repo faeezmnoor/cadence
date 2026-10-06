@@ -1,5 +1,5 @@
 # AGENTS.md — Cadence
-<!-- standard: 1.2.2 · tier: standard · ui: yes · db: yes · verified: 2026-10-06 -->
+<!-- standard: 1.3.0 · tier: standard · ui: yes · db: yes · verified: 2026-10-06 -->
 <!-- Budget 150 lines. Eight numbered sections plus this header line, this order. Concrete commands and paths; no tool-specific features (those go in CLAUDE.md or .claude/rules/). -->
 
 ## 1. What this is
