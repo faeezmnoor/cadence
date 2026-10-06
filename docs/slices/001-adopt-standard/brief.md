@@ -75,3 +75,19 @@ Stop if: gen-schema is not on the standard repo's main at T040; a ruling on OQ-3
 
 ## Report
 Fixed format, under 300 words: Verdict · Commits · Gates met/total · Findings · Decisions I made (verified/inferred) · Needs the owner.
+
+## Orchestrator rulings (6 October 2026; the builder does not reopen these)
+- OQ-1: (a). A separate slice 002-fix-ci lands first and makes CI green on main; this slice rebases onto it before its PR (L-16). G2 stays as written.
+- OQ-2: `decision-makers: the owner (ruled by owner)` and `the orchestrator`; roles, never names (standard template updated).
+- OQ-3: (a). Redact in every archived copy: home paths → `<repo>/` or `<old-workspace>/`; the owner's name → "the owner"; e-mail, secret values, bot handles → `[redacted]`; say "redacted for publication" in the index reason. The owner is asked to rotate the Telegram webhook secret (owner queue item, urgent). History is never rewritten.
+- OQ-4: the export below is the Linear source for STATE.md and the roadmap; the builder reads no Linear tools.
+- OQ-5: docs/OWNER-QUEUE.md exists with generic wording, Linear issue ids allowed, no URLs and no names; decision-page links live in the standard repo's private registry.
+- OQ-6: (b). If `pnpm build` fails only for missing environment values, the Vercel preview build of the PR head is the evidence for G3; record it in notes.md with the deployment URL's status, not the URL.
+- OQ-7: archive under `docs/_archive/2026-10/_claude/…`; G11 and T050 use `_claude`.
+- OQ-8: confirmed public; §12 Hygiene applies in full, including G4–G6 over docs/_archive/ and .claude/.
+- Owner queue items this slice must write (generic wording): rotate the Telegram webhook secret that appeared in a committed document; set the `DATABASE_URL` Actions secret so the nightly database backup (db-backup.yml) stops failing; decide the four In Progress Linear issues below that have had no update since June.
+
+## Linear CAD export (6 October 2026, read by the orchestrator)
+In Progress (started), none assigned, last updated June 2026: CAD-222 "[W3] Pro integrity bake-off → tier decision"; CAD-210 "Platform Audit 2026-06-11 — 3-wave ship plan (epic)"; CAD-216 "[W1] Nightly pg_dump of ledger + specs (offsite)"; CAD-215 "[W1] Credit bridge + Advanced tier pause".
+Todo (unstarted), 18 issues: CAD-228 web-search providers (High); CAD-122 to CAD-130 Phase 6a/6b free data sources (epic CAD-123); CAD-70 to CAD-77 config-agent and composer tasks (CAD-70, 71, 72 Urgent; 73–76 High; 77 Medium).
+No issues in Review or Done were exported; the roadmap's Now reads from the four In Progress items and the handover's shipped list is NOT a source (stale).
