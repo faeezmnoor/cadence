@@ -11,7 +11,7 @@ Create the four Stripe credit-pack products and wire checkout once Malaysian KYC
 | Pack figures match code | `cd apps/web && npx vitest run test/stripe-skus-runbook.test.ts` | exit 0 |
 
 ## Steps
-The original procedure follows unchanged; its sections are nested one level down.
+The original procedure follows; its sections are nested one level down. Updated 2026-10-06 (slice 001, fix round 1): pack display names and the Advanced price follow decisions 0008 and 0010, which win over any older wording here. Display names are Taste, Everyday, Power and Max (`PACK_LABELS` in apps/web/server/billing/packs.ts); the `packId` values `taste`, `standard`, `power`, `pro` stay code-only and in Stripe metadata. Never name a Stripe product "Pro" anything (decision 0010).
 > **Stripe credit-pack SKU spec** — the implementation runbook the owner follows once Stripe MY KYC clears. This repo is canonical (companions: `docs/_archive/2026-10/HANDOVER.md` §6, `apps/web/server/billing/`).
 
 
@@ -34,7 +34,7 @@ This runbook is the **manual dashboard setup checklist** the owner follows post-
 
 1. **No subscriptions.** Every product MUST be one-time (`Type: One-time`). If you see "Recurring" in the dashboard form, you're on the wrong screen.
 2. **No tiered pricing.** Each pack is a single fixed price. Stripe's "Tiered pricing" model is for graduated/volume pricing on a single product; we don't use it.
-3. **No "plan" / "tier" nouns** in product names, descriptions, or metadata. The user never sees "Pro plan" — they see "Pro pack" (a credit-pack name, not a tier). Internal `tier` enum in Postgres stays (`standard | advanced`) and refers to the **research stack**, not a billing tier.
+3. **No "plan" / "tier" nouns** in product names, descriptions, or metadata. The user never sees "Pro" in any form; the 1000-credit pack is the "Max pack" (a credit-pack name, not a tier; decision 0010). Internal `tier` enum in Postgres stays (`standard | advanced`) and refers to the **research stack**, not a billing tier.
 4. **USD primary, MYR display only.** Charge USD; convert MYR for display at the FX snapshot stored in `pricing_snapshots`. MY-native MYR settlement is a v2 KYC-clearance milestone, not v1.
 5. **Webhook secret rotates with KYC migration.** When KYC clears, generate a fresh `STRIPE_WEBHOOK_SECRET` and rotate; do NOT reuse a test-mode secret in prod.
 
@@ -47,11 +47,11 @@ The numbers MUST match `apps/web/server/billing/packs.ts` exactly. If they ever 
 | Pack | Stripe product name | Stripe description | Credits granted | USD price | MYR display | $/credit | Notes |
 |---|---|---|---|---|---|---|---|
 | `taste` | **Cadence — Taste pack** | 30 briefs delivered. No subscription, credits never expire. | 30 | $5.00 | RM 23.00 | $0.167 | Entry tier. |
-| `standard` | **Cadence — Standard pack** | 70 briefs delivered. No subscription, credits never expire. Best value for daily readers. | 70 | $10.00 | RM 47.00 | $0.143 | Highlighted `best_value` on `/pricing`. |
+| `standard` | **Cadence — Everyday pack** | 70 briefs delivered. No subscription, credits never expire. Best value for daily readers. | 70 | $10.00 | RM 47.00 | $0.143 | Highlighted `best_value` on `/pricing`. |
 | `power` | **Cadence — Power pack** | 200 briefs delivered. No subscription, credits never expire. | 200 | $25.00 | RM 118.00 | $0.125 | Power-user tier. |
-| `pro` | **Cadence — Pro pack** | 1000 briefs delivered. No subscription, credits never expire. | 1000 | $100.00 | RM 470.00 | $0.10 | Highest-volume pack. NOT a Pro plan. |
+| `pro` | **Cadence — Max pack** | 1000 briefs delivered. No subscription, credits never expire. | 1000 | $100.00 | RM 470.00 | $0.10 | Highest-volume pack. Internal id `pro` only; display name Max (decision 0010). |
 
-> **Naming hazard.** The pack named `pro` is the $100 / 1000-credit credit pack. It is NOT the "Pro tier" / "advanced research stack" (that's a per-brief 3× credit-cost multiplier inside the app, gated by `digest_specs.tier='advanced'`). Receipts should say "Pro pack" so customers don't think they bought a subscription.
+> **Naming hazard.** The pack with internal id `pro` is the $100 / 1000-credit credit pack, displayed as "Max". It is NOT the Advanced research mode (that costs 5 credits per brief instead of Standard's 1, inside the app, gated by `digest_specs.tier='advanced'`; decision 0008). Receipts should say "Max pack" so customers don't think they bought a subscription; "Pro" never appears in any user-facing form (decision 0010).
 
 All 4 packs clear the 60% gross-margin floor at the v1 cost-to-us estimate of $0.005/credit (see `COST_TO_US_MICRO_PER_CREDIT_V1` in `packs.ts`).
 
