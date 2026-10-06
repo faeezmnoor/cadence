@@ -14,7 +14,7 @@ A user reports no brief, the smoke summary shows `[ALERT]`, or a run is `failed`
 1. Open the admin runs page and filter to the user; read the last runs and their status.
 2. If a run is `failed`, read its `last_error` (sanitised) and the Sentry event tagged with the user id; errors are classed transient, permanent or unknown (`server/digest/errors.ts`).
 3. If the user is `delivery_broken` (repeated Telegram send failures), the usual cause is that the user blocked or left the bot (inferred from the archived handover); once they unblock, the next successful delivery heals the state automatically.
-4. If the composer's JSON failed repeatedly (`ComposerJsonError`), the run already retried three times; treat persistent failures as model-output drift and open a slice (composer rules: .claude/rules/llm-composer.md).
+4. If the composer's JSON failed repeatedly (`ComposerJsonError`), the run already retried three times; persistent failures usually mean Haiku output drift: bump the model in `server/ai/providers/default.ts` or tighten the system prompt, in a slice (composer rules: .claude/rules/llm-composer.md).
 5. To re-run a delivery after fixing the cause, use "Replay" on the run (`admin.replayRun`).
 
 ## Verification
