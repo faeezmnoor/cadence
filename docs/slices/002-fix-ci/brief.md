@@ -16,3 +16,6 @@ Stop if: the failure is not the file name (report what it is).
 
 ## Report
 Fixed format, under 150 words: Verdict · Commit · `pnpm test` result (counts) · Needs the owner.
+
+## Extension (orchestrator, 6 October 2026): the audit step
+CI's `check` job also runs `pnpm audit --prod --audit-level=high` and fails on a high-severity advisory in the transitive dependency `fast-uri` ("host confusion via failed IDN"). This fails on main too, so it is in scope for "make CI green". Do: find which direct dependency pulls `fast-uri` (`pnpm why fast-uri`), and resolve by the smallest safe change: prefer updating that direct dependency to a version that pulls a patched `fast-uri`; if none exists, add a `pnpm.overrides` entry in the root package.json pinning `fast-uri` to the patched version named by the advisory, with a one-line comment in the PR description. Run `pnpm install` (lockfile updates are expected and committed), then `pnpm audit --prod --audit-level=high` must exit 0 and `pnpm typecheck && pnpm lint && pnpm test` must still exit 0. One commit for the dependency change. Stop and report if the patched version breaks a test or if the advisory has no fix.
