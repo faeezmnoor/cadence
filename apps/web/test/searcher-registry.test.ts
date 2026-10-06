@@ -7,7 +7,7 @@
  * the tier registry.
  */
 import { vi, describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 
 // Keep parseDuckDuckGoHtml real, stub the networked search.
@@ -105,10 +105,16 @@ describe("registry drift guards", () => {
     expect([...SEARCHER_IDS].sort()).toEqual(SEARCHER_OPTIONS.map((o) => o.id).sort());
   });
 
-  it("migration 0028 CHECK + apply runner cover every registered id", () => {
-    const sql = read("../server/db/migrations/0028_digest_specs_searcher.sql");
+  it("searcher migration CHECK + apply runner cover every registered id", () => {
+    // Locate by stable suffix: the sequence number shifts when migrations are renumbered.
+    const file = readdirSync(fileURLToPath(new URL("../server/db/migrations", import.meta.url))).find((f) =>
+      f.endsWith("_digest_specs_searcher.sql"),
+    );
+    expect(file).toBeDefined();
+    const seq = file!.split("_")[0];
+    const sql = read(`../server/db/migrations/${file}`);
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+searcher text NOT NULL DEFAULT 'brave'/i);
-    const runner = read("../server/db/apply-0028.mjs");
+    const runner = read(`../server/db/apply-${seq}.mjs`);
     for (const id of SEARCHER_IDS) {
       expect(sql).toContain(`'${id}'`);
       expect(runner).toContain(`"${id}"`);

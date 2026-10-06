@@ -28,3 +28,20 @@ onlyBuiltDependencies:
 # The .npmrc copy of this key is ignored by pnpm 11 (renamed); the workspace
 # yaml is the canonical location.
 strictDepBuilds: false
+
+# Security overrides (slice 002-fix-ci). pnpm 11 no longer reads the
+# `pnpm.overrides` field in package.json, so they live here. Each pin is the
+# first version patched for the high/critical advisories `pnpm audit --prod`
+# reports; selectors are scoped to the vulnerable major so other majors in the
+# tree are untouched. Advisory ids per package: docs/slices/002-fix-ci/notes.md.
+overrides:
+  'fast-uri@^3': ^3.1.8
+  'brace-expansion@^5': ^5.0.11
+  'browserslist@^4': ^4.28.7
+  'postcss@^8': ^8.5.18
+  'source-map-js@^1': ^1.2.2
+  'sharp@^0.34': ^0.35.4
+  'nanoid@^3': ^3.3.18
+  'jsondiffpatch@<0.7.6': ^0.7.6
+  '@grpc/grpc-js@^1': ^1.14.5
+  '@opentelemetry/propagator-jaeger@^2': ^2.9.0
