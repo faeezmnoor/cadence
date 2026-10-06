@@ -85,7 +85,7 @@ Tailwind and shadcn/ui. Deployed on Vercel, pnpm workspace.
 ```
 apps/web/          Next.js app, tRPC routers, brief pipeline, evals
 services/prices/   Python yfinance sidecar
-docs/              decisions, plans, runbooks, roadmap
+docs/              brief, architecture, decisions, runbooks, roadmap
 ```
 
 ## Local development

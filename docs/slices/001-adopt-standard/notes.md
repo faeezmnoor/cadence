@@ -112,3 +112,8 @@ Source line numbers are those of the original files at 001508c (archived copies 
 | motion | typing-dot 1.4s, chat-fade-in 120ms | tailwind.config.ts lines 85–98 |
 | components | brand button, best-value badge, status text | inferred from token comments in globals.css lines 25–34 |
 - Viewports 360×800 and 1440×900: 360px from the archived designer agent ("mobile parity at 360px", verified); 1440×900 from the standard template (inferred).
+
+## T023 Path-only updates
+- Changed: README.md line 88 (docs/ line no longer lists plans); apps/web/README.md lines 13–14, 102, 123, 360–362; comments in apps/web/server/db/schema.ts line 10, apps/web/lib/research-stack.ts line 101, apps/web/scripts/seed-smoke-spec.mjs line 25.
+- Reported, not changed (runtime string): apps/web/components/telegram/link-telegram-client.tsx line 437 says "See docs/TELEGRAM_BOT_SETUP.md"; the file is docs/runbooks/TELEGRAM_BOT_SETUP.md (stale since before this slice).
+- Reported, not changed (code comments outside the three the brief names, or frozen files): "CLAUDE.md" references meaning the archived app-level file in apps/web/app/api/chat/route.ts:501 and apps/web/test/{reply-capture,duckduckgo-parse,manage-mode-migration-0029,billing-request-credits,pro-search-execution}.test.ts; "ARCHITECTURE.md" in migration 0029's SQL comment (applied migrations are never edited); proposals/brief-manage-mode-plan.md (frozen). Their content now lives in .claude/rules/web-app.md and docs/architecture/overview.md.

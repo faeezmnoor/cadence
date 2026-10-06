@@ -22,7 +22,7 @@
  *   "AI agent UX patterns" topic because it produces signal every day
  *   without exposing us to commodity-data-source bugs.
  *
- * Kill switch: see docs/SMOKE.md — toggle is_smoke=false on the spec, or
+ * Kill switch: see docs/runbooks/SMOKE.md — toggle is_smoke=false on the spec, or
  *   set DELIVERY frequency on the user to paused.
  *
  * Usage:
