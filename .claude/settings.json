@@ -1,0 +1,18 @@
+{
+  "$comment": "Project settings: permissions only (no project hooks). Shared hooks come from the house-standard plugin. Personal overrides go in .claude/settings.local.json (ignored).",
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm test)",
+      "Bash(pnpm build)",
+      "Bash(npx vitest run:*)",
+      "Bash(bun .standard/standard-check.mjs .)"
+    ]
+  }
+}

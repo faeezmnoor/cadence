@@ -29,3 +29,15 @@ jobs:
       - run: pnpm test --run
 
       - run: pnpm audit --prod --audit-level=high
+
+  standard-check:
+    name: standard-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the lint checks STATE.md\'s verified commit against history (T2)
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun .standard/standard-check.mjs .

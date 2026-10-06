@@ -1,7 +1,7 @@
 # Brief Manage Mode — Implementation Plan (rev. 2, post exec review)
 
 **Feature:** persistent per-brief chat threads with manage mode (sample + edit) for Cadence.
-**Repo:** `/Users/faeez/code/cadence`, app code in `apps/web/`. Verified against `main` @ `74fc25c` (2026-06-12). All paths below are relative to `apps/web/` unless they start with `prompts/` (repo root).
+**Repo:** `<old-workspace>/cadence`, app code in `apps/web/`. Verified against `main` @ `74fc25c` (2026-06-12). All paths below are relative to `apps/web/` unless they start with `prompts/` (repo root).
 **This revision** incorporates all 7 required changes and all 14 advisories from CPO+CTO review. Disposition mapping in Appendix B. No required change conflicted with a locked founder decision, so there are no exception notes — every change is incorporated. The one nuance against decision 7 ("migration applied before merge") is called out inline in §4.1/§7.1: the **schema** migration still applies pre-merge; only the **data reactivation step** moves post-deploy, at the execs' direction, because pre-merge reactivation is a verified prod hazard.
 
 **Repo facts re-verified during synthesis and exec-review revision** (trust these over the role plans where they differed):

@@ -8,7 +8,7 @@ Out of scope: everything else; no migration content changes; no snapshot updates
 Stop if: the failure is not the file name (report what it is).
 
 ## Rules that apply
-- Minimal diff; failing test first is already the case (it fails on main); one commit; never `git add -A`; commit message ends with: Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- Minimal diff; failing test first is already the case (it fails on main); one commit; never `git add -A`; commit message ends with the Co-Authored-By trailer for Claude Fable 5.1 (Anthropic's no-reply address; written out in the orchestrator's prompt)
 - No names, no absolute paths in committed files (public repository).
 
 ## Files to read (only these)

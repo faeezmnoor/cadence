@@ -121,7 +121,7 @@ The codebase is built on **`digest`** (`DigestSpec`, `digest_specs`, `digest_run
 - **Dates:** `10 Jun 2026`. No ordinals. **Times:** computed, never hard-coded (§4).
 - **Oxford comma:** always. **Em dash:** spaced ` — `, max one per sentence — the brand's pivot punctuation; don't devalue it.
 - **Exclamation marks: banned product-wide.** Quiet confidence.
-- **Placeholders:** real examples, not types (`you@company.com`, `/tune less crypto`). No angle brackets in user strings.
+- **Placeholders:** real examples, not types (a sample work address in the sign-in e-mail field, `/tune less crypto`). No angle brackets in user strings.
 - **Buttons:** verb-first imperative, ≤3 words where possible. Destructive buttons name the object ("Delete my account"). No trailing punctuation.
 - **Error anatomy (3 beats):** ① what happened (plain, no internal nouns) → ② what it means for your brief/money → ③ exactly one action.
 - **Empty-state anatomy:** ① what this will show → ② what fills it → ③ one optional action.

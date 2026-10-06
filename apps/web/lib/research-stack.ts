@@ -98,7 +98,7 @@ export interface StackDescriptionRow {
  *   - server/ai/providers/default.ts (Claude Haiku 4.5)
  *   - server/ai/providers/anthropic-pro.ts (Claude Sonnet 4.5)
  *   - server/sources/index.ts (Brave/RSS for default; Perplexity Sonar for pro)
- *   - HANDOVER.md §4 (stack table)
+ *   - docs/architecture/overview.md (system context)
  */
 export const STACK_DESCRIPTIONS: StackDescriptionRow[] = [
   {

@@ -85,7 +85,7 @@ Tailwind and shadcn/ui. Deployed on Vercel, pnpm workspace.
 ```
 apps/web/          Next.js app, tRPC routers, brief pipeline, evals
 services/prices/   Python yfinance sidecar
-docs/              decisions, plans, runbooks, roadmap
+docs/              brief, architecture, decisions, runbooks, roadmap
 ```
 
 ## Local development
@@ -94,7 +94,7 @@ Node 20+, pnpm 9+.
 
 ```bash
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in keys
+cp .env.example apps/web/.env.local            # fill in keys
 pnpm dev                                        # → http://localhost:3000
 ```
 

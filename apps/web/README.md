@@ -9,8 +9,8 @@ the AI composer pipeline, and all data access.
 > and how to be productive in an hour.
 
 For LLM-specific orientation (Claude Code / Cursor / GPT), read
-[`CLAUDE.md`](./CLAUDE.md) next. For module-level system architecture, see
-[`server/ARCHITECTURE.md`](./server/ARCHITECTURE.md).
+[`AGENTS.md`](../../AGENTS.md) next. For module-level system architecture, see
+[`docs/architecture/overview.md`](../../docs/architecture/overview.md).
 
 ---
 
@@ -19,7 +19,7 @@ For LLM-specific orientation (Claude Code / Cursor / GPT), read
 ```bash
 # from cadence/app (the nested git repo root)
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in keys (see Env vars)
+cp .env.example apps/web/.env.local            # fill in keys (see Env vars)
 pnpm --filter web dev                          # http://localhost:3000
 ```
 
@@ -99,7 +99,7 @@ apps/web/
 │   ├── log.ts                   Tiny structured logger
 │   └── utils.ts                 `cn()` className helper
 │
-├── server/                   Backend modules — see server/ARCHITECTURE.md
+├── server/                   Backend modules — see docs/architecture/overview.md
 │   ├── ai/                   Composer, config agent, distill, providers (Pro/default)
 │   ├── auth/admin.ts         Email-based admin gate (env CADENCE_ADMIN_EMAILS)
 │   ├── billing/              Credits, debit, refund, packs, circuit breaker, footer
@@ -120,7 +120,7 @@ apps/web/
 │   ├── telegram/             grammY client + Update dispatcher + feedback callback + /tune + link tokens
 │   └── trpc/                 tRPC root, context, procedures, routers/
 │
-├── test/                     Vitest suite (61 files, 485 passing; see CLAUDE.md "Testing")
+├── test/                     Vitest suite (61 files, 485 passing; see .claude/rules/web-app.md "Tests")
 ├── scripts/                  Standalone Node scripts (seed/verify smoke spec)
 ├── public/                   Static assets
 ├── instrumentation.ts        Next.js process-init hook (loads Sentry server/edge configs)
@@ -154,7 +154,7 @@ Required for cron / Telegram / Pro tier in prod:
 - `PRO_TIER_ALPHA=false|true` (single feature-flag for the Pro arm)
 - `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`
 - `AXIOM_TOKEN`, `AXIOM_DATASET`
-- `CADENCE_ADMIN_EMAILS` (comma-sep, e.g. `faeezmnoor@gmail.com`)
+- `CADENCE_ADMIN_EMAILS` (comma-separated admin e-mail addresses, e.g. `admin@example.com`)
 - `SUPPORT_EMAIL` (override default; see `server/support/contact.ts`)
 - `NEXT_PUBLIC_APP_URL`
 
@@ -358,5 +358,5 @@ A manual run before risky migrations: Actions → DB backup → Run workflow.
 
 - Product direction / PRDs / decisions: Notion "📡 Startup - Cadence" + Linear (team `CAD-`)
 - Copy, voice & terminology: `apps/web/COPY_GUIDE.md`
-- Live system state: `HANDOVER.md` · Architecture: `apps/web/server/ARCHITECTURE.md`
-- Platform decisions (Wave 1–3): `PLATFORM-AUDIT-2026-06-11.md`
+- Live system state: `STATE.md` · Architecture: `docs/architecture/overview.md`
+- Platform decisions (Wave 1–3): `docs/records/audits/platform-audit-2026-06-11.md`

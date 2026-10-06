@@ -3,7 +3,7 @@
 Status: deferred. Composer ships without live prices for the initial wedge.
 
 ## Why deferred
-RSS + Brave news + Claude synthesis gives Faeez a meaningful brief already.
+RSS + Brave news + Claude synthesis gives the owner a meaningful brief already.
 Prices are a +1, not the wedge. Adding a separate runtime (Python on Fly)
 before validating digest demand is gold-plating.
 

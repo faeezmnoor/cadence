@@ -1,12 +1,24 @@
-# Deploy
+<!-- layer: knowledge · status: living · verified: 2026-10-06 -->
+# Runbook — Deploy
 
-## Vercel (T-003)
+## When to use this
+First-time setup of the hosting, database, e-mail, jobs and observability accounts, and the deploy contract for every later change. When not to: database migrations (docs/runbooks/apply-migration.md) and Stripe (docs/runbooks/stripe-skus-v2.md).
+
+## Preconditions
+| Needs | Check | Expected |
+| --- | --- | --- |
+| Admin access to Vercel, Supabase, Resend, Inngest, Sentry, Axiom | Sign in to each dashboard | Project visible |
+| Repository builds locally | `pnpm install && pnpm typecheck` | exit 0 |
+
+## Steps
+The original procedure follows unchanged; its sections are nested one level down.
+### Vercel (T-003)
 
 Cadence ships on Vercel. The web app lives in `apps/web` inside a pnpm
 workspace. The root-level `vercel.json` tells Vercel to install from the
 workspace root and build only the web app.
 
-### One-time setup (Faeez)
+#### One-time setup (the owner)
 
 1. Push this repo to GitHub (`github.com/<you>/cadence` — private).
 2. `vercel.com` → Add New → Project → import the repo.
@@ -14,16 +26,16 @@ workspace root and build only the web app.
 4. **Framework preset**: Next.js (auto-detected).
 5. **Region**: Singapore (`sin1`) — set under Project → Settings → Functions.
 6. Build/install commands: leave default; `vercel.json` overrides them.
-7. Add env vars from `apps/web/.env.example` once the values exist.
+7. Add env vars from the root `.env.example` once the values exist.
 8. First deploy will fail until env vars are populated — that's expected.
 
-### Autodeploy contract
+#### Autodeploy contract
 
 - Push to `main` → production deploy at `cadence.app` (or vercel.app subdomain).
 - Open PR against `main` → preview deploy with unique URL.
 - Vercel auto-comments preview URLs on PRs once GitHub app is installed.
 
-## Supabase (T-004, T-005)
+### Supabase (T-004, T-005)
 
 1. `supabase.com` → New Project, region **Singapore (`ap-southeast-1`)**.
 2. Set a strong DB password — save to Vercel env as `SUPABASE_DB_PASSWORD`.
@@ -37,22 +49,35 @@ workspace root and build only the web app.
    - Settings → Auth → SMTP Settings → enter Resend SMTP host/port/user/pass.
 7. Add the Vercel preview/prod URLs to Auth → URL Configuration → Site URL + Redirect URLs.
 
-## Resend (T-005)
+### Resend (T-005)
 
 1. `resend.com` → API Keys → create one, paste into `RESEND_API_KEY`.
 2. Add domain (later) for branded magic-link sender.
 
-## Inngest (T-007)
+### Inngest (T-007)
 
 1. `inngest.com` → Create app — production app `cadence-prod`.
 2. Copy `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` to Vercel env.
 3. Inngest cloud will auto-discover functions via `/api/inngest`.
 
-## Axiom + Sentry (T-008)
+### Axiom + Sentry (T-008)
 
 - Axiom: `axiom.co` → create dataset `cadence-web` → copy `AXIOM_TOKEN` + `AXIOM_DATASET`.
 - Sentry: `sentry.io` → create project (Next.js) → copy DSN to `NEXT_PUBLIC_SENTRY_DSN`.
 
-## Fly.io prices service (T-206, Phase 2)
+### Fly.io prices service (T-206, Phase 2)
 
 Deferred to Phase 2. Notes in `services/prices/README.md`.
+
+## Verification
+```
+pnpm build
+```
+Expected: exit 0 locally with apps/web/.env.local filled in; on Vercel, the deployment for the pushed commit shows "Ready".
+
+## Rollback
+1. Vercel → Deployments → the previous green deployment → "Promote to Production" (under a minute).
+2. Database migrations are not reverted by Vercel. If the bad deploy ran a migration, write a forward-fix runner (docs/runbooks/apply-migration.md); never edit a past migration (lesson L-01).
+
+## Last run
+Not recorded in the repository; production has deployed from main since 2026-06 (inferred from the Vercel autodeploy contract).

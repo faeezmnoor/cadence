@@ -1,5 +1,17 @@
-# SMOKE — self-dogfooded smoke spec (T-306 / CAD-41)
+<!-- layer: knowledge · status: living · verified: 2026-10-06 -->
+# Runbook — SMOKE — self-dogfooded smoke spec (T-306 / CAD-41)
 
+## When to use this
+Seed, verify, read or pause the self-dogfooded daily smoke brief that proves the delivery layer works. When not to: investigating one real user's failed run (docs/runbooks/stuck-user.md).
+
+## Preconditions
+| Needs | Check | Expected |
+| --- | --- | --- |
+| Production database URL | `test -n "$DATABASE_URL"` | exit 0 |
+| Smoke owner has signed in once by magic link | seed script exit code | 0 (2 means the owner is not in `users` yet) |
+
+## Steps
+The original procedure follows unchanged; its sections are nested one level down.
 Cadence runs a continuous, self-dogfooded smoke test against the Phase 3
 delivery infra (tz cron + idempotency + retry + auto-heal + admin viewer).
 The smoke contract is: **one `digest_spec` owned by the founder, marked
@@ -8,12 +20,12 @@ A second cron summarises the last 24h every morning. After **3 consecutive
 clean summaries**, the delivery layer is considered trustworthy enough to
 onboard real users.
 
-## Contract
+### Contract
 
 | Field | Value |
 | --- | --- |
-| Owner email (default) | `faeezmnoor@gmail.com` |
-| Telegram chat id (default) | `27643893` |
+| Owner email (default) | `[redacted]` (the seed script's built-in default; set `SMOKE_OWNER_EMAIL`) |
+| Telegram chat id (default) | `[redacted]` (set `SMOKE_TELEGRAM_CHAT_ID`) |
 | Cadence | daily |
 | Delivery time | `06:30` Asia/Kuala_Lumpur (intentionally before the 07:00 MYT live-commerce brief, so we don't clash with it) |
 | Topic | AI agent UX patterns / OpenAI / Anthropic — low-volume, reliably non-empty |
@@ -24,7 +36,7 @@ onboard real users.
 Override via env at seed time: `SMOKE_OWNER_EMAIL`, `SMOKE_TELEGRAM_CHAT_ID`,
 `SMOKE_DELIVERY_TIME_LOCAL`, `SMOKE_TIMEZONE`.
 
-## Seeding the smoke spec
+### Seeding the smoke spec
 
 The seed script is idempotent — re-run after every deploy:
 
@@ -43,7 +55,7 @@ Exit codes:
 - `1` — misconfiguration (missing env)
 - `2` — owner email not yet in `users` (magic-link sign in first, then re-run)
 
-## Day-0 baseline
+### Day-0 baseline
 
 Right after seeding, run the verifier:
 
@@ -58,7 +70,7 @@ Asserts:
 
 Exit non-zero on any failure — safe to gate a deploy step on it.
 
-## Reading the daily summary
+### Reading the daily summary
 
 Every day at 09:00 MYT the `smoke-summary` Inngest function posts a block
 like:
@@ -68,7 +80,7 @@ Cadence smoke summary
 window: 2026-06-02T01:00:00.000Z -> 2026-06-03T01:00:00.000Z (UTC)
 smoke specs: 1
 
-[OK] faeezmnoor@gmail.com
+[OK] <owner e-mail>
   spec: <uuid>
   runs: 1/1 expected
   delivered=1 failed=0 pending=0 retried=0
@@ -92,7 +104,7 @@ Investigation cheat sheet:
   flips back to `active` on the next successful delivery. If we're stuck
   broken, T-305 admin replay will be needed.
 
-## Kill switches
+### Kill switches
 
 **Pause the smoke without deleting the spec** (recommended — preserves the
 spec for fast re-arm):
@@ -120,7 +132,7 @@ Or pause the user:
 ```sql
 UPDATE users
 SET state = 'paused', updated_at = now()
-WHERE lower(email) = 'faeezmnoor@gmail.com';
+WHERE lower(email) = '<owner e-mail>';
 ```
 
 (`state != 'active'` makes the cron dispatcher skip the user entirely.)
@@ -132,7 +144,7 @@ DATABASE_URL=... node apps/web/scripts/seed-smoke-spec.mjs
 DATABASE_URL=... node apps/web/scripts/verify-smoke-spec.mjs
 ```
 
-## 3-day clean criteria
+### 3-day clean criteria
 
 Smoke is "done" when:
 1. Three consecutive daily summaries report `[OK]`.
@@ -142,3 +154,15 @@ Smoke is "done" when:
    pipeline (currently ~30s end-to-end is the working ceiling).
 
 Hitting all three unlocks Phase 4 user onboarding.
+
+## Verification
+```
+DATABASE_URL=... node apps/web/scripts/verify-smoke-spec.mjs
+```
+Expected: exit 0 (the three assertions under "Day-0 baseline" pass); the next daily summary starts with `[OK]`.
+
+## Rollback
+See "Kill switches" above: pause the smoke (flip `is_smoke`), fully stop it, or pause the user; re-arm by re-running the seed and verify scripts.
+
+## Last run
+Not recorded in the repository.
