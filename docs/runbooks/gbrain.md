@@ -1,16 +1,39 @@
-# Runbook — gbrain (semantic code/knowledge retrieval)
+<!-- layer: knowledge · status: living · verified: 2026-10-06 -->
+# Runbook — Runbook — gbrain (semantic code/knowledge retrieval)
 
+## When to use this
+Decide whether to adopt, set up or refresh gbrain semantic retrieval for this repository. When not to: as a source of truth; docs/ and Linear stay canonical.
+
+## Preconditions
+| Needs | Check | Expected |
+| --- | --- | --- |
+| gbrain installed on the machine | `command -v gbrain` | a path |
+
+## Steps
+The original procedure follows unchanged; its sections are nested one level down.
 gbrain is a local persistent brain (PGLite or Supabase) exposed to agents as an MCP tool: semantic code search (`gbrain search`, `code-def`, `code-refs`) + cross-session recall of plans/retros/decisions. It is the **deep-retrieval layer** — it complements, never replaces, `docs/` + Linear + Notion.
 
-## When to adopt
+### When to adopt
 Adopt when grep/glob start failing you — i.e. the codebase is large enough that an agent burns real time re-reading `ARCHITECTURE.md`/`docs/` cold each session, or when multiple agents/worktrees compound that cost. Until then it's optional; the 18 agents have Read/Grep/Glob.
 
-## One-time setup (founder runs — modifies local env / registers MCP)
+### One-time setup (founder runs — modifies local env / registers MCP)
 ```
 /setup-gbrain          # PGLite local backend (free, ~30s); registers the gbrain MCP
 /sync-gbrain --full    # index the cadence repo
 ```
 `sync-gbrain` also writes a `## GBrain Search Guidance` section into CLAUDE.md so new sessions prefer semantic search over grep for "where does X live?" questions.
 
-## Steady state (automated)
+### Steady state (automated)
 The `/cadence-deliver` **CLOSE** phase calls `/sync-gbrain` (incremental, ~50ms) so the index never drifts after a ship. No manual step once set up.
+
+## Verification
+```
+gbrain search "runDigestPipeline"
+```
+Expected: hits in apps/web/server/digest/run.ts.
+
+## Rollback
+1. Remove the gbrain MCP registration and delete the local index; nothing in the repository depends on it.
+
+## Last run
+Not recorded in the repository (optional tool).
