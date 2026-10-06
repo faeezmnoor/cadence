@@ -110,7 +110,6 @@ sequenceDiagram
   P->>T: send parts (3800-character split) with feedback keyboard
   P->>DB: debit credits, write cost, mark delivered
 ```
-Retries: three for transient errors, none for permanent ones (`classifyError`). A paused or unaffordable Advanced request runs as Standard and is charged as Standard.
 
 ### Chat configuration (F-02)
 ```mermaid
@@ -125,7 +124,6 @@ sequenceDiagram
   C->>DB: save spec version, bind the thread to the brief
   C-->>B: streamed reply, spec preview
 ```
-A thread with no spec is a setup thread; once saved it becomes that brief's manage thread (mode is derived, never stored; `MANAGE_MODE` is the kill switch).
 
 ### Telegram link and sample (F-03)
 ```mermaid
@@ -135,8 +133,7 @@ sequenceDiagram
   participant T as Telegram
   participant H as Webhook
   participant DB as Postgres
-  B->>W: open the link page
-  W->>DB: create 12-character link token (15 minutes)
+  W->>DB: on page load, create a 12-character link token (15 minutes)
   B->>T: deep link with the token
   T->>H: start command with token (webhook secret checked)
   H->>DB: resolve token, set telegram_chat_id
@@ -151,13 +148,11 @@ sequenceDiagram
   participant H as Webhook
   participant DB as Postgres
   participant I as Inngest
-  participant L as Haiku
   U->>T: tap feedback or send a tune reply
   T->>H: callback or message
   H->>DB: feedback_events or learning_log row
   I->>DB: weekly distill (Sundays) or on signal
-  I->>L: condense notes
-  L-->>DB: users.distilled_prefs (at most five)
+  I->>DB: Haiku condenses notes into users.distilled_prefs (at most five)
 ```
 
 ## Data
@@ -167,10 +162,10 @@ Postgres on Supabase (Singapore). The generated tables, columns and relations ar
 - Auth and roles: Supabase Auth with magic links (Resend) and Google sign-in; tRPC `protectedProcedure` for users, `adminProcedure` for operators via the `CADENCE_ADMIN_EMAILS` allowlist (`server/auth/admin.ts`); no role column.
 - Admin dashboards under `/admin`: cost, dispatch, evals (rate briefs, gate verdict), feedback, missing capabilities, runs (inspect and replay), users (grant credits).
 - Configuration and secrets: values live in Vercel environment variables and the local apps/web/.env.local, never in documents. Names: `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `BOT_USERNAME`, `ADMIN_TELEGRAM_CHAT_ID`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `AXIOM_TOKEN`, `AXIOM_DATASET`, `NEXT_PUBLIC_APP_URL`, `CADENCE_ADMIN_EMAILS`, `MANAGE_MODE`, `PRO_TIER_ALPHA`. The support address is a constant in `server/support/contact.ts`. The GitHub Actions secret `DATABASE_URL` feeds the backup job.
-- Errors and logging: pipeline errors are classified (`server/digest/errors.ts`) and sanitised before storage; structured logs via `lib/log.ts`; Sentry with a PII scrubber (`server/observability/sentry-scrub.ts`).
+- Errors and logging: pipeline errors are classified (`server/digest/errors.ts`): three retries for transient errors, none for permanent ones; a paused or unaffordable Advanced request runs and is charged as Standard (F-01); errors are sanitised before storage; structured logs via `lib/log.ts`; Sentry with a PII scrubber (`server/observability/sentry-scrub.ts`).
 - Observability: Sentry (server, client, edge configs), Axiom logs, `cost_events` per paid call, a daily smoke summary to the owner's Telegram chat (docs/runbooks/SMOKE.md).
 - Jobs (Inngest): dispatcher every 5 minutes; hourly RSS poll; daily feedback eval, smoke summary and soft-delete purge; weekly distill plus distill on signal.
-- Flags: `PRO_TIER_ALPHA` (Advanced), `MANAGE_MODE` (brief manage threads), read only through `lib/feature-flags.ts`; a daily Advanced cost circuit breaker in `server/billing/circuit-breaker.ts`.
+- Flags: `PRO_TIER_ALPHA` (Advanced), `MANAGE_MODE` (brief manage threads: a chat thread with no spec is a setup thread, a saved one becomes that brief's manage thread; mode is derived, never stored; F-02), read only through `lib/feature-flags.ts`; a daily Advanced cost circuit breaker in `server/billing/circuit-breaker.ts`.
 - Rate limits: `/api/chat` 5 turns per minute per user (`server/rate-limit/check.ts`).
 
 ## Environments and deploy path

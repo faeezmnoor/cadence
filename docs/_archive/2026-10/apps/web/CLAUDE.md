@@ -8,12 +8,12 @@ via web chat. One-person ops, multi-tenant, side-income economics.
 Read this BEFORE making changes. The codebase has strong conventions —
 violating them produces noise diffs that get rejected at review.
 
-> The companion handover doc is [`README.md`](./README.md) (directory map,
+> The companion handover doc is [`README.md`](../../../../../apps/web/README.md) (directory map,
 > stack, common tasks). System-level architecture lives in
 > [`server/ARCHITECTURE.md`](./server/ARCHITECTURE.md). Start with both.
-> Every user-facing string MUST follow [`COPY_GUIDE.md`](./COPY_GUIDE.md)
+> Every user-facing string MUST follow [`COPY_GUIDE.md`](../../../../../apps/web/COPY_GUIDE.md)
 > (voice, vocabulary, banned nouns, honesty rules); pending copy debt is
-> tracked in [`COPY_FIXES_PROPOSED.md`](./COPY_FIXES_PROPOSED.md).
+> tracked in [`COPY_FIXES_PROPOSED.md`](../../../../records/copy/copy-fixes-proposed-2026-06-11.md).
 
 ---
 
