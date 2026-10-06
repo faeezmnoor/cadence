@@ -83,4 +83,27 @@ Findings from the plants:
 - Vercel, GitHub Actions and Supabase settings, and whether the exposed webhook secret is still active.
 - Full history of main before this branch (only the branch range and removed lines were examined).
 
-VERDICT: BLOCK — no live secret value, but the owner's personal e-mail (including in apps/web/README.md, a document this slice edited), Telegram chat id and name remain unredacted in the working tree outside the gates' scope.
+
+## Round 2 (2026-10-06, head 518fddd)
+Re-run after fix round 1 (13f01a1 redaction, fdf56ee widened gates and the new e-mail gate G18, 518fddd STATE and owner queue).
+
+### Scans over every tracked Markdown file, .github/ and .claude/
+| Type | Hits | Assessment |
+| --- | --- | --- |
+| E-mail addresses | 2, both `admi…@example.com` | Example values; clean |
+| Owner chat id, Linear team id, bot handle | 0 | Clean |
+| Owner name, home paths | 0 real; 1 false positive (this record's own mention of `/admin/users/`) | Clean |
+| Secret shapes (hex 40+, `sk_`, `whsec_`, tokens, keys, JWTs, credentialed connection strings) | 0 real; truncated placeholders `sk_l…` and `whs…` in docs/runbooks/stripe-skus-v2.md:104–105 and this record's own pattern list | Clean |
+
+### Required items from round 1
+1. apps/web/README.md:157 now uses an `@example.com` address. Done.
+2. services/prices/README.md:6 says "the owner"; proposals/brief-manage-mode-plan.md:4 uses `<old-workspace>/`. Done.
+3. Code values: no script, test or code file changed since round 1 (every file changed after fb89a07 is Markdown). Against main, the branch's only non-Markdown changes are the three comment-only path edits from T023. docs/OWNER-QUEUE.md has OQ-10, which asks the owner to decide whether the contact values in code move to configuration. The wording is generic, with no URLs and no names, and it links to this record. Done as a queued owner decision.
+
+### Gates and lint as now written
+G4, G5, G6 and G18 exit 0; `bun .standard/standard-check.mjs .` exits 0 (0 FAIL, 1 WARN: LICENSE). G18 closes the e-mail gap the round-1 plant exposed, and G4–G6 now reach every tracked Markdown file, including the three that were missed before.
+
+### Residual, accepted under OQ-10
+These values are still in code and tests and were there before this branch: the owner's e-mail (`faee…`, 11 occurrences), the owner's chat id (`2764…`, 6 occurrences) and the owner's first name in 41 non-Markdown files. These files are outside a documentation slice, and OQ-10 holds the decision on them. The lint still has no secret-shape or e-mail rule; once this slice closes, CI will not run G6 or G18. That gap is a finding for the standard repository.
+
+VERDICT: APPROVE — documents, archive, records and agent files are clean of secrets, e-mails, chat ids, names and home paths; the remaining pre-existing contact values in code are queued for the owner as OQ-10.
