@@ -43,3 +43,8 @@
 - G1 (audit) stays unmet while the zod advisory is open.
 - G5 (standard-check) fails on T3: STATE.md was verified on 2026-10-06, more than 14 days ago. This is already true on main, and STATE.md is not a file this brief names.
 - G7 waits for the reviewer.
+
+## Orchestrator ruling (2026-11-11): temporary Zod exception
+- GHSA-mrhx-c7xc-m3w5 alone is in `auditConfig.ignoreGhsas` in pnpm-workspace.yaml. pnpm 11.2.2 reads that key there. With the same key under `pnpm` in package.json, pnpm warns that the field is no longer read, and the advisory stays reported. **verified**
+- `pnpm audit --prod --audit-level=high` now exits 0. The JSON report lists no high or critical advisory, and the summary shows "1 high (1 ignored)". **verified**
+- Record: docs/decisions/0013-zod-advisory-exception.md (proposed, review 2026-12-11). Owner item: OQ-11.
