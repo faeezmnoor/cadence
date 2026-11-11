@@ -2,7 +2,7 @@
 # 004 · fix-deps — gate ledger
 Written before code. Only a script marks EVIDENCE by re-running CHECK. Prefer "zero failed" to "exactly N passed". The last two gates are always: full verification exits 0 at the final commit; each review file holds its verdict line.
 
-| Gate | CHECK (command) | EXPECT (decisive) | EVIDENCE (script-written) |
+| Gate | CHECK | EXPECT | EVIDENCE |
 | --- | --- | --- | --- |
 | G1 | `pnpm audit --prod --audit-level=high` | exit 0 | |
 | G2 | `pnpm install --frozen-lockfile` | exit 0 | |
