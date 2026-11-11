@@ -6,7 +6,7 @@ Written before code. Only a script marks EVIDENCE by re-running CHECK. Prefer "z
 | --- | --- | --- | --- |
 | G1 | `pnpm audit --prod --audit-level=high` | exit 0 | |
 | G2 | `pnpm install --frozen-lockfile` | exit 0 | |
-| G3 | `pnpm build` | exit 0 | |
+| G3 | `DATABASE_URL=postgres://127.0.0.1:1/build INNGEST_SIGNING_KEY=signkey-prod-0000000000000000 INNGEST_EVENT_KEY=placeholder pnpm build` | exit 0 | |
 | G4 | `bash docs/slices/004-fix-deps/lockfile-scope.sh` | exit 0 | |
 | G5 | `bun .standard/standard-check.mjs .` | exit 0 | |
 | G6 | `pnpm typecheck && pnpm lint && pnpm test` | exit 0 | |
