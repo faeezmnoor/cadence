@@ -16,11 +16,12 @@ waits-on: the owner's choice between moving to zod 4 with AI SDK 5, a code guard
 - **What slice 004-fix-deps fixed.** It bumped `next` to 15.5.28 and `@sentry/nextjs` to 10.75.2, which clears the first three, all within their current majors.
 - **Why Zod has no patch in reach.** Zod is vulnerable below 4.6.6, and no 3.x release comes after 3.25.76.
   - Zod 3 has the same flaw: in 3.25.76, `ZodArray._parse` records a `.max()` breach and then still parses every element, so a large array of bad elements builds one issue object per element.
-- **Who can reach it.**
-  - Every array in a user-facing schema has a `.max()`, but as above that does not stop the per-element work.
-  - The tRPC procedures that take arrays (`listVersionBriefs` in the digestSpec and briefs routers) are `protectedProcedure`, so only a signed-in user can reach them.
-  - The hosting platform caps a request body at a few megabytes, which limits the size of one request.
-  - So a signed-in user could inflate one function's memory per request; a visitor who is not signed in could not. This is inferred from the code, not measured.
+- **Who can reach it (corrected by the review of 2026-11-11; the first analysis was too optimistic).**
+  - A caller who is not signed in cannot reach a Zod array check: the tRPC auth step runs before input validation, the public `getByShortId` takes a regex-checked string, the Telegram webhook and the Inngest route do not parse with Zod.
+  - "Signed in" is a low bar: the sign-in route issues a magic link to any e-mail address, so anyone with an address can hold a session.
+  - Not every array is bounded: `skipDates` and `weekdays` in apps/web/lib/scheduling/rule.ts (lines 42 and 56) have no `.max()`, and `briefs.preview` (a protected procedure) reaches them.
+  - Measured by the reviewer on zod 3.25.76: a 4 MB body against a `.max(50)` array produced about two million issues and roughly 690 MB of heap in 0.7 s. One request from any account can exhaust a function instance.
+  - Production already runs this Zod version, so the exception adds no exposure; it only stops the audit from blocking the remote-code-execution fix.
 - **Why zod 4 is a larger move.** zod 3 is pulled in by:
   - the app's direct `zod ^3.23.8` dependency;
   - `ai` 4.x and `@ai-sdk/*` 1.x;
