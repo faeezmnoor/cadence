@@ -1,4 +1,4 @@
-<!-- layer: records · status: record · verified: 2026-11-11 -->
+<!-- layer: knowledge · status: living (while open) · verified: 2026-11-11 -->
 # 004 · fix-deps — review
 
 VERDICT: APPROVE — the Next.js and Sentry fixes are correct, minimal and verified; the Zod exception adds no new exposure; decision 0013's reach analysis was corrected before the owner rules.
