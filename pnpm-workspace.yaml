@@ -45,3 +45,11 @@ overrides:
   'jsondiffpatch@<0.7.6': ^0.7.6
   '@grpc/grpc-js@^1': ^1.14.5
   '@opentelemetry/propagator-jaeger@^2': ^2.9.0
+
+# Temporary audit exception (slice 004-fix-deps), review by 2026-12-11. Zod
+# GHSA-mrhx-c7xc-m3w5 has no patched 3.x release; the fix is zod 4, which needs
+# the AI SDK major. pnpm 11 reads this key here, not under `pnpm` in package.json.
+# Exactly one id. Record: docs/decisions/0013-zod-advisory-exception.md
+auditConfig:
+  ignoreGhsas:
+    - GHSA-mrhx-c7xc-m3w5

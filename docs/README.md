@@ -40,6 +40,7 @@ Standard: house-standard 1.3.0 · Tier: standard · UI: yes · DB: yes · Visibi
 <!-- gen-decision-index -->
 | No. | Title | Status | Date |
 | --- | --- | --- | --- |
+| 0013 | Temporary audit exception for the Zod advisory GHSA-mrhx-c7xc-m3w5 | proposed | 2026-11-11 |
 | 0000 | Record architecture & product decisions as ADRs | accepted | 2026-06-19 |
 | 0011 | Maintain a pluggable web-search registry; Standard default is eval-decided | accepted | 2026-06-16 |
 | 0005 | Standing-config noun stays "brief" ("watch" rename REVERSED) | accepted | 2026-06-16 |
