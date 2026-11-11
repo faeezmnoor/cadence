@@ -1,7 +1,7 @@
 <!-- layer: knowledge · status: living · verified: 2026-11-11 · budget: 100 lines -->
 # Documents — Cadence
 
-Standard: house-standard 1.6.0 · Tier: standard · UI: yes · DB: yes · Visibility: public · Lint: `bun .standard/standard-check.mjs .`
+Standard: house-standard 1.6.1 · Tier: standard · UI: yes · DB: yes · Visibility: public · Lint: `bun .standard/standard-check.mjs .`
 
 audit: last 2026-11-11 · next 2027-05-11
 
