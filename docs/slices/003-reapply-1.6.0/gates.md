@@ -1,4 +1,4 @@
-<!-- layer: knowledge · status: living (while open) · verified: 2026-11-11 · budget: 100 lines -->
+<!-- layer: records · status: living (while open) · verified: 2026-11-11 · budget: 100 lines -->
 # 003 · gates
 | Gate | CHECK | EXPECT | EVIDENCE |
 | --- | --- | --- | --- |
