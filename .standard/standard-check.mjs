@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 // @bun
-// standard-check-version: 1.6.0
+// standard-check-version: 1.6.1
 
 // scripts/standard-check.ts
 import { resolve, join as join4 } from "path";
 import { existsSync as existsSync3, statSync as statSync3, readFileSync as readFileSync3 } from "fs";
 
 // scripts/lib/version.ts
-var EMBEDDED_VERSION = "1.6.0";
+var EMBEDDED_VERSION = "1.6.1";
 
 // scripts/lib/common.ts
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "fs";
@@ -569,6 +569,7 @@ function anchors(text) {
 }
 function links(p, files) {
   for (const rel of files) {
+    const level = inert(rel) ? "WARN" : "FAIL";
     for (const { t, n } of prose(p.read(rel))) {
       for (const m of t.replace(/`[^`]*`/g, "").matchAll(LINK)) {
         const [path, frag] = m[1].split("#");
@@ -576,11 +577,11 @@ function links(p, files) {
           continue;
         const target = path ? normalize(join3(dirname(rel), decodeURI(path.split("?")[0]))) : rel;
         if (target.startsWith("..") || !p.exists(target)) {
-          p.add(rel, n, "H2", "FAIL", `dead link: ${m[1]} (no such file)`);
+          p.add(rel, n, "H2", level, `dead link: ${m[1]} (no such file)`);
           continue;
         }
         if (frag && target.endsWith(".md") && !anchors(p.read(target)).has(frag.toLowerCase()))
-          p.add(rel, n, "H2", "FAIL", `dead link: ${m[1]} (no heading "${frag}" in ${target})`);
+          p.add(rel, n, "H2", level, `dead link: ${m[1]} (no heading "${frag}" in ${target})`);
       }
     }
   }
