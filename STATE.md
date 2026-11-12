@@ -1,11 +1,11 @@
 # STATE — Cadence
 <!-- layer: state · status: living · budget: 80 lines -->
-verified: 2026-11-11 at 5a6f68f by commands on branch slice/004-fix-deps (pnpm audit, typecheck, lint, test, build; gh api deployments, branch protection and run list)
+verified: 2026-11-12 at 954b2a4 by gh api deployments (Production 954b2a4 success), curl of / and /pricing (200), gh run list (CI success on main), pnpm audit, the documentation lint
 
 ## Now
-- Production (Vercel): deployment of main 5a6f68f, created 2026-10-06. Chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
-- main 5a6f68f: `pnpm audit --prod --audit-level=high` fails (2026-11-11): Next.js remote code execution (critical), Next.js denial of service (high), Sentry tunnel middleware bypass (critical), Zod memory exhaustion (high).
-- Slice 004-fix-deps (branch slice/004-fix-deps, not pushed): next 15.5.28 and @sentry/nextjs 10.75.2 clear the first three; the Zod advisory has no patched 3.x and carries a temporary audit exception (decision 0013, proposed, review 2026-12-11). With it the audit at high exits 0; typecheck, lint, test and build exit 0.
+- Production (Vercel): deployment of main 954b2a4 (2026-11-12, deployment state success; / and /pricing answer 200). Chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
+- main 954b2a4: `pnpm audit --prod --audit-level=high` exits 0 with one ignored advisory (Zod GHSA-mrhx-c7xc-m3w5; decision 0013, proposed, review 2026-12-11; owner item OQ-11). CI on main: success (2026-11-12).
+- Slice 004-fix-deps merged (PR #56, 2026-11-12): next 15.5.28 and @sentry/nextjs 10.75.2. Slice 003-reapply-1.6.0 (this branch): lint bundle 1.6.1, the harness-audit line, the local audit in its notes.
 - Not live: card checkout (no Stripe integration in code); Advanced research paused behind `PRO_TIER_ALPHA` (decision 0009); Custom mode deferred (decision 0010).
 - main is protected (verified 2026-11-11).
 
