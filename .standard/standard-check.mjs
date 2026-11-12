@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
 // @bun
-// standard-check-version: 1.3.0
+// standard-check-version: 1.6.1
 
 // scripts/standard-check.ts
 import { resolve, join as join4 } from "path";
 import { existsSync as existsSync3, statSync as statSync3, readFileSync as readFileSync3 } from "fs";
 
 // scripts/lib/version.ts
-var EMBEDDED_VERSION = "1.3.0";
+var EMBEDDED_VERSION = "1.6.1";
 
 // scripts/lib/common.ts
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 var RULES = {
   S1: "\xA73, \xA74",
@@ -44,6 +44,7 @@ var RULES = {
   T4: "\xA77, \xA712",
   T5: "\xA77, \xA712",
   T6: "\xA77, \xA712",
+  T7: "\xA712",
   O1: "\xA77, \xA712",
   O2: "\xA77, \xA712",
   O3: "\xA78, \xA712",
@@ -56,7 +57,13 @@ var RULES = {
   H5: "\xA712",
   H6: "\xA712",
   H7: "\xA712",
-  M1: "\xA713"
+  H8: "\xA712",
+  M1: "\xA713",
+  B8: "\xA71, \xA73",
+  B9: "\xA71, \xA73",
+  A1: "\xA711, \xA712",
+  A2: "\xA711, \xA712",
+  A3: "\xA711, \xA712"
 };
 var LAYERS = ["state", "knowledge", "records"];
 var STATUSES = ["living", "frozen", "record", "archived"];
@@ -65,15 +72,48 @@ var TIERS = ["minimal", "standard", "full"];
 class Project {
   root;
   findings;
+  trackedSet;
   constructor(root, findings = []) {
     this.root = root;
     this.findings = findings;
+  }
+  tracked() {
+    if (this.trackedSet !== undefined)
+      return this.trackedSet;
+    let set = null;
+    if (existsSync(join(this.root, ".git"))) {
+      try {
+        const r = Bun.spawnSync(["git", "-C", this.root, "ls-files", "-z"]);
+        const list = r.exitCode === 0 ? r.stdout.toString().split("\x00").filter(Boolean) : [];
+        if (list.length)
+          set = new Set(list);
+      } catch {}
+    }
+    return this.trackedSet = set;
+  }
+  visible(rel) {
+    const t = this.tracked();
+    return !t || t.has(rel.replace(/^\.\//, ""));
+  }
+  seen(rel) {
+    return this.exists(rel) && this.visible(rel);
   }
   path(rel) {
     return join(this.root, rel);
   }
   exists(rel) {
     return existsSync(this.path(rel));
+  }
+  present(rel) {
+    try {
+      lstatSync(this.path(rel));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  dangling(rel) {
+    return this.present(rel) && !this.exists(rel);
   }
   read(rel) {
     return this.exists(rel) ? readFileSync(this.path(rel), "utf8") : "";
@@ -92,10 +132,11 @@ class Project {
       const p = join(rel, e.name);
       if (e.isDirectory())
         return e.name.startsWith(".") && e.name !== ".claude" || skip.has(e.name) ? [] : this.walk(p, skip);
-      return [p];
+      return this.visible(p) ? [p] : [];
     });
   }
 }
+var inert = (rel) => /^docs\/(_archive|records)\//.test(rel);
 function countLines(text) {
   if (text === "")
     return 0;
@@ -166,6 +207,56 @@ function parseDeclLine(text) {
 // scripts/lib/structure.ts
 import { readFileSync as readFileSync2, existsSync as existsSync2 } from "fs";
 import { join as join2 } from "path";
+
+// scripts/lib/declared.ts
+var stripComments = (s) => s.replace(/<!--.*?-->/g, "");
+var splitTop = (s) => {
+  const out = [];
+  let d = 0, cur = "";
+  for (const c of s) {
+    if (c === "(")
+      d++;
+    if (c === ")")
+      d--;
+    if (c === "," && d <= 0) {
+      out.push(cur);
+      cur = "";
+    } else
+      cur += c;
+  }
+  return [...out, cur];
+};
+var entries = (p, key) => p.read("docs/workflow.md").split(`
+`).flatMap((l) => {
+  const m = stripComments(l).match(new RegExp(`^\\s*(?:[-*]\\s+)?${key}:\\s*(.*)$`, "i"));
+  return m ? splitTop(m[1].trim().replace(/^\[(.*)\]$/, "$1")).map((s) => s.trim()).filter((s) => s && !/[<>]/.test(s)) : [];
+});
+var globRe = (g) => {
+  const body = g.replace(/^\.\//, "").replace(/\/\*\*$/, "/\x01").replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\/?/g, "\x00").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\0/g, "(?:.*/)?").replace(/\u0001/g, ".+");
+  return new RegExp("^" + body + "$");
+};
+function pinnedRecords(p) {
+  return entries(p, "pinned-records").map(globRe);
+}
+function declaredGenerated(p) {
+  return entries(p, "generated").flatMap((e) => {
+    const m = e.match(/^(\S+?)(?:\s*\(\s*source:\s*([^)]+?)\s*\))?$/);
+    return m ? [{ file: m[1].replace(/^\.\//, ""), source: m[2]?.replace(/^\.\//, "") }] : [];
+  });
+}
+function listedPinned(p, rel) {
+  let on = false;
+  for (const l of p.read("docs/README.md").split(`
+`)) {
+    if (/^#{1,6}\s/.test(l))
+      on = /frozen and pinned/i.test(l);
+    else if (on && (l.includes(rel) || (l.match(/[^\s`'"()|,\[\]]*\*[^\s`'"()|,\[\]]*/g) ?? []).some((g) => globRe(g.replace(/[.;:]+$/, "")).test(rel))))
+      return true;
+  }
+  return false;
+}
+
+// scripts/lib/structure.ts
 var MINIMAL = ["README.md", "AGENTS.md", "CLAUDE.md", "STATE.md"];
 var STANDARD = [
   "CHANGELOG.md",
@@ -230,7 +321,7 @@ function structure(p) {
   if (!p.exists("LICENSE"))
     p.add("LICENSE", 1, "S1", "WARN", "LICENSE missing (required if the repo is public; visibility is not machine-readable)");
   for (const r of RETIRED)
-    if (p.exists(r))
+    if (p.seen(r))
       p.add(r, 1, "S2", "FAIL", "retired path (STANDARD.md \xA73 'Not in the map')");
   const ver = dec.version?.match(/^(\d+)\.(\d+)\.\d+$/);
   const vfile = process.env.STANDARD_VERSION_FILE ?? (EMBEDDED_VERSION ? "" : join2(import.meta.dir, "../../VERSION"));
@@ -253,7 +344,8 @@ function structure(p) {
     else if (bv[1] !== ver[1] || Math.abs(+bv[2] - +ver[2]) > 1)
       p.add(".standard/standard-check.mjs", 1, "S9", "FAIL", `vendored bundle ${bv[0].match(/\d+\.\d+\.\d+/)[0]} is more than one minor from the declared standard ${dec.version}; recopy dist/standard-check.mjs`);
   }
-  const hdrFiles = ["AGENTS.md", "STATE.md", "DESIGN.md", "CLAUDE.md", "CHANGELOG.md"].filter((f) => p.exists(f));
+  const hdrFiles = ["AGENTS.md", "STATE.md", "DESIGN.md", "CLAUDE.md", "CHANGELOG.md"].filter((f) => p.seen(f));
+  const pinned = pinnedRecords(p);
   for (const rel of [...hdrFiles, ...p.walk("docs").filter((f) => f.endsWith(".md"))]) {
     if (/^docs\/(records|_archive)\//.test(rel) || /\/_/.test(rel))
       continue;
@@ -278,7 +370,8 @@ function structure(p) {
     else if (layer !== "records" && rel.startsWith("docs/") && !/^\d{4}-\d\d-\d\d$/.test(f.verified ?? ""))
       p.add(rel, h.line, "S3", "FAIL", "verified date missing or not YYYY-MM-DD");
     const want = layerFor(rel);
-    if (want && layer && layer !== want)
+    const pinnedOk = layer === "records" && pinned.some((re) => re.test(rel)) && listedPinned(p, rel);
+    if (want && layer && layer !== want && !pinnedOk)
       p.add(rel, h.line, "S4", "FAIL", `layer "${layer}" does not match its place (expected ${want})`);
   }
 }
@@ -391,9 +484,23 @@ function budgets(p) {
   if (ruleLines > 50)
     p.add(".claude/rules", 1, "B4", "FAIL", `unscoped rules total ${ruleLines} lines, budget 50`);
   const slice = currentSlice(p);
-  const chain = ["AGENTS.md", "CLAUDE.md", "STATE.md", "docs/README.md", ...slice ? [slice] : []].reduce((n, f) => n + p.lines(f), ruleLines);
+  const chainFiles = ["AGENTS.md", "CLAUDE.md", "STATE.md", "docs/README.md", ...slice ? [slice] : [], ...unscoped];
+  const chain = chainFiles.filter((f) => !unscoped.includes(f)).reduce((n, f) => n + p.lines(f), ruleLines);
   if (chain > 600)
     p.add("AGENTS.md", 1, "B5", "FAIL", `read-first chain is ${chain} lines, budget 600${slice ? ` (current slice ${slice.split("/")[2]})` : ""}`);
+  let words = 0;
+  for (const f of chainFiles.filter((x) => p.exists(x))) {
+    const text = p.read(f);
+    words += text.split(/\s+/).filter(Boolean).length;
+    text.split(`
+`).forEach((l, i) => {
+      const n = [...l].length;
+      if (n > 600)
+        p.add(f, i + 1, "B8", "WARN", `line of ${n} characters in a read-first file, budget 600`);
+    });
+  }
+  if (words > 6000)
+    p.add("AGENTS.md", 1, "B9", "WARN", `read-first chain is ${words} words, budget 6,000`);
 }
 function currentSlice(p) {
   const dirs = p.walk("docs/slices").map((f) => f.split("/")[2]).filter((d, i, a) => !d.startsWith("_") && a.indexOf(d) === i).filter((d) => p.exists(`docs/slices/${d}/brief.md`));
@@ -421,9 +528,9 @@ function prose(text) {
 }
 var ROADMAP = "docs/roadmap.md";
 function onehome(p) {
-  const md = [...readdirSync2(p.root).filter((f) => f.endsWith(".md")), ...p.walk("docs").filter((f) => f.endsWith(".md"))];
+  const md = [...readdirSync2(p.root).filter((f) => f.endsWith(".md") && p.visible(f)), ...p.walk("docs").filter((f) => f.endsWith(".md"))];
   for (const rel of md) {
-    if (rel === "STATE.md" || rel === ROADMAP)
+    if (rel === "STATE.md" || rel === ROADMAP || inert(rel))
       continue;
     const hit = prose(p.read(rel)).find(({ t }) => /^##\s+Now\s*$/i.test(t));
     if (hit)
@@ -462,6 +569,7 @@ function anchors(text) {
 }
 function links(p, files) {
   for (const rel of files) {
+    const level = inert(rel) ? "WARN" : "FAIL";
     for (const { t, n } of prose(p.read(rel))) {
       for (const m of t.replace(/`[^`]*`/g, "").matchAll(LINK)) {
         const [path, frag] = m[1].split("#");
@@ -469,11 +577,11 @@ function links(p, files) {
           continue;
         const target = path ? normalize(join3(dirname(rel), decodeURI(path.split("?")[0]))) : rel;
         if (target.startsWith("..") || !p.exists(target)) {
-          p.add(rel, n, "H2", "FAIL", `dead link: ${m[1]} (no such file)`);
+          p.add(rel, n, "H2", level, `dead link: ${m[1]} (no such file)`);
           continue;
         }
         if (frag && target.endsWith(".md") && !anchors(p.read(target)).has(frag.toLowerCase()))
-          p.add(rel, n, "H2", "FAIL", `dead link: ${m[1]} (no heading "${frag}" in ${target})`);
+          p.add(rel, n, "H2", level, `dead link: ${m[1]} (no heading "${frag}" in ${target})`);
       }
     }
   }
@@ -521,13 +629,14 @@ function decisionRows(files) {
 
 // scripts/lib/generated.ts
 var GENERATED = ["docs/architecture/schema.md", "docs/architecture/code-map.md"];
-var SOURCES = ["**/migrations/**", "**/drizzle/**", "**/schema.prisma", "**/schema.ts", "**/schema.sql"];
+var SOURCES = ["drizzle/**", "supabase/migrations/**", "prisma/schema.prisma", "migrations/**"];
 function generated(p) {
   const run = (...a) => {
     const r = Bun.spawnSync(["git", "-C", p.root, ...a]);
     return r.exitCode === 0 ? r.stdout.toString().trim() : "";
   };
-  for (const rel of GENERATED.filter((f) => p.exists(f))) {
+  const docs = [...GENERATED.map((file) => ({ file, source: undefined })), ...declaredGenerated(p).filter((d) => !GENERATED.includes(d.file))];
+  for (const { file: rel, source } of docs.filter((d) => p.exists(d.file))) {
     const h = parseHeader(p.read(rel));
     const gen = h?.fields.generated?.match(/@\s*([0-9a-f]{7,40})\b/i);
     if (!h?.fields.generated || !gen) {
@@ -537,9 +646,17 @@ function generated(p) {
     if (!p.exists(".git"))
       continue;
     const since = run("log", "-1", "--format=%ct", gen[1]);
-    const newest = run("log", "-1", "--format=%ct", "--", ...SOURCES.map((s) => `:(glob)${s}`));
-    if (since && newest && Number(newest) > Number(since))
-      p.add(rel, h.line, "K4", "WARN", "stale generated document: migrations or schema files changed after its header commit; regenerate it");
+    if (source) {
+      const last = run("log", "-1", "--format=%ct", "--", source);
+      if (since && last && Number(last) > Number(since))
+        p.add(rel, h.line, "K4", "FAIL", `stale generated document: its source ${source} was committed after the header commit; regenerate it`);
+      continue;
+    }
+    if (GENERATED.includes(rel)) {
+      const newest = run("log", "-1", "--format=%ct", "--", ...SOURCES.map((s) => `:(glob)${s}`));
+      if (since && newest && Number(newest) > Number(since))
+        p.add(rel, h.line, "K4", "WARN", "stale generated document: migrations or schema files changed after its header commit; regenerate it");
+    }
   }
 }
 
@@ -561,6 +678,15 @@ var days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 function ownerNames(p) {
   const m = p.read("docs/workflow.md").match(/owner-names:\s*\[([^\]]*)\]/i);
   return (m?.[1] ?? "").split(",").map((s) => s.trim()).filter((s) => s && !/[<>]/.test(s));
+}
+function publicEmails(p) {
+  const m = p.read("docs/workflow.md").match(/public-emails:\s*\[([^\]]*)\]/i);
+  return new Set((m?.[1] ?? "").split(",").map((s) => s.trim().toLowerCase()).filter((s) => s && !/[<>]/.test(s)));
+}
+var phoneKey = (s) => s.replace(/[\s-]/g, "");
+function publicPhones(p) {
+  const m = p.read("docs/workflow.md").match(/public-phones:\s*\[([^\]]*)\]/i);
+  return new Set((m?.[1] ?? "").split(",").map((s) => s.trim()).filter((s) => s && !/[<>]/.test(s)).map(phoneKey));
 }
 var wordRe = (names) => new RegExp(`(?<![\\w])(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\w])`, "i");
 function technical(p) {
@@ -586,8 +712,13 @@ function technical(p) {
       p.add(rel, 2, "K1", "FAIL", "decision-makers contains a declared owner name; roles only");
     else if (NAME_PAIR.test(dm))
       p.add(rel, 2, "K1", "WARN", `decision-makers "${dm}" looks like a person's name; roles only`);
-    if (fm.status === "proposed" && ISO.test(fm.date ?? "") && days(fm.date, today()) > 30)
-      p.add(rel, 2, "K2", "FAIL", `proposed since ${fm.date} (${days(fm.date, today())} days); accept, reject or deprecate within 30 days`);
+    if (fm.status === "proposed" && ISO.test(fm.date ?? "") && days(fm.date, today()) > 30) {
+      const age = `proposed since ${fm.date} (${days(fm.date, today())} days)`;
+      if (fm["waits-on"])
+        p.add(rel, 2, "K2", "WARN", `${age}, waiting on ${fm["waits-on"]}; accept, reject or deprecate when it lands`);
+      else
+        p.add(rel, 2, "K2", "FAIL", `${age}; accept, reject or deprecate within 30 days, or declare \`waits-on: <what>\``);
+    }
   }
   decisionIndex(p, dir);
   generated(p);
@@ -660,38 +791,75 @@ var SECRETS = [
   [/\bghp_[A-Za-z0-9]{20,}/, "GitHub token"],
   [/\bxox[bap]-[A-Za-z0-9-]{10,}/, "Slack token"],
   [/\bAKIA[0-9A-Z]{16}\b/, "AWS access key id"],
-  [/(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])/, "64-character hex value"],
-  [/\b[a-z][a-z0-9+.-]*:\/\/[^\s:@\/<>\[\]{}$*]+:[^\s@\/<>\[\]{}$*]+@[^\s\/]+/i, "connection string with credentials"]
+  [/ExponentPushToken\[[A-Za-z0-9_-]{10,}\]/, "Expo push token"],
+  [/\beas_[A-Za-z0-9]{20,}/, "Expo access token"],
+  [/\bAIza[0-9A-Za-z_-]{35}\b/, "Google API key"],
+  [/\bfal_[A-Za-z0-9_-]{20,}/, "fal key"],
+  [/\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, "JWT"],
+  [/\b[a-z][a-z0-9+.-]*:\/\/([^\s:@\/<>\[\]{}$*]+):([^\s@\/<>\[\]{}$*]+)@([^\s\/]+)/i, "connection string with credentials", (m) => placeholderPassword(m[2]) || placeholderName(m[1]) || placeholderName(m[3]) || reservedHost(m[3])]
 ];
+var placeholderPassword = (pw) => pw.length <= 3 || /^(pass|password|secret|redacted|x{3,}\W*)$/i.test(pw);
+var placeholderName = (s) => s.replace(/:\d+$/, "").split(/[.:\-_]/).some((word) => /^(?:fake|example|test)(?:db|user|host|ref|\d+)?$/i.test(word));
+function reservedHost(raw) {
+  const h = raw.replace(/:\d+$/, "").replace(/[.,;:)'"`\]]+$/, "").toLowerCase();
+  return !h.includes(".") || h === "127.0.0.1" || /\.(example|test|invalid|localhost)$/.test(h) || h.startsWith("example.");
+}
+var PHONE = /(?<![\w.+-])(?:01\d[- ]?\d{3,4}[- ]?\d{4}|\+\d{8,15})(?![\w-]|\.\d)/g;
+var shortE164 = (n) => n.startsWith("+") && n.length - 1 < 10;
+var HEX64 = /(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])/;
+var SECRET_WORD = /secret|token|key|password|webhook|bearer/i;
+var HASH_WORD = /sha-?256|sha-?512|hash|checksum|digest/i;
 function visibility(p) {
   const line = p.read("docs/README.md").split(`
 `).find((l) => /^\s*standard:\s*house-standard\s/i.test(l)) ?? "";
   return line.match(/\bvisibility:\s*(public|private)\b/i)?.[1].toLowerCase();
 }
+var SHARED_DIR = /^(skills|agents|templates)\//;
+var startRe = (names) => new RegExp(`(?<![\\w])(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "i");
 function hygieneRepo(p) {
   const names = ownerNames(p);
   const nameRe = names.length ? wordRe(names) : null;
+  const sharedRe = names.length && p.exists(".claude-plugin/plugin.json") ? startRe(names) : null;
+  const allowed = publicEmails(p);
+  const phones = publicPhones(p);
   const level = visibility(p) === "public" ? "FAIL" : "WARN";
+  const priv = visibility(p) === "private", pinned = pinnedRecords(p);
   for (const rel of repoFiles(p)) {
     const lines = p.read(rel).split(`
 `);
-    let mail = false, secret = false, name = false;
+    let phone = false, mail = false, secret = false, name = false;
     lines.forEach((t, i) => {
       if (!mail) {
         for (const m of t.matchAll(EMAIL2))
-          if (!/^example\.com$/i.test(m[1]) && !t.slice(0, m.index).split(/\s/).pop().includes("://")) {
-            p.add(rel, i + 1, "H4", "FAIL", `e-mail address ${m[0]}; use example.com or [redacted]`);
+          if (!/^example\.com$/i.test(m[1]) && !allowed.has(m[0].toLowerCase()) && !t.slice(0, m.index).split(/\s/).pop().includes("://")) {
+            p.add(rel, i + 1, "H4", priv && rel.startsWith("docs/") && pinned.some((re) => re.test(rel)) ? "WARN" : "FAIL", `e-mail address ${m[0]}; use example.com or [redacted], or declare it in docs/workflow.md as "- public-emails: [name@domain]"`);
             mail = true;
             break;
           }
       }
-      if (!secret) {
-        for (const [re, what] of SECRETS)
-          if (re.test(t)) {
+      if (!phone) {
+        for (const m of t.matchAll(PHONE))
+          if (!shortE164(m[0]) && !phones.has(phoneKey(m[0]))) {
+            p.add(rel, i + 1, "H8", "FAIL", `phone number ${m[0]}; write [redacted phone], or declare it in docs/workflow.md as "- public-phones: [number]"`);
+            phone = true;
+            break;
+          }
+      }
+      if (!secret)
+        for (const [re, what, skip] of SECRETS) {
+          if ([...t.matchAll(new RegExp(re.source, re.flags + "g"))].some((m) => !skip?.(m))) {
             p.add(rel, i + 1, "H5", "FAIL", `secret-shaped value (${what}); redact it and rotate the secret`);
             secret = true;
             break;
           }
+        }
+      if (!secret && HEX64.test(t) && SECRET_WORD.test(t) && !HASH_WORD.test(t)) {
+        p.add(rel, i + 1, "H5", "FAIL", "secret-shaped value (64-character hex value beside a secret keyword); redact it and rotate the secret, or drop the keyword if it is a plain hash");
+        secret = true;
+      }
+      if (!name && sharedRe && SHARED_DIR.test(rel) && sharedRe.test(t)) {
+        p.add(rel, i + 1, "H6", "FAIL", `owner name, or a handle built on it, in a shared plugin file (skills/, agents/ and templates/ reach every project); refer to "the owner"`);
+        name = true;
       }
       if (!name && nameRe && !(rel === "docs/workflow.md" && /owner-names:/i.test(t)) && nameRe.test(t)) {
         p.add(rel, i + 1, "H6", level, `owner name found${level === "FAIL" ? " in a public repository" : " (visibility not declared public)"}; refer to "the owner"`);
@@ -707,7 +875,7 @@ var HOME_PATH = /(?<![\w.\-\/])\/(?:Users|home)\/[^\/\s]+\//;
 var ROOT_FILES = ["AGENTS.md", "CLAUDE.md", "STATE.md", "DESIGN.md", "README.md", "CHANGELOG.md"];
 function hygiene(p) {
   const docs = p.walk("docs");
-  for (const rel of [...ROOT_FILES.filter((f) => p.exists(f)), ...docs]) {
+  for (const rel of [...ROOT_FILES.filter((f) => p.seen(f)), ...docs]) {
     const lines = p.read(rel).split(`
 `);
     for (let i = 0;i < lines.length; i++)
@@ -716,7 +884,7 @@ function hygiene(p) {
         break;
       }
   }
-  links(p, [...ROOT_FILES.filter((f) => p.exists(f)), ...docs].filter((f) => f.endsWith(".md")));
+  links(p, [...ROOT_FILES.filter((f) => p.seen(f)), ...docs].filter((f) => f.endsWith(".md")));
   for (const rel of docs.filter((f) => /^docs\/(records|_archive)\/.*\.md$/.test(f))) {
     const h = parseHeader(p.read(rel));
     if (!h) {
@@ -792,7 +960,7 @@ function entry(p) {
       p.add(rel, 41, "E5", "FAIL", `${p.lines(rel)} lines, nested AGENTS.md budget 40`);
   }
 }
-var nested = (p) => p.walk(".", SKIP_DIRS).filter((f) => f.endsWith("/AGENTS.md"));
+var nested = (p) => p.walk(".", SKIP_DIRS).filter((f) => f.endsWith("/AGENTS.md") && !inert(f));
 
 // scripts/lib/git.ts
 function git(p) {
@@ -805,7 +973,10 @@ function git(p) {
   return {
     commitExists: (h) => run("cat-file", "-e", `${h}^{commit}`) !== null,
     behind: (h) => {
-      const n = run("rev-list", "--count", `${h}..HEAD`);
+      const heads = (run("for-each-ref", "--format=%(symref)", "refs/remotes/*/HEAD") ?? "").split(`
+`).filter(Boolean);
+      const def = ["refs/remotes/origin/main", "refs/remotes/backup/main", ...heads].find((r) => run("rev-parse", "--verify", "-q", `${r}^{commit}`) !== null);
+      const n = run("rev-list", "--count", `${h}..${def ?? "HEAD"}`);
       return n === null ? null : Number(n);
     },
     headDate: () => run("log", "-1", "--format=%cs"),
@@ -830,7 +1001,7 @@ function state(p) {
       if (behind === null)
         p.add("STATE.md", at + 1, "T2", "FAIL", `commit ${m[2]} is not in this repository`);
       else if (behind > 20)
-        p.add("STATE.md", at + 1, "T2", "FAIL", `verified commit is ${behind} commits behind HEAD (limit 20)`);
+        p.add("STATE.md", at + 1, "T2", "FAIL", `verified commit is ${behind} commits behind the default branch (limit 20)`);
       const head = g.headDate();
       if (head && days2(m[1], head) > 14)
         p.add("STATE.md", at + 1, "T3", "FAIL", `verified ${m[1]} is ${days2(m[1], head)} days behind HEAD (${head}); limit 14`);
@@ -842,6 +1013,7 @@ function state(p) {
         p.add("STATE.md", own[0].line, "T4", "FAIL", `owner items above Minimal live in docs/OWNER-QUEUE.md; STATE.md keeps only a pointer (found ${own.length} other line(s))`);
     }
   }
+  audit(p, g?.headDate() ?? new Date().toISOString().slice(0, 10));
   if (p.exists("docs/OWNER-QUEUE.md"))
     queue(p);
   if (g && p.exists("docs/inbox.md") && /^CLOSE/.test(g.headMessage() ?? "")) {
@@ -850,6 +1022,30 @@ function state(p) {
     if (l >= 0)
       p.add("docs/inbox.md", l + 1, "T6", "FAIL", "inbox must be empty on a CLOSE commit; drain it into a slice, lesson, decision, owner item or archive line");
   }
+}
+var AUDIT = /(?<![\w-])audit:\s*last\s+(\d{4}-\d\d-\d\d)\s*\u00B7\s*next\s+(\d{4}-\d\d-\d\d)(?![\w-])/i;
+function audit(p, auditAsOf) {
+  const tier = readDeclaration(p).tier;
+  const file = tier === "minimal" || !tier && !p.exists("docs/README.md") ? "AGENTS.md" : "docs/README.md";
+  const lines = p.read(file).split(`
+`).slice(0, file === "AGENTS.md" ? 12 : undefined);
+  const at = lines.findIndex((l) => /(?<![\w-])audit:\s*last\b/i.test(l));
+  const how = "`audit: last YYYY-MM-DD \xB7 next YYYY-MM-DD`";
+  if (at < 0) {
+    if (tier === "standard" || tier === "full")
+      p.add(file, 1, "T7", "WARN", `no harness-audit line ${how}; the audit (decision 0011) has no due date`);
+    return;
+  }
+  const m = lines[at].match(AUDIT);
+  if (!m) {
+    p.add(file, at + 1, "T7", "WARN", `harness-audit line does not parse; write ${how}`);
+    return;
+  }
+  const late = days2(m[2], auditAsOf);
+  if (late > 30)
+    p.add(file, at + 1, "T7", "FAIL", `harness audit was due ${m[2]}, ${late} days before ${auditAsOf} (limit 30); run audit-instructions, audit-skills and audit-memory, then set the next date`);
+  else if (late > 0)
+    p.add(file, at + 1, "T7", "WARN", `harness audit was due ${m[2]}, ${late} days before ${auditAsOf}; it fails after 30 days`);
 }
 function section(lines, name) {
   const out = [];
@@ -922,17 +1118,20 @@ function checkDisposition(p, planRel) {
   const idxCells = p.read("docs/_archive/index.md").split(`
 `).filter((l) => /^\s*\|/.test(l)).map((l) => l.split("|").slice(1, -1).map(clean2));
   const fail = (line, msg) => p.add(planRel, line, "M1", "FAIL", msg);
+  const warn = (line, msg) => p.add(planRel, line, "M1", "WARN", msg);
   for (const r of rows) {
     const retire = /^(retire|archive)/.test(r.action);
     const label = r.source || "(no source)";
     if (retire) {
-      if (none(r.dest) || !p.exists(r.dest))
+      if (none(r.dest) || !p.present(r.dest))
         fail(r.line, `${label}: ${r.action} row has no archive file at "${r.dest}"`);
       if (!idxCells.some((c) => c.includes(r.source) || r.dest !== "" && c.slice(1).includes(r.dest) && c.some((x) => x === r.source)))
         fail(r.line, `${label}: ${r.action} row has no row in docs/_archive/index.md`);
-    } else if (none(r.dest) || !p.exists(r.dest))
+    } else if (none(r.dest) || !p.present(r.dest))
       fail(r.line, `${label}: destination "${r.dest}" is missing`);
-    if (/^move/.test(r.action) && r.source && p.exists(r.source))
+    if (!none(r.dest) && p.dangling(r.dest))
+      warn(r.line, `${label}: destination "${r.dest}": symlink target absent`);
+    if (/^move/.test(r.action) && r.source && p.present(r.source))
       fail(r.line, `${label}: move row, but the source still exists`);
   }
   return true;
@@ -940,6 +1139,88 @@ function checkDisposition(p, planRel) {
 function dispositionAll(p) {
   for (const rel of p.walk("docs/slices").filter((f) => /\/plan\.md$/.test(f) && !/\/_/.test(f)))
     checkDisposition(p, rel);
+}
+
+// scripts/lib/agents.ts
+var SHARED_ROLES = ["bookkeeper", "builder", "challenger", "debugger", "designer", "planner", "qa", "reviewer", "search"];
+var SHARED_SKILLS = [
+  "audit-instructions",
+  "audit-memory",
+  "audit-skills",
+  "bookkeeping",
+  "build-wave",
+  "cold-start",
+  "council",
+  "deliver",
+  "design-process",
+  "fix-pass",
+  "gates",
+  "improve",
+  "new-project",
+  "review"
+];
+var KEPT_SPECIALISTS = [
+  "analyst",
+  "brand-critic",
+  "content-rights",
+  "copywriter",
+  "digest-auditor",
+  "eval-quality",
+  "fact-checker",
+  "mobile-platform",
+  "persona-panel",
+  "release-qa",
+  "researcher",
+  "security",
+  "seller-panel",
+  "seo",
+  "strategist",
+  "words-judge"
+];
+var KEPT = new Set(KEPT_SPECIALISTS);
+function sharedName(local, kind) {
+  const n = local.toLowerCase();
+  const i = n.indexOf("-");
+  if (KEPT.has(n) || i > 0 && KEPT.has(n.slice(i + 1)))
+    return null;
+  const shared = new Set(kind === "agent" ? SHARED_ROLES : SHARED_SKILLS);
+  if (shared.has(n))
+    return n;
+  return i > 0 && shared.has(n.slice(i + 1)) ? n.slice(i + 1) : null;
+}
+function bodyLines(text) {
+  const m = text.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+  const body = m ? text.slice(m[0].length) : text;
+  if (body === "")
+    return 0;
+  const n = body.split(`
+`).length;
+  return body.endsWith(`
+`) ? n - 1 : n;
+}
+function agentsAndSkills(p) {
+  const tier = readDeclaration(p).tier;
+  const declared = new Set(entries(p, "local-overrides").map((s) => s.toLowerCase()));
+  const strict = tier === "standard" || tier === "full";
+  const agents = p.walk(".claude/agents").filter((f) => /^\.claude\/agents\/[^/]+\.md$/.test(f) && !f.endsWith("/README.md"));
+  const skills = p.walk(".claude/skills").filter((f) => /^\.claude\/skills\/[^/]+\/SKILL\.md$/.test(f));
+  const local = [
+    ...agents.map((f) => ({ f, name: f.split("/")[2].replace(/\.md$/, ""), kind: "agent" })),
+    ...skills.map((f) => ({ f, name: f.split("/")[2], kind: "skill" }))
+  ];
+  for (const { f, name, kind } of local) {
+    const shared = sharedName(name, kind);
+    const n = p.lines(f);
+    if (shared && n > 40 && !declared.has(name.toLowerCase()))
+      p.add(f, 41, "A1", strict ? "FAIL" : "WARN", `local ${kind} ${name} overrides the shared ${shared} and has ${n} lines, budget 40; move project rules to the references file docs/workflow.md names, or declare it under local-overrides: in docs/workflow.md`);
+    if (!shared && kind === "agent" && n > 80)
+      p.add(f, 81, "A2", "WARN", `specialist ${name} has ${n} lines, budget 80; move method detail to a references file it reads`);
+    if (kind === "skill") {
+      const b = bodyLines(p.read(f));
+      if (b > 150)
+        p.add(f, 1, "A3", "WARN", `skill body has ${b} lines, budget 150; move detail to references/`);
+    }
+  }
 }
 
 // scripts/standard-check.ts
@@ -961,6 +1242,7 @@ state(p);
 onehome(p);
 technical(p);
 dispositionAll(p);
+agentsAndSkills(p);
 hygiene(p);
 var rows = p.findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 console.log("| file | line | rule | spec | level | message |");

@@ -1,7 +1,9 @@
-<!-- layer: knowledge · status: living · verified: 2026-10-06 · budget: 100 lines -->
+<!-- layer: knowledge · status: living · verified: 2026-11-11 · budget: 100 lines -->
 # Documents — Cadence
 
-Standard: house-standard 1.3.0 · Tier: standard · UI: yes · DB: yes · Visibility: public · Lint: `bun .standard/standard-check.mjs .`
+Standard: house-standard 1.6.1 · Tier: standard · UI: yes · DB: yes · Visibility: public · Lint: `bun .standard/standard-check.mjs .`
+
+audit: last 2026-11-11 · next 2027-05-11
 
 ## Read first
 1. AGENTS.md (and CLAUDE.md) · 2. STATE.md · 3. this file · 4. the current slice's docs/slices/<id>/brief.md
