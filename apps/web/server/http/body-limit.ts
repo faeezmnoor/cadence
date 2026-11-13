@@ -24,7 +24,7 @@ export const PAYLOAD_TOO_LARGE_MESSAGE =
   "That was too much to send at once. Nothing was saved — try again with less.";
 
 export type BoundedBody =
-  | { ok: true; body: Uint8Array | null }
+  | { ok: true; body: Uint8Array<ArrayBuffer> | null }
   | { ok: false };
 
 /**

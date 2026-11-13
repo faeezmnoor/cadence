@@ -84,7 +84,7 @@ describe("readBodyWithLimit", () => {
     const { req } = streamRequest(MAX_REQUEST_BODY_BYTES);
     const out = await readBodyWithLimit(req);
     expect(out.ok).toBe(true);
-    if (out.ok) expect(out.body.byteLength).toBe(MAX_REQUEST_BODY_BYTES);
+    if (out.ok) expect(out.body?.byteLength).toBe(MAX_REQUEST_BODY_BYTES);
   });
 
   it("passes a request with no body", async () => {
