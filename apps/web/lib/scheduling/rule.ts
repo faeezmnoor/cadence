@@ -18,6 +18,15 @@ import { z } from "zod";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/**
+ * Slice 005 (decision 0013): domain bounds on caller-reachable arrays.
+ * Seven ISO weekdays; skip dates cap at one year of daily skips (beyond that,
+ * `endDate` or pausing the brief is the tool). These bound correctness; the
+ * memory bound on zod 3 is the request-size guard (server/http/body-limit.ts).
+ */
+export const MAX_WEEKDAYS = 7;
+export const MAX_SKIP_DATES = 366;
+
 export const schedulingRuleV1 = z
   .object({
     version: z.literal(1),
@@ -35,11 +44,12 @@ export const schedulingRuleV1 = z
         /** ISO weekday filter (1=Mon..7=Sun). Default = every day. */
         weekdays: z
           .array(z.number().int().min(1).max(7))
+          .max(MAX_WEEKDAYS)
           .default([1, 2, 3, 4, 5, 6, 7]),
       }),
       z.object({
         kind: z.literal("weekly"),
-        weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+        weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(MAX_WEEKDAYS),
       }),
       z.object({
         kind: z.literal("monthly"),
@@ -53,7 +63,7 @@ export const schedulingRuleV1 = z
       }),
     ]),
     /** Ad-hoc YYYY-MM-DD dates to skip. */
-    skipDates: z.array(z.string().regex(DATE_RE)).default([]),
+    skipDates: z.array(z.string().regex(DATE_RE)).max(MAX_SKIP_DATES).default([]),
     skipWhen: z
       .object({
         weekends: z.boolean().optional(),
