@@ -10,6 +10,7 @@ Direction: prove the brief is worth paying for (dogfood bar, Advanced eval gate)
 - CAD-210 — platform audit 2026-06-11, three-wave ship plan, epic (waits on: OQ-05); plan of record: docs/records/audits/platform-audit-2026-06-11.md
 
 ## Next
+- Zod 4 with AI SDK 5 — removes the Zod audit exception (decision 0013, option A); a pipeline major, so it needs the G-eval move-or-hold number (decision 0012)
 - CAD-70, CAD-71, CAD-72 — config-agent tasks T-408 to T-410 (Urgent)
 - CAD-228 — web-search providers: keep all, Standard default decided by evals before launch (High; decision 0011)
 - CAD-73 to CAD-76 — config-agent and composer tasks T-411 to T-414 (High)

@@ -1,10 +1,9 @@
 ---
-status: proposed
-date: 2026-11-11
-decision-makers: the orchestrator, pending the owner
-waits-on: the owner's choice between moving to zod 4 with AI SDK 5, a code guard on array size, or keeping the exception
+status: accepted
+date: 2026-11-13
+decision-makers: the owner (ruling of 2026-11-13), the orchestrator
 ---
-<!-- layer: knowledge · status: living · verified: 2026-11-11 · budget: 80 lines -->
+<!-- layer: knowledge · status: living · verified: 2026-11-13 · budget: 80 lines -->
 # Temporary audit exception for the Zod advisory GHSA-mrhx-c7xc-m3w5
 
 ## Context and problem statement
@@ -40,10 +39,21 @@ waits-on: the owner's choice between moving to zod 4 with AI SDK 5, a code guard
 - C. Keep the audit exception as it is.
 
 ## Decision outcome
-- **Proposed, for now: a temporary exception.** It covers exactly one id, GHSA-mrhx-c7xc-m3w5, under `auditConfig.ignoreGhsas` in pnpm-workspace.yaml. pnpm 11 ignores the `pnpm` key in package.json.
-- **Review date: 2026-12-11.** By then the owner chooses A, B or C, and this record becomes accepted or superseded.
+- **B now, A later** (owner ruling, 2026-11-13).
+- **B, built in slice 005-zod-guard.**
+  - A request-size guard, `withBodyLimit` in apps/web/server/http/body-limit.ts, with one limit, `MAX_REQUEST_BODY_BYTES` = 1 MiB.
+  - It sits in front of the two HTTP entry points that hand caller input to Zod: `/api/trpc/[trpc]` (every `.input()`) and `/api/chat` (the AI SDK checks the message array with Zod).
+  - It counts the bytes it reads and stops at the limit, so a request with no `Content-Length`, or a lying one, is bounded too; over the limit it answers 413 before any parser runs.
+  - `weekdays` (daily and weekly) are capped at 7 and `skipDates` at 366 in apps/web/lib/scheduling/rule.ts.
+- **What B bounds.** The heap one request can make Zod build. Measured on zod 3.25.76 with the worst array (`[0,0,…]`): about 180 MB at 1 MiB, against 643 MB at 4 MiB.
+- **What B does not bound.**
+  - Up to about 180 MB per request is still possible under the limit; several such requests at once on one instance add up.
+  - `.max()` does not cut the work on zod 3: every element is still parsed after a breach.
+  - Entry points that do not parse with Zod are not guarded: the Telegram webhook (secret header), the Inngest route (signature checked before its own Zod parse), sign-in, and GET query strings (bounded by the platform's URL limit).
+- **The exception stays.** `pnpm audit --prod` still reports the package, so `auditConfig.ignoreGhsas` in pnpm-workspace.yaml keeps exactly this id.
+- **Review: when the zod 4 with AI SDK 5 slice lands** (option A, on the roadmap; it needs a move-or-hold eval number, decision 0012). That slice removes the exception and supersedes this record.
 
 ## Consequences
 - **What the CI audit gate still catches.** It passes at `--audit-level=high` and still fails on any other high or critical advisory.
 - **What it does not catch.** It no longer fails on this Zod advisory. The exception stays visible: `pnpm audit --prod` lists the advisory as ignored.
-- **Where this is tracked.** Owner queue item OQ-11. Slice notes: docs/slices/004-fix-deps/notes.md.
+- **Where this is tracked.** Option A: docs/roadmap.md. Slice notes: docs/slices/004-fix-deps/notes.md and docs/slices/005-zod-guard/notes.md. Owner queue item OQ-11 closed on 2026-11-13.
