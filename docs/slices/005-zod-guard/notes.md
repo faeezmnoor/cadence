@@ -1,4 +1,4 @@
-<!-- layer: records · status: living (while open) -->
+<!-- layer: knowledge · status: living (while open) · verified: 2026-11-13 -->
 # 005 · zod-guard — notes
 
 ## Entry points (every route handler under apps/web/app)
