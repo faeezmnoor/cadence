@@ -1,10 +1,9 @@
 ---
-status: proposed
-date: 2026-11-11
-decision-makers: the orchestrator, pending the owner
-waits-on: the owner's choice between moving to zod 4 with AI SDK 5, a code guard on array size, or keeping the exception
+status: accepted
+date: 2026-11-13
+decision-makers: the owner (ruling of 2026-11-13), the orchestrator
 ---
-<!-- layer: knowledge · status: living · verified: 2026-11-11 · budget: 80 lines -->
+<!-- layer: knowledge · status: living · verified: 2026-11-17 · budget: 80 lines -->
 # Temporary audit exception for the Zod advisory GHSA-mrhx-c7xc-m3w5
 
 ## Context and problem statement
@@ -40,10 +39,23 @@ waits-on: the owner's choice between moving to zod 4 with AI SDK 5, a code guard
 - C. Keep the audit exception as it is.
 
 ## Decision outcome
-- **Proposed, for now: a temporary exception.** It covers exactly one id, GHSA-mrhx-c7xc-m3w5, under `auditConfig.ignoreGhsas` in pnpm-workspace.yaml. pnpm 11 ignores the `pnpm` key in package.json.
-- **Review date: 2026-12-11.** By then the owner chooses A, B or C, and this record becomes accepted or superseded.
+- **B now, A later** (owner ruling, 2026-11-13).
+- **B, built in slice 005-zod-guard** (revised after the security review of 2026-11-16, which measured the first version's bound as false).
+  - A request-size guard, `withBodyLimit` in apps/web/server/http/body-limit.ts, with a limit per route: tRPC 384 KiB (1.94x the largest legitimate request, 202,258 bytes), chat 1 MiB. It counts the bytes it reads, so a request with no `Content-Length`, or a lying one, is bounded too; over the limit it answers 413 before any parser runs.
+  - `/api/chat`: a hand-written shape check (no Zod) on the messages `streamText` will see, before any write: at most 200 messages and 500 elements that can reach Zod, roles user or assistant, parts of known types. A bad shape gets 400.
+  - tRPC: the error response keeps at most 20 Zod issues plus a count and no stack.
+  - tRPC input transformer (added after review round 2 and its validator, 2026-11-17): superjson's `meta` could make the value Zod sees far larger than the body. Shared references (`referentialEqualities`) put one array at nine fields (2,227 MB from a 393 KB body), and a `values` path naming index 2,000,000 made a sparse array of that length (2,254 MB from 143 bytes; 2,259 MB from a 248-byte GET). apps/web/server/trpc/input-guard.ts now drops `referentialEqualities`, refuses any `values` path that is not an existing own key or in-range index of the raw `json`, allows only `undefined`, `Date`, `bigint`, `map` and `set`, and caps the tree at 1,000 keys; anything else is a 400 before Zod runs.
+  - `weekdays` (daily and weekly) are capped at 7 and `skipDates` at 366 in apps/web/lib/scheduling/rule.ts.
+- **What B bounds** (measured end to end, slice notes). One chat request peaks at about 216 MB (was 2.4–7.1 GB). One tRPC request peaks at about 685 MB at 384 KiB (910 MB at 512 KiB; 1.3–3.2 GB at the first version's 1 MiB), with a response of about 2 KB. The round-2 attack shapes now measure 111–337 MB: the shared-reference body is parsed once (337 MB), the `values` bodies are refused before Zod (about 112 MB, the process baseline).
+- **What B does not bound.**
+  - About 685 MB per tRPC request is still possible. At the default 2 GB function memory one request no longer exhausts an instance; the reviewer measured about five worst-case requests at once on one instance passing 2 GB. Under about 600 MB would need a tRPC limit below 1.5x the largest legitimate request. A burst or concurrency limit on tRPC mutations is on the roadmap as a follow-up.
+  - `chat.appendMessage` stores `content: z.unknown()` as jsonb. With the input guard its size is bounded by the 384 KiB body (before it, a 1.5 KB body expanded to 50 MB); there is still no schema for it (roadmap).
+  - Zod still builds every issue on zod 3; `.max()` does not cut the work.
+  - Entry points that do not parse with Zod are not guarded: the Telegram webhook (secret header), the Inngest route (signature checked before its own Zod parse) and sign-in. GET query input is bounded by Node's 16 KB header cap (worst query measured at 118 MB).
+- **The exception stays.** `pnpm audit --prod` still reports the package, so `auditConfig.ignoreGhsas` in pnpm-workspace.yaml keeps exactly this id.
+- **Review: when the zod 4 with AI SDK 5 slice lands** (option A, on the roadmap; it needs a move-or-hold eval number, decision 0012). That slice removes the exception and supersedes this record.
 
 ## Consequences
 - **What the CI audit gate still catches.** It passes at `--audit-level=high` and still fails on any other high or critical advisory.
 - **What it does not catch.** It no longer fails on this Zod advisory. The exception stays visible: `pnpm audit --prod` lists the advisory as ignored.
-- **Where this is tracked.** Owner queue item OQ-11. Slice notes: docs/slices/004-fix-deps/notes.md.
+- **Where this is tracked.** Option A: docs/roadmap.md. Slice notes: docs/slices/004-fix-deps/notes.md and docs/slices/005-zod-guard/notes.md. Owner queue item OQ-11 closed on 2026-11-13.
