@@ -30,6 +30,7 @@ import {
   MAX_INPUT_ANNOTATIONS,
   MAX_INPUT_PATH_DEPTH,
   MAX_SCALAR_ANNOTATION_CHARS,
+  resolveRawPath,
 } from "@/server/trpc/input-guard";
 
 const UUID = "00000000-0000-4000-8000-000000000000";
@@ -178,7 +179,7 @@ describe("guardTrpcInput: what is refused", () => {
     }
     return false;
   };
-  const json = { a: [1, 2, 3], o: { k: null, d: "2026-01-01T00:00:00.000Z" }, "x.y": null, "b\\c": null };
+  const json = { a: [1, 2, 3], o: { k: null, d: "2026-01-01T00:00:00.000Z" }, s: ["2026-01-01T00:00:00.000Z"], x: { y: [] } };
   const withValues = (values: unknown, v: unknown = 1) => ({ json, meta: { values, v } });
 
   it("pins the bounds and the allowed types", () => {
@@ -221,8 +222,9 @@ describe("guardTrpcInput: what is refused", () => {
     ["bigint on a long integer string", { "o.d": ["bigint"] }, { o: { d: "9".repeat(65) } }],
     ["set on a non-array", { o: ["set"] }],
     ["map with a malformed entry", { a: ["map"] }],
-    ["a node annotated twice", { a: ["set"], "a.": ["set"], "a.0": ["undefined"] }],
-    ["a path through an already-transformed node", { a: ["set"], "a.0": ["Date"] }],
+    ["a node annotated twice (flat and nested keys name one path)", { "x.y": ["set"], x: { y: ["set"] } }],
+    ["a path through an already-transformed node", { s: ["set"], "s.0": ["Date"] }],
+    ["an own __proto__ key (JSON.parse makes it own)", { "o.__proto__": ["undefined"] }, JSON.parse('{"o":{"__proto__":null}}')],
   ])("refuses %s", (_label, values, rawJson?: unknown) => {
     expect(refused(rawJson ? { json: rawJson, meta: { values, v: 1 } } : withValues(values))).toBe(true);
   });
@@ -248,6 +250,16 @@ describe("guardTrpcInput: what is refused", () => {
     };
     expect(refused(nested(65))).toBe(true);
     expect(refused(nested(64))).toBe(false);
+  });
+
+  it("resolveRawPath: only own keys and in-range canonical indexes of the raw json", () => {
+    const raw = { a: [null, null, null], o: { k: null } };
+    expect(resolveRawPath(raw, ["a", "2"])).toBeNull();
+    expect(resolveRawPath(raw, ["o", "k"])).toBeNull();
+    expect(resolveRawPath(raw, [])).toBe(raw);
+    for (const path of [["a", "3"], ["a", "2000000"], ["a", "01"], ["a", "1e0"], ["a", "-1"], ["a", " 1"], ["o", "toString"], ["o", "missing"], ["o", "k", "x"]]) {
+      expect(() => resolveRawPath(raw, path), path.join(".")).toThrow();
+    }
   });
 
   it("drops referentialEqualities", () => {

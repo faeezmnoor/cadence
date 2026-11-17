@@ -130,6 +130,16 @@ describe("/api/chat message shape check", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("manage mode over the element cap keeps the plain envelope (no Start over there)", async () => {
+    state.manage = true;
+    const res = await post(
+      Array.from({ length: 20 }, () => ({ role: "assistant", content: "x", parts: Array(26).fill({ type: "text", text: "x" }) }))
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad request" });
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
   it("refuses a bad shape in manage mode too", async () => {
     state.manage = true;
     const res = await post([{ role: "assistant", content: [{ type: "x" }, 0] }]);

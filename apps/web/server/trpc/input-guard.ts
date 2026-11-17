@@ -30,7 +30,10 @@
 import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
 
-/** Real inputs carry a handful (`undefined` fields); see the slice notes. */
+/**
+ * Keys in the `values` tree (so at most this many annotations plus a root
+ * one). Real inputs carry a handful (`undefined` fields); see the slice notes.
+ */
 export const MAX_INPUT_ANNOTATIONS = 1000;
 /** The deepest real input path is about five segments (spec.rss_feeds.N.label). */
 export const MAX_INPUT_PATH_DEPTH = 64;
@@ -78,8 +81,13 @@ function parsePath(key: string): string[] {
   return out;
 }
 
-/** The raw `json` node a path names; refused unless every step is an own key or an in-range index. */
-function resolve(json: unknown, path: string[]): unknown {
+/**
+ * The raw `json` node a path names; refused unless every step is an own key
+ * or an in-range canonical index. Exported for its test: today the raw-shape
+ * check would also refuse what this misses (no allowed type accepts a
+ * missing value), so this is the rule stated once, not left to that overlap.
+ */
+export function resolveRawPath(json: unknown, path: string[]): unknown {
   let node = json;
   for (const seg of path) {
     if (FORBIDDEN_SEGMENTS.has(seg)) throw new Refused();
@@ -116,19 +124,19 @@ function rawShapeFits(type: string, raw: unknown): boolean {
 
 /** Walks `meta.values` in superjson's own order (children before their node) and checks every annotation. */
 function checkValues(json: unknown, values: unknown): void {
-  let annotations = 0;
+  // Every annotation but the root's sits under at least one key, so capping
+  // the keys caps the annotations (and the walk over empty subtrees).
   let keys = 0;
   const applied = new Set<string>();
 
   const annotate = (type: unknown, path: string[]) => {
-    if (++annotations > MAX_INPUT_ANNOTATIONS) throw new Refused();
     if (typeof type !== "string" || !ALLOWED_INPUT_ANNOTATIONS.has(type)) throw new Refused();
     // superjson would walk through an already-transformed node (a Set, a
     // Map), not the raw json this check resolved against.
     for (let i = 0; i <= path.length; i++) {
       if (applied.has(JSON.stringify(path.slice(0, i)))) throw new Refused();
     }
-    if (!rawShapeFits(type, resolve(json, path))) throw new Refused();
+    if (!rawShapeFits(type, resolveRawPath(json, path))) throw new Refused();
     applied.add(JSON.stringify(path));
   };
 
