@@ -4,22 +4,22 @@ Written before code. Only the gate-check script marks EVIDENCE by re-running CHE
 
 | Gate | CHECK | EXPECT | EVIDENCE |
 | --- | --- | --- | --- |
-| G1 | `cd apps/web && npx vitest run test/body-limit.test.ts` | exit 0 | 6fd3710 2026-11-17T12:05:24.597Z exit=0 |
-| G2 | `cd apps/web && npx vitest run test/body-limit-routes.test.ts` | exit 0 | 6fd3710 2026-11-17T12:05:25.501Z exit=0 |
-| G3 | `cd apps/web && npx vitest run test/scheduling-rule-bounds.test.ts` | exit 0 | 6fd3710 2026-11-17T12:05:25.932Z exit=0 |
-| G4 | `bash docs/slices/005-zod-guard/plant.sh` | exit 0, output contains "all planted defects caught" | 6fd3710 2026-11-17T12:05:56.927Z exit=0 |
-| G5 | `pnpm audit --prod --audit-level=high` | exit 0 | 6fd3710 2026-11-17T12:05:57.863Z exit=0 |
-| G6 | `bun .standard/standard-check.mjs .` | exit 0 | 6fd3710 2026-11-17T12:05:58.173Z exit=0 |
-| G7 | `git diff --quiet main -- apps/web/COPY_GUIDE.md apps/web/components ':(exclude)apps/web/components/chat/chat-client.tsx'` | exit 0 | 6fd3710 2026-11-17T12:05:58.182Z exit=0 |
-| G8 | `pnpm install --frozen-lockfile && git diff --quiet main -- pnpm-lock.yaml apps/web/package.json package.json` | exit 0 | 6fd3710 2026-11-17T12:05:58.669Z exit=0 |
-| G9 | `pnpm typecheck && pnpm lint && pnpm test` | exit 0 | 6fd3710 2026-11-17T12:06:09.602Z exit=0 |
-| G10 | `grep -q '^VERDICT: APPROVE' docs/records/reviews/005-zod-guard-security-r3.md` | exit 0 | |
-| G11 | `cd apps/web && npx vitest run test/chat-message-shape.test.ts test/chat-route-shape.test.ts` | exit 0 | 6fd3710 2026-11-17T12:06:10.563Z exit=0 |
-| G12 | `cd apps/web && npx vitest run test/trpc-error-format.test.ts` | exit 0 | 6fd3710 2026-11-17T12:06:11.031Z exit=0 |
-| G13 | `node docs/slices/005-zod-guard/measure-chat.mjs` | exit 0, output contains "chat worst case under budget" | 6fd3710 2026-11-17T12:06:12.444Z exit=0 |
-| G14 | `NODE_ENV=production node docs/slices/005-zod-guard/measure-trpc.mjs` | exit 0, output contains "trpc worst case under budget" | 6fd3710 2026-11-17T12:06:14.063Z exit=0 |
-| G15 | `cd apps/web && npx vitest run test/chat-error-actions.test.ts` | exit 0 | 6fd3710 2026-11-17T12:06:14.470Z exit=0 |
-| G16 | `cd apps/web && npx vitest run test/trpc-input-guard.test.ts` | exit 0 | 6fd3710 2026-11-17T12:06:15.042Z exit=0 |
+| G1 | `cd apps/web && npx vitest run test/body-limit.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:02.454Z exit=0 |
+| G2 | `cd apps/web && npx vitest run test/body-limit-routes.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:03.416Z exit=0 |
+| G3 | `cd apps/web && npx vitest run test/scheduling-rule-bounds.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:03.878Z exit=0 |
+| G4 | `bash docs/slices/005-zod-guard/plant.sh` | exit 0, output contains "all planted defects caught" | 90c7e84 2026-11-17T12:26:33.750Z exit=0 |
+| G5 | `pnpm audit --prod --audit-level=high` | exit 0 | 90c7e84 2026-11-17T12:26:35.226Z exit=0 |
+| G6 | `bun .standard/standard-check.mjs .` | exit 0 | 90c7e84 2026-11-17T12:26:35.510Z exit=0 |
+| G7 | `git diff --quiet main -- apps/web/COPY_GUIDE.md apps/web/components ':(exclude)apps/web/components/chat/chat-client.tsx'` | exit 0 | 90c7e84 2026-11-17T12:26:35.522Z exit=0 |
+| G8 | `pnpm install --frozen-lockfile && git diff --quiet main -- pnpm-lock.yaml apps/web/package.json package.json` | exit 0 | 90c7e84 2026-11-17T12:26:36.015Z exit=0 |
+| G9 | `pnpm typecheck && pnpm lint && pnpm test` | exit 0 | 90c7e84 2026-11-17T12:26:45.172Z exit=0 |
+| G10 | `grep -q '^VERDICT: APPROVE' docs/records/reviews/005-zod-guard-security-r3.md` | exit 0 | 90c7e84 2026-11-17T12:26:45.177Z exit=0 |
+| G11 | `cd apps/web && npx vitest run test/chat-message-shape.test.ts test/chat-route-shape.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:46.098Z exit=0 |
+| G12 | `cd apps/web && npx vitest run test/trpc-error-format.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:46.570Z exit=0 |
+| G13 | `node docs/slices/005-zod-guard/measure-chat.mjs` | exit 0, output contains "chat worst case under budget" | 90c7e84 2026-11-17T12:26:47.848Z exit=0 |
+| G14 | `NODE_ENV=production node docs/slices/005-zod-guard/measure-trpc.mjs` | exit 0, output contains "trpc worst case under budget" | 90c7e84 2026-11-17T12:26:49.257Z exit=0 |
+| G15 | `cd apps/web && npx vitest run test/chat-error-actions.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:49.670Z exit=0 |
+| G16 | `cd apps/web && npx vitest run test/trpc-input-guard.test.ts` | exit 0 | 90c7e84 2026-11-17T12:26:50.233Z exit=0 |
 
 - G1: the bounded reader. Each limit's exact value; over-limit bodies with an honest `Content-Length`, a lying one, none, and a real `Transfer-Encoding: chunked` request over a socket all return 413 and stop reading at the limit; a body exactly at the limit passes byte for byte; the abort signal reaches the handler; a body stream that errors mid-read reaches the handler as the same read error (the route's own 400), never a partial body.
 - G2: the two Zod-parsing entry points (tRPC, chat) answer 413 before the router or the auth step is reached at their own limits, pass an at-limit body through unchanged, and give the pre-guard 400 when the stream errors.
