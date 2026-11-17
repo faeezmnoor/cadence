@@ -1,3 +1,4 @@
+<!-- layer: records · status: record · verified: 2026-11-16 -->
 # 005-zod-guard · security lane · validator wave
 
 Scope: confirm or refute F1 and F2 of the first security review by measurement only. Base: branch slice/005-zod-guard at 08ffdca. Versions: ai 4.3.19, zod 3.25.76, @trpc/server 11.13.0, Node 26 on an arm64 Mac. Model stubbed with `MockLanguageModelV1`; no network, no `.env*` read, no tracked file changed. Scripts lived in a session scratch directory and are not committed. Peak memory = `maximum resident set size` from `/usr/bin/time -l`, run with `--max-old-space-size=16384` so the full cost is visible instead of an early crash.
