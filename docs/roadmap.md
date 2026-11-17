@@ -1,4 +1,4 @@
-<!-- layer: state · status: living · verified: 2026-10-06 · budget: 30 lines -->
+<!-- layer: state · status: living · verified: 2026-11-17 · budget: 30 lines -->
 # Roadmap — Cadence
 
 Direction: prove the brief is worth paying for (dogfood bar, Advanced eval gate) before opening checkout and public signup (decisions 0009, 0012). Source: Linear team CAD, export of 2026-10-06; Linear mirrors this file.
@@ -24,3 +24,6 @@ Direction: prove the brief is worth paying for (dogfood bar, Advanced eval gate)
 - CAD-123 — free data sources epic: CAD-124 DuckDuckGo HTML scrape, CAD-125 to CAD-130 connectors (CoinGecko, eBay, Odds API, Kiwi, Google News RSS, scraper dashboard)
 - CAD-122 — update the blueprint architecture note for the Brave free-tier end
 - CAD-238 — eval harness upgrade, CI G-eval gate (draft plan: docs/records/plans/eval-harness-upgrade.md; state not in the export)
+
+## Done
+- 005 zod-guard — request guards for GHSA-mrhx-c7xc-m3w5, option B of decision 0013; merged 2026-11-17 (PR #58, 39a29c1); records: docs/records/slices/005-zod-guard
