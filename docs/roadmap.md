@@ -13,6 +13,8 @@ Direction: prove the brief is worth paying for (dogfood bar, Advanced eval gate)
 - Zod 4 with AI SDK 5 — removes the Zod audit exception (decision 0013, option A); a pipeline major, so it needs the G-eval move-or-hold number (decision 0012)
 - Burst limit on tRPC mutations — about five worst-case requests at once on one instance pass 2 GB (slice 005 review round 2); a per-instance concurrency or per-user burst cap until option A lands (decision 0013)
 - Bound `chat.appendMessage` content — stored as `z.unknown()` jsonb, now at most the 384 KiB body (was 50–100 MB from a 1.5 KB body before the slice 005 input guard); a schema for the two content kinds the client writes
+- Cap path length in the tRPC input guard — one signed-in 384 KiB POST with long same-length paths costs about 7 s of CPU in the guard (slice 005 review round 3, R3-1, P2); about 256 characters per segment and 1,024 per path
+- Tests for two input-guard rules — an invalid path escape and `constructor` or `prototype` as a segment (slice 005 review round 3, R3-2, P3)
 - CAD-70, CAD-71, CAD-72 — config-agent tasks T-408 to T-410 (Urgent)
 - CAD-228 — web-search providers: keep all, Standard default decided by evals before launch (High; decision 0011)
 - CAD-73 to CAD-76 — config-agent and composer tasks T-411 to T-414 (High)
