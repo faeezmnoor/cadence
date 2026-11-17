@@ -72,6 +72,7 @@ import { buildPriorContextBlock } from "@/server/ai/config-agent/prior-context";
 import { buildTemplateSeedBlock } from "@/server/ai/config-agent/template-seed";
 import { count } from "drizzle-orm";
 import { withBodyLimit } from "@/server/http/body-limit";
+import { checkChatMessagesShape } from "@/server/chat/message-shape";
 
 const CHAT_RATE_LIMIT = 5;
 const CHAT_RATE_WINDOW_SECONDS = 60;
@@ -93,6 +94,9 @@ interface ChatRequestBody {
 }
 
 const TEMPLATE_SOURCES = new Set(["starter_card", "gallery", "deep_link"]);
+
+/** Longest error text the catch block hands to the logger (an SDK error can embed a whole Zod report). */
+const MAX_LOGGED_ERROR_CHARS = 500;
 
 /**
  * Slice 005 / decision 0013: the size guard runs before anything else, so an
@@ -210,6 +214,19 @@ async function handleChatTurn(req: Request): Promise<Response> {
     );
   }
   const mode = gate.mode;
+
+  // Slice 005 / review F1: hand-written shape check on exactly the messages
+  // streamText will see, before any write, the extractor or streamText
+  // (whose Zod check on zod 3.25.76 costs gigabytes for a bad array). Manage
+  // mode forwards only the capped tail, so a long manage thread is never
+  // refused for its age. Fixed reply: never echo the payload.
+  const forwardedMessages =
+    mode === "manage" ? capManageTranscript(body.messages) : body.messages;
+  const shape = checkChatMessagesShape(forwardedMessages);
+  if (!shape.ok) {
+    log.warn("chat: message shape refused", { reason: shape.reason, threadId: thread.id });
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
 
   // Persist the latest user message (the one the client just sent).
   const lastMsg = body.messages[body.messages.length - 1];
@@ -481,8 +498,7 @@ async function handleChatTurn(req: Request): Promise<Response> {
       // send a capped transcript (last N). The system prompt + per-turn spec
       // overlay ride outside `messages` and are the load-bearing state —
       // truncation never loses the spec. Setup turns untouched.
-      messages:
-        mode === "manage" ? capManageTranscript(body.messages) : body.messages,
+      messages: forwardedMessages,
       tools: buildAiSdkTools(agentCtx, mode),
       maxSteps: 6,
       temperature: 0.3,
@@ -629,7 +645,7 @@ async function handleChatTurn(req: Request): Promise<Response> {
     const supportRef = generateSupportRef();
     log.error("chat stream failed", {
       supportRef,
-      err: err instanceof Error ? err.message : String(err),
+      err: (err instanceof Error ? err.message : String(err)).slice(0, MAX_LOGGED_ERROR_CHARS),
     });
     return NextResponse.json(
       {
