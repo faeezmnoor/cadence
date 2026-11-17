@@ -1,7 +1,7 @@
 /**
  * Slice 005: the two HTTP entry points that hand caller-controlled input to
  * Zod sit behind `withBodyLimit`, each at its own limit.
- *   - /api/trpc/[trpc] (512 KiB): every mutation's `.input()` arrives in the
+ *   - /api/trpc/[trpc] (384 KiB): every mutation's `.input()` arrives in the
  *     POST body (e.g. briefs.updateRaw). Queries such as briefs.preview arrive
  *     by GET, carry their input in the URL and have no body to guard.
  *   - /api/chat (1 MiB): `streamText` validates `body.messages` with
@@ -87,7 +87,7 @@ describe("/api/trpc/[trpc]", () => {
     expect(((await res.json()) as { echoed: string }).echoed).toBe(body);
   });
 
-  it("uses the tRPC limit, not the chat limit (one byte over 512 KiB is refused)", async () => {
+  it("uses the tRPC limit, not the chat limit (one byte over 384 KiB is refused)", async () => {
     const res = await trpcRoute.POST(new Request(TRPC_URL, { method: "POST", body: bodyOf(TRPC_BODY_LIMIT_BYTES + 1) }));
     expect(res.status).toBe(413);
     expect(TRPC_BODY_LIMIT_BYTES).toBeLessThan(CHAT_BODY_LIMIT_BYTES);

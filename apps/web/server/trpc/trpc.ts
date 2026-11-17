@@ -13,12 +13,13 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { Context } from "./context";
 import { isAdminEmail } from "@/server/auth/admin";
+import { boundErrorShape } from "./error-format";
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
-  errorFormatter({ shape }) {
-    return shape;
-  },
+  // Slice 005 / review F2: at most 20 Zod issues plus a count, no stack,
+  // messages cut — the default shape grew with the body (error-format.ts).
+  errorFormatter: boundErrorShape,
 });
 
 export const router = t.router;

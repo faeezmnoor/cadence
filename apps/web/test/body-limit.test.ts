@@ -74,9 +74,9 @@ function streamRequest(total: number, headers: Record<string, string> = {}) {
 }
 
 describe("the limits", () => {
-  it("pins chat at 1 MiB and tRPC at 512 KiB", () => {
+  it("pins chat at 1 MiB and tRPC at 384 KiB", () => {
     expect(CHAT_BODY_LIMIT_BYTES).toBe(1_048_576);
-    expect(TRPC_BODY_LIMIT_BYTES).toBe(524_288);
+    expect(TRPC_BODY_LIMIT_BYTES).toBe(393_216);
   });
 });
 

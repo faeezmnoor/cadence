@@ -18,8 +18,11 @@
 
 /** /api/chat: the whole visible thread rides in every turn. 1 MiB. */
 export const CHAT_BODY_LIMIT_BYTES = 1024 * 1024;
-/** /api/trpc: 2.6x the largest legitimate request (202,258 bytes). 512 KiB. */
-export const TRPC_BODY_LIMIT_BYTES = 512 * 1024;
+/**
+ * /api/trpc: 1.94x the largest legitimate request (202,258 bytes). 384 KiB.
+ * Worst body at this limit peaks at about 685 MB (512 KiB: 910 MB); see notes.md.
+ */
+export const TRPC_BODY_LIMIT_BYTES = 384 * 1024;
 
 /** apps/web/COPY_GUIDE.md §6–7: errors speak as "we", what happened → what it means → one action. */
 export const PAYLOAD_TOO_LARGE_MESSAGE =
