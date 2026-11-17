@@ -3,7 +3,7 @@ status: accepted
 date: 2026-11-13
 decision-makers: the owner (ruling of 2026-11-13), the orchestrator
 ---
-<!-- layer: knowledge · status: living · verified: 2026-11-13 · budget: 80 lines -->
+<!-- layer: knowledge · status: living · verified: 2026-11-17 · budget: 80 lines -->
 # Temporary audit exception for the Zod advisory GHSA-mrhx-c7xc-m3w5
 
 ## Context and problem statement
@@ -40,16 +40,16 @@ decision-makers: the owner (ruling of 2026-11-13), the orchestrator
 
 ## Decision outcome
 - **B now, A later** (owner ruling, 2026-11-13).
-- **B, built in slice 005-zod-guard.**
-  - A request-size guard, `withBodyLimit` in apps/web/server/http/body-limit.ts, with one limit, `MAX_REQUEST_BODY_BYTES` = 1 MiB.
-  - It sits in front of the two HTTP entry points that hand caller input to Zod: `/api/trpc/[trpc]` (every `.input()`) and `/api/chat` (the AI SDK checks the message array with Zod).
-  - It counts the bytes it reads and stops at the limit, so a request with no `Content-Length`, or a lying one, is bounded too; over the limit it answers 413 before any parser runs.
+- **B, built in slice 005-zod-guard** (revised after the security review of 2026-11-16, which measured the first version's bound as false).
+  - A request-size guard, `withBodyLimit` in apps/web/server/http/body-limit.ts, with a limit per route: tRPC 384 KiB (1.94x the largest legitimate request, 202,258 bytes), chat 1 MiB. It counts the bytes it reads, so a request with no `Content-Length`, or a lying one, is bounded too; over the limit it answers 413 before any parser runs.
+  - `/api/chat`: a hand-written shape check (no Zod) on the messages `streamText` will see, before any write: at most 200 messages and 500 elements that can reach Zod, roles user or assistant, parts of known types. A bad shape gets 400.
+  - tRPC: the error response keeps at most 20 Zod issues plus a count and no stack.
   - `weekdays` (daily and weekly) are capped at 7 and `skipDates` at 366 in apps/web/lib/scheduling/rule.ts.
-- **What B bounds.** The heap one request can make Zod build. Measured on zod 3.25.76 with the worst array (`[0,0,…]`): about 180 MB at 1 MiB, against 643 MB at 4 MiB.
+- **What B bounds** (measured end to end, slice notes). One chat request peaks at about 216 MB (was 2.4–7.1 GB). One tRPC request peaks at about 685 MB at 384 KiB (910 MB at 512 KiB; 1.3–3.2 GB at the first version's 1 MiB), with a response of about 2 KB.
 - **What B does not bound.**
-  - Up to about 180 MB per request is still possible under the limit; several such requests at once on one instance add up.
-  - `.max()` does not cut the work on zod 3: every element is still parsed after a breach.
-  - Entry points that do not parse with Zod are not guarded: the Telegram webhook (secret header), the Inngest route (signature checked before its own Zod parse), sign-in, and GET query strings (bounded by the platform's URL limit).
+  - About 685 MB per tRPC request is still possible. At the default 2 GB function memory one request no longer exhausts an instance; three at once on one instance could. Under about 600 MB would need a tRPC limit below 1.5x the largest legitimate request.
+  - Zod still builds every issue on zod 3; `.max()` does not cut the work.
+  - Entry points that do not parse with Zod are not guarded: the Telegram webhook (secret header), the Inngest route (signature checked before its own Zod parse) and sign-in. GET query input is bounded by Node's 16 KB header cap (worst query measured at 118 MB).
 - **The exception stays.** `pnpm audit --prod` still reports the package, so `auditConfig.ignoreGhsas` in pnpm-workspace.yaml keeps exactly this id.
 - **Review: when the zod 4 with AI SDK 5 slice lands** (option A, on the roadmap; it needs a move-or-hold eval number, decision 0012). That slice removes the exception and supersedes this record.
 
