@@ -17,7 +17,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "@/server/trpc/root";
 import { createTRPCContext } from "@/server/trpc/context";
-import { withBodyLimit } from "@/server/http/body-limit";
+import { TRPC_BODY_LIMIT_BYTES, withBodyLimit } from "@/server/http/body-limit";
 
 const handler = withBodyLimit((request: Request) =>
   fetchRequestHandler({
@@ -25,7 +25,8 @@ const handler = withBodyLimit((request: Request) =>
     req: request,
     router: appRouter,
     createContext: (opts) => createTRPCContext(opts),
-  })
+  }),
+  TRPC_BODY_LIMIT_BYTES
 );
 
 export { handler as GET, handler as POST };

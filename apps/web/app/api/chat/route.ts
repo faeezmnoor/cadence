@@ -71,7 +71,7 @@ import {
 import { buildPriorContextBlock } from "@/server/ai/config-agent/prior-context";
 import { buildTemplateSeedBlock } from "@/server/ai/config-agent/template-seed";
 import { count } from "drizzle-orm";
-import { withBodyLimit } from "@/server/http/body-limit";
+import { CHAT_BODY_LIMIT_BYTES, withBodyLimit } from "@/server/http/body-limit";
 import { checkChatMessagesShape } from "@/server/chat/message-shape";
 
 const CHAT_RATE_LIMIT = 5;
@@ -103,7 +103,7 @@ const MAX_LOGGED_ERROR_CHARS = 500;
  * over-limit body is refused (413) before auth, the rate-limit row and the
  * `z.array(coreMessageSchema)` check inside `streamText`.
  */
-export const POST = withBodyLimit(handleChatTurn);
+export const POST = withBodyLimit(handleChatTurn, CHAT_BODY_LIMIT_BYTES);
 
 async function handleChatTurn(req: Request): Promise<Response> {
   const supabase = await createSupabaseServerClient();

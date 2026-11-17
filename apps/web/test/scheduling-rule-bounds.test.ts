@@ -17,7 +17,7 @@ import {
   MAX_WEEKDAYS,
   schedulingRuleV1,
 } from "@/lib/scheduling/rule";
-import { MAX_REQUEST_BODY_BYTES, withBodyLimit } from "@/server/http/body-limit";
+import { TRPC_BODY_LIMIT_BYTES, withBodyLimit } from "@/server/http/body-limit";
 
 const base = {
   version: 1 as const,
@@ -61,13 +61,15 @@ describe("schedulingRuleV1 array bounds", () => {
 });
 
 describe("memory shape: the parser never sees an oversized array", () => {
-  // A stand-in for briefs.preview: read JSON, hand `rule` to the schema.
+  // A stand-in for a body-parsed input that hands an array to Zod. The one
+  // caller path to schedulingRuleV1 is briefs.preview, a GET query with no
+  // body: its input is bounded by the URL length (notes.md, review F6).
   const parseSpy = vi.spyOn(schedulingRuleV1, "safeParse");
   const route = withBodyLimit(async (req: Request) => {
     const input = (await req.json()) as { rule: unknown };
     const r = schedulingRuleV1.safeParse(input.rule);
     return Response.json({ ok: r.success }, { status: r.success ? 200 : 400 });
-  });
+  }, TRPC_BODY_LIMIT_BYTES);
 
   it("a 4 MB skipDates body (the measured 690 MB case) is refused before parsing", async () => {
     parseSpy.mockClear();
@@ -84,6 +86,6 @@ describe("memory shape: the parser never sees an oversized array", () => {
     const res = await route(new Request("https://x.test/api/trpc", { method: "POST", body }));
     expect(res.status).toBe(200);
     expect(parseSpy).toHaveBeenCalledTimes(1);
-    expect(body.length).toBeLessThan(MAX_REQUEST_BODY_BYTES);
+    expect(body.length).toBeLessThan(TRPC_BODY_LIMIT_BYTES);
   });
 });
