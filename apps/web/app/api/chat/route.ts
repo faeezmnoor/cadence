@@ -72,7 +72,12 @@ import { buildPriorContextBlock } from "@/server/ai/config-agent/prior-context";
 import { buildTemplateSeedBlock } from "@/server/ai/config-agent/template-seed";
 import { count } from "drizzle-orm";
 import { CHAT_BODY_LIMIT_BYTES, withBodyLimit } from "@/server/http/body-limit";
-import { checkChatMessagesShape } from "@/server/chat/message-shape";
+import {
+  checkChatMessagesShape,
+  THREAD_LENGTH_REASONS,
+  THREAD_TOO_LONG_MESSAGE,
+} from "@/server/chat/message-shape";
+import { THREAD_TOO_LONG_CODE } from "@/lib/chat/error-actions";
 
 const CHAT_RATE_LIMIT = 5;
 const CHAT_RATE_WINDOW_SECONDS = 60;
@@ -225,6 +230,15 @@ async function handleChatTurn(req: Request): Promise<Response> {
   const shape = checkChatMessagesShape(forwardedMessages);
   if (!shape.ok) {
     log.warn("chat: message shape refused", { reason: shape.reason, threadId: thread.id });
+    // A long setup chat can reach a cap honestly: say so, with no Retry
+    // (lib/chat/error-actions.ts). Manage mode forwards only the last 20
+    // messages and has no "Start over", so it keeps the plain envelope.
+    if (mode !== "manage" && THREAD_LENGTH_REASONS.has(shape.reason)) {
+      return NextResponse.json(
+        { code: THREAD_TOO_LONG_CODE, userMessage: THREAD_TOO_LONG_MESSAGE },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 

@@ -9,10 +9,12 @@ import { fileURLToPath, URL } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   PAYLOAD_TOO_LARGE_CODE,
+  THREAD_TOO_LONG_CODE,
   offersRetry,
   withoutUnsentMessage,
 } from "@/lib/chat/error-actions";
 import { PAYLOAD_TOO_LARGE_MESSAGE, payloadTooLargeResponse } from "@/server/http/body-limit";
+import { THREAD_TOO_LONG_MESSAGE } from "@/server/chat/message-shape";
 
 const chatClient = readFileSync(
   fileURLToPath(new URL("../components/chat/chat-client.tsx", import.meta.url)),
@@ -25,6 +27,21 @@ describe("chat error actions", () => {
     for (const code of ["unknown", "timeout", "upstream_5xx", "rate_limited", "stream_failed"]) {
       expect(offersRetry(code)).toBe(true);
     }
+  });
+
+  it("offers no Retry for a setup chat over the shape check's caps (review round 2, below-bar note)", () => {
+    expect(THREAD_TOO_LONG_CODE).toBe("thread_too_long");
+    expect(offersRetry(THREAD_TOO_LONG_CODE)).toBe(false);
+  });
+
+  it("the thread_too_long words: COPY_GUIDE §6–7, one action that exists, not the 413's phrasing", () => {
+    expect(THREAD_TOO_LONG_MESSAGE).toBe("This chat has reached its limit. Tap Start over to set up your brief in a fresh chat.");
+    const first = THREAD_TOO_LONG_MESSAGE.split(". ")[0];
+    expect(first.split(" ").length).toBeLessThanOrEqual(8);
+    expect(THREAD_TOO_LONG_MESSAGE).not.toContain("!");
+    expect(THREAD_TOO_LONG_MESSAGE.toLowerCase()).not.toMatch(/retry|try again|too long|thread|session/);
+    // The action it names is the setup chat's own control.
+    expect(chatClient).toContain('aria-label="Start over"');
   });
 
   it("drops only a trailing user message", () => {

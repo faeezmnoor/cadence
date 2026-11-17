@@ -71,6 +71,8 @@ vi.mock("@/lib/log", () => ({
 }));
 
 const { POST } = await import("@/app/api/chat/route");
+const { THREAD_TOO_LONG_CODE } = await import("@/lib/chat/error-actions");
+const { THREAD_TOO_LONG_MESSAGE } = await import("@/server/chat/message-shape");
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -104,11 +106,25 @@ describe("/api/chat message shape check", () => {
     ["a bad content array (setup)", [{ role: "user", content: [0, 0, 0] }]],
     ["no role", [{ content: [0, 0] }]],
     ["a text part with a number", [{ role: "assistant", content: "", parts: [{ type: "text", text: 0 }] }]],
-    ["201 messages", Array.from({ length: 201 }, () => ({ role: "assistant", content: "x" }))],
   ])("refuses %s with a 400 before any write or streamText", async (_n, messages) => {
     const res = await post(messages);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "bad request" });
+    expect(streamText).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["201 messages", Array.from({ length: 201 }, () => ({ role: "assistant", content: "x" }))],
+    [
+      "over 500 counted elements",
+      Array.from({ length: 101 }, () => ({ role: "assistant", content: "x", parts: Array(5).fill({ type: "text", text: "x" }) })),
+    ],
+  ])("a setup thread over a cap (%s) gets the thread_too_long envelope, no write, no streamText", async (_n, messages) => {
+    const res = await post(messages);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: THREAD_TOO_LONG_CODE, userMessage: THREAD_TOO_LONG_MESSAGE });
     expect(streamText).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();

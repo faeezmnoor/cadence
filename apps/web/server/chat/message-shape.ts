@@ -29,6 +29,16 @@ export const MAX_CHAT_MESSAGE_ELEMENTS = 500;
 
 export type ChatShapeResult = { ok: true } | { ok: false; reason: string };
 
+/** Refusals a legitimate but very long setup chat can reach (the rest need a hand-built request). */
+export const THREAD_LENGTH_REASONS: ReadonlySet<string> = new Set(["too_many_messages", "too_many_elements"]);
+/**
+ * Shown, with no Retry, when a setup chat passes a cap (review round 2,
+ * below-bar note). COPY_GUIDE §6–7: what happened in under 8 words, then the
+ * one action, which is the setup chat's own "Start over" control.
+ */
+export const THREAD_TOO_LONG_MESSAGE =
+  "This chat has reached its limit. Tap Start over to set up your brief in a fresh chat.";
+
 const ROLES = new Set(["user", "assistant"]);
 /** Part types the AI SDK 4.x UI stream produces. */
 const PART_TYPES = new Set(["text", "step-start", "tool-invocation", "source", "reasoning", "file"]);
