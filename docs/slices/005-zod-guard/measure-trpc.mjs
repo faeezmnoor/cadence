@@ -8,6 +8,12 @@
 // fresh child process. Also measures the largest GET Node accepts
 // (http.maxHeaderSize covers the request line), the only way caller input
 // reaches schedulingRuleV1 (briefs.preview is a query).
+// Round 2 (N1, N3): also the three attack shapes from the review and its
+// validator, through the real input-guarded transformer
+// (apps/web/server/trpc/input-guard.ts): one array shared by
+// `meta.referentialEqualities` at nine array paths, filled to the limit; a
+// 143-byte `meta.values` body naming index 2,000,000; the same by GET on
+// `preview`. Each must be refused (or parsed once) cheaply.
 // No network, no .env read. Needs Node with type stripping (22.18+).
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -35,18 +41,18 @@ async function child(name, limitArg) {
   const load = (id) => import(pathToFileURL(req.resolve(id)).href);
   const { initTRPC, TRPCError } = await load("@trpc/server");
   const { fetchRequestHandler } = await load("@trpc/server/adapters/fetch");
-  const superjson = (await load("superjson")).default;
   // zod's ESM entry: the same module instance the TS files import, so the
   // formatter's `instanceof ZodError` sees these errors.
   const { z } = await import(pathToFileURL(resolve(WEB, "node_modules/zod/index.js")).href);
   const ts = (p) => import(pathToFileURL(resolve(WEB, p)).href);
   const { withBodyLimit, TRPC_BODY_LIMIT_BYTES } = await ts("server/http/body-limit.ts");
   const { boundErrorShape } = await ts("server/trpc/error-format.ts");
+  const { trpcTransformer, INPUT_GUARD_MESSAGE } = await ts("server/trpc/input-guard.ts");
   const { digestSpecSchema } = await ts("lib/digest-spec/schema.ts");
   const { schedulingRuleV1 } = await ts("lib/scheduling/rule.ts");
   const limit = Number(limitArg) || TRPC_BODY_LIMIT_BYTES;
 
-  const t = initTRPC.create({ transformer: superjson, errorFormatter: boundErrorShape });
+  const t = initTRPC.create({ transformer: trpcTransformer, errorFormatter: boundErrorShape });
   const router = t.router({
     updateRaw: t.procedure.input(z.object({ id: z.string().uuid(), spec: digestSpecSchema })).mutation(() => "ok"),
     // Mirrors briefs.preview: z.unknown() input, then the rule schema, then the message.
@@ -68,7 +74,19 @@ async function child(name, limitArg) {
   if (name === "updateRaw topics [0,…]") request = post("updateRaw", spec("topics", "0"));
   else if (name === "updateRaw rss_feeds [{},…]") request = post("updateRaw", spec("rss_feeds", "{}"));
   else if (name === "updateRaw keywords_include [0,…]") request = post("updateRaw", spec("keywords_include", "0"));
-  else if (name === "preview skipDates by GET at Node's header cap") {
+  else if (name === "N1 updateRaw topics shared at nine array paths") {
+    const others = ["entities.companies", "entities.tickers", "entities.commodities", "keywords_include", "keywords_exclude", "data_addons.fx_pairs", "rss_feeds", "cadence.days_of_week"];
+    const zeros = `"entities":{"companies":0,"tickers":0,"commodities":0},"keywords_include":0,"keywords_exclude":0,"data_addons":{"fx_pairs":0},"rss_feeds":0,"cadence":{"days_of_week":0}`;
+    const meta = JSON.stringify({ referentialEqualities: { "spec.topics": others.map((o) => `spec.${o}`) }, v: 1 });
+    request = post("updateRaw", fill(`{"0":{"json":{"id":"${UUID}","spec":{"topics":[`, '""', `],${zeros}}},"meta":${meta}}}`, limit));
+  } else if (name === "N3 updateRaw values at index 2,000,000 (143 B)") {
+    request = post("updateRaw", `{"0":{"json":{"id":"${UUID}","spec":{"topics":[]}},"meta":{"values":{"spec.topics.2000000":["undefined"]},"v":1}}}`);
+  } else if (name === "N3 updateRaw referentialEqualities to index 2,000,000") {
+    request = post("updateRaw", `{"0":{"json":{"id":"${UUID}","spec":{"topics":[]}},"meta":{"referentialEqualities":{"spec.topics":["spec.topics.2000000"]},"v":1}}}`);
+  } else if (name === "N3 preview GET values at skipDates index 2,000,000") {
+    const input = { 0: { json: { rule: { skipDates: [] } }, meta: { values: { "rule.skipDates.2000000": ["undefined"] }, v: 1 } } };
+    request = new Request(`https://app.example.com/api/trpc/preview?batch=1&input=${encodeURIComponent(JSON.stringify(input))}`);
+  } else if (name === "preview skipDates by GET at Node's header cap") {
     const head = `/api/trpc/preview?batch=1&input=`;
     const input = (n) => encodeURIComponent(JSON.stringify({ 0: { json: { rule: { skipDates: Array(n).fill(0) } } } }));
     let n = 1;
@@ -88,7 +106,12 @@ async function child(name, limitArg) {
   const sent = request.method === "GET" ? request.url.length : Number((await request.clone().arrayBuffer()).byteLength);
   const res = await handler(request);
   const text = await res.text();
-  if (request.method === "POST" && !text.includes('"zodIssueCount"')) {
+  // Attack shapes the guard must refuse before Zod; everything else must reach Zod.
+  const refusedByGuard = name.startsWith("N3 updateRaw values") || name.startsWith("N3 preview");
+  if (refusedByGuard && !text.includes(INPUT_GUARD_MESSAGE)) {
+    throw new Error("the input guard did not refuse this shape");
+  }
+  if (!refusedByGuard && request.method === "POST" && !text.includes('"zodIssueCount"')) {
     throw new Error("the bounded formatter's Zod path did not run");
   }
   const rssMb = (process.resourceUsage().maxRSS * 1024) / 1e6;
@@ -100,6 +123,10 @@ const CASES = [
   "updateRaw rss_feeds [{},…]",
   "updateRaw keywords_include [0,…]",
   "preview skipDates by GET at Node's header cap",
+  "N1 updateRaw topics shared at nine array paths",
+  "N3 updateRaw values at index 2,000,000 (143 B)",
+  "N3 updateRaw referentialEqualities to index 2,000,000",
+  "N3 preview GET values at skipDates index 2,000,000",
 ];
 
 if (process.argv[2] === "child") {
