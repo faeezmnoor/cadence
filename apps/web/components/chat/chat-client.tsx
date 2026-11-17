@@ -24,6 +24,11 @@ import { usePinnedScroll } from "./use-pinned-scroll";
 import { groupMessages } from "@/lib/chat/group";
 import { trpc } from "@/lib/trpc/client";
 import {
+  PAYLOAD_TOO_LARGE_CODE,
+  offersRetry,
+  withoutUnsentMessage,
+} from "@/lib/chat/error-actions";
+import {
   detectMultiTopicIntake,
   MULTI_TOPIC_REFUSAL,
 } from "@/lib/chat/multi-topic";
@@ -260,6 +265,14 @@ export function ChatClient({
     }, friendlyError.code === "rate_limited" ? 4000 : 1200);
     return () => clearTimeout(t);
   }, [friendlyError, reload, autoRetriedRef]);
+
+  // Slice 005 (review F5): a 413 saved nothing, and resending the same
+  // thread would be refused again. Drop the unsent message so the next send
+  // carries a shorter one; the bubble offers no Retry for this code.
+  useEffect(() => {
+    if (friendlyError?.code !== PAYLOAD_TOO_LARGE_CODE) return;
+    setMessages((prev) => withoutUnsentMessage(prev));
+  }, [friendlyError, setMessages]);
 
   /**
    * MUST-SHIP #5: intercept submit. If the FIRST user message of the
@@ -1148,14 +1161,16 @@ export function ChatClient({
               >
                 <p>{friendlyError.userMessage}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void reload()}
-                    disabled={isStreaming}
-                    className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Retry
-                  </button>
+                  {offersRetry(friendlyError.code) && (
+                    <button
+                      type="button"
+                      onClick={() => void reload()}
+                      disabled={isStreaming}
+                      className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Retry
+                    </button>
+                  )}
                   {friendlyError.supportRef && (
                     <span className="text-[11px] text-muted-foreground">
                       Support ref:{" "}

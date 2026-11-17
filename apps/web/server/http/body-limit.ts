@@ -24,9 +24,14 @@ export const CHAT_BODY_LIMIT_BYTES = 1024 * 1024;
  */
 export const TRPC_BODY_LIMIT_BYTES = 384 * 1024;
 
-/** apps/web/COPY_GUIDE.md §6–7: errors speak as "we", what happened → what it means → one action. */
+/**
+ * apps/web/COPY_GUIDE.md §6–7: what happened (≤8 words) → what it means → one
+ * action. The chat client offers no Retry for this code and drops the unsent
+ * message (lib/chat/error-actions.ts), so "try a shorter one" is the action
+ * that works. tRPC clients do not render it.
+ */
 export const PAYLOAD_TOO_LARGE_MESSAGE =
-  "That was too much to send at once. Nothing was saved — try again with less.";
+  "That message is too long to send. Nothing was saved — try a shorter one.";
 
 export type BoundedBody =
   | { ok: true; body: Uint8Array<ArrayBuffer> | null }
