@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
 # Slice 005 gate G4: plant each defect the new guards guard against, run the
-# matching test, require it to FAIL, then restore the file from git.
+# matching test, require it to FAIL, then restore the file from a copy taken
+# before the plant (never from git, so uncommitted work is never discarded).
 # Prints "all planted defects caught" only when every plant was caught.
 set -u
 ROOT="$(git rev-parse --show-toplevel)"
 WEB="$ROOT/apps/web"
+SAVED="$(mktemp -d)"
 caught=0
 total=0
 
-restore() { git -C "$ROOT" checkout -- "$1"; }
+restore() { # file (repo-relative)
+  local key
+  key="$(printf '%s' "$1" | tr '/[]' '___')"
+  if [ -f "$SAVED/$key" ]; then cp "$SAVED/$key" "$ROOT/$1" && rm "$SAVED/$key"; fi
+}
 
 plant() { # name, file (repo-relative), perl substitution, test file
-  local name="$1" file="$2" subst="$3" test="$4"
+  local name="$1" file="$2" subst="$3" test="$4" key
   total=$((total + 1))
+  key="$(printf '%s' "$file" | tr '/[]' '___')"
+  cp "$ROOT/$file" "$SAVED/$key"
+  printf '%s\n' "$file" >> "$SAVED/files"
   perl -0pi -e "$subst" "$ROOT/$file"
-  if git -C "$ROOT" diff --quiet -- "$file"; then
+  if cmp -s "$ROOT/$file" "$SAVED/$key"; then
     echo "PLANT DID NOT APPLY: $name"
+    restore "$file"
     return
   fi
   if (cd "$WEB" && npx vitest run "$test" >/dev/null 2>&1); then
@@ -27,7 +37,14 @@ plant() { # name, file (repo-relative), perl substitution, test file
   restore "$file"
 }
 
-trap 'git -C "$ROOT" checkout -- apps/web/server/http/body-limit.ts "apps/web/app/api/trpc/[trpc]/route.ts" apps/web/app/api/chat/route.ts apps/web/lib/scheduling/rule.ts apps/web/server/chat/message-shape.ts apps/web/server/trpc/error-format.ts apps/web/components/chat/chat-client.tsx' EXIT
+# On any exit, put back whatever is still planted, then drop the copies.
+cleanup() {
+  if [ -f "$SAVED/files" ]; then
+    while IFS= read -r f; do restore "$f"; done < "$SAVED/files"
+  fi
+  rm -f "$SAVED/files" && rmdir "$SAVED" 2>/dev/null
+}
+trap cleanup EXIT
 
 plant "guard trusts Content-Length only (no running count)" \
   apps/web/server/http/body-limit.ts \
@@ -155,6 +172,87 @@ plant "skipDates .max removed" \
   apps/web/lib/scheduling/rule.ts \
   's/\.max\(MAX_SKIP_DATES\)//' \
   test/scheduling-rule-bounds.test.ts
+
+# Fix round 2 (review round 2 N1, validator N3): the tRPC input guard.
+plant "N1: referentialEqualities kept" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(values === undefined \|\| values === null\) return \{ json: payload\.json \};/if (values === undefined || values === null) return payload;/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: guard not wired into tRPC (plain superjson)" \
+  apps/web/server/trpc/trpc.ts \
+  's/transformer: trpcTransformer,/transformer: trpcTransformer.output,/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: array index not bounded by the length" \
+  apps/web/server/trpc/input-guard.ts \
+  's/ \|\| Number\(seg\) >= node\.length//' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: non-canonical index accepted" \
+  apps/web/server/trpc/input-guard.ts \
+  's/!CANONICAL_INDEX\.test\(seg\) \|\| //' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: inherited key accepted (in, not hasOwn)" \
+  apps/web/server/trpc/input-guard.ts \
+  's/!Object\.hasOwn\(node, seg\)/!(seg in node)/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: __proto__ and friends accepted" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(FORBIDDEN_SEGMENTS\.has\(seg\)\) throw new Refused\(\);//' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: path through an already-transformed node accepted" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(applied\.has\(JSON\.stringify\(path\.slice\(0, i\)\)\)\) throw new Refused\(\);//' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: allowlist widened (regexp)" \
+  apps/web/server/trpc/input-guard.ts \
+  's/new Set\(\["undefined", "Date", "bigint", "map", "set"\]\)/new Set(["undefined", "Date", "bigint", "map", "set", "regexp"])/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: raw shape not checked (undefined on any value)" \
+  apps/web/server/trpc/input-guard.ts \
+  's/return raw === null;/return true;/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: legacy (v0) paths accepted" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(v !== 1\) throw new Refused\(\);//' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: annotation cap raised to 100000" \
+  apps/web/server/trpc/input-guard.ts \
+  's/MAX_INPUT_ANNOTATIONS = 1000;/MAX_INPUT_ANNOTATIONS = 100000;/' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: annotation (key) cap not enforced" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(\+\+keys > MAX_INPUT_ANNOTATIONS\) throw new Refused\(\);//' \
+  test/trpc-input-guard.test.ts
+
+plant "N3: path depth not enforced" \
+  apps/web/server/trpc/input-guard.ts \
+  's/if \(path\.length > MAX_INPUT_PATH_DEPTH\) throw new Refused\(\);//' \
+  test/trpc-input-guard.test.ts
+
+plant "below-bar: Retry offered for thread_too_long" \
+  apps/web/lib/chat/error-actions.ts \
+  's/ && code !== THREAD_TOO_LONG_CODE;/;/' \
+  test/chat-error-actions.test.ts
+
+plant "below-bar: setup chat over a cap gets the bare 400" \
+  apps/web/app/api/chat/route.ts \
+  's/if \(mode !== "manage" && THREAD_LENGTH_REASONS\.has\(shape\.reason\)\) \{/if (false) {/' \
+  test/chat-route-shape.test.ts
+
+plant "below-bar: thread_too_long shown in manage mode too" \
+  apps/web/app/api/chat/route.ts \
+  's/if \(mode !== "manage" && THREAD_LENGTH_REASONS/if (THREAD_LENGTH_REASONS/' \
+  test/chat-route-shape.test.ts
 
 echo "$caught of $total planted defects caught"
 if [ "$caught" -eq "$total" ]; then
