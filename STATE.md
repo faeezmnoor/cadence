@@ -1,12 +1,13 @@
 # STATE — Cadence
 <!-- layer: state · status: living · budget: 80 lines -->
-verified: 2026-11-17 at 39a29c1 by the orchestrator: gh deployment (Production 39a29c1 success), curl of / and /pricing (200), a 500 KB POST to /api/trpc/briefs.updateRaw?batch=1 (413), PR #58 merged; the documentation lint
+verified: 2026-11-20 at d0e4abd by the orchestrator: PR #60 merged (checks pass on its head), gh deployments (latest Production 845011a, 2026-11-17, success; none recorded for d0e4abd, a documents-only commit), curl of / and /pricing (200), the 1.7.0 documentation lint (0 FAIL)
 
 ## Now
-- Production (Vercel): deployment of main 39a29c1 (2026-11-17, deployment state success; / and /pricing answer 200). Chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
+- Production (Vercel): latest recorded deployment is main 845011a (2026-11-17, success; / and /pricing answer 200 on 2026-11-20); the product code is that of 39a29c1. Chat configuration, Telegram linking and delivery, feedback and weekly distillation, the credit ledger with admin grants and refunds.
 - Request guards live (slice 005-zod-guard, PR #58, GHSA-mrhx-c7xc-m3w5; decision 0013 option B): body limits before any parser (chat 1 MiB, tRPC 384 KiB; a larger body gets 413); a hand-written chat message shape check (200 messages, 500 list elements); a tRPC input guard before superjson and Zod; bounded tRPC error responses; `weekdays` and `skipDates` bounded. 1,373 tests; security review round 3 APPROVE. Not verified on Vercel under attack shapes (measured locally, Node 26) and not in a browser.
 - main 39a29c1: `pnpm audit --prod --audit-level=high` keeps one ignored advisory (Zod GHSA-mrhx-c7xc-m3w5) until option A lands; decision 0013 accepted, owner item OQ-11 closed 2026-11-13.
-- Slices merged to main (git log): 004-fix-deps #56, 003 re-apply of house standard 1.6.1 #57, 005-zod-guard #58. Not live: card checkout (no Stripe integration in code); Advanced research paused behind `PRO_TIER_ALPHA` (decision 0009); Custom mode deferred (decision 0010).
+- House standard 1.7.0 re-applied 2026-11-20 (PR #60, d0e4abd): lint bundle and declared version; no line-length or chain-length rows, so nothing changes on 2026-12-14.
+- Slices merged to main (git log): 004-fix-deps #56, 003 re-apply of house standard 1.6.1 #57, 005-zod-guard #58, the 1.7.0 re-apply #60; their folders are in docs/records/slices/. Not live: card checkout (no Stripe integration in code); Advanced research paused behind `PRO_TIER_ALPHA` (decision 0009); Custom mode deferred (decision 0010).
 - main is protected (verified 2026-11-11).
 
 ## Next
